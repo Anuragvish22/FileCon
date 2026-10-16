@@ -97,6 +97,18 @@ This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) 
 
 Rule: a converter isn't done until it has at least one golden test per edge family.
 
+### Converter must-pass set
+
+Every converter, combiner and extractor test calls one shared helper, `runConverterContract(conv, fixture)` in `core/test/contract.ts`. It is engine-gated like the golden tests and asserts:
+1. Outputs are only inside `req.outDir`, and each exists with size > 0.
+2. The source file's bytes, mtime and size are unchanged.
+3. Aborting `ctx.signal` mid-run → `CANCELLED`, no output, temp dir gone.
+4. A zero-byte or corrupt input → a `CoreError` (not a raw throw), temp dir gone.
+5. An input name with spaces, unicode and shell metacharacters (`; $() &&`) converts correctly.
+6. Every `edges` entry has a `cost` on the [ARCH section 8](ARCHITECTURE.md#8-routing-algorithm) scale, and `lossy` is set where the edge loses quality or data.
+
+This set sits on top of each task's own "Must also pass" list in [BUILD-PLAN](BUILD-PLAN.md).
+
 ## 7. Build and release
 
 - Dev: run inside WSL2 with WSLg (`pnpm dev`). Install engines with apt for local testing.

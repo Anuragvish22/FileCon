@@ -397,7 +397,7 @@ To add a converter (checklist mirrored in CLAUDE.md):
    - `convert` writes only inside `req.outDir` and returns the produced paths. External engines go through `jobs/spawn.run`. In-process engines check `ctx.signal` and report `ctx.onProgress`.
 3. Add any new formats to `formats.ts` ([section 6](#6-format-registry)).
 4. Register it in `registry.ts`.
-5. Add fixtures and a golden test per edge family. Use `describe.skipIf` when the engine is missing ([TRD section 6](TRD.md#6-testing-strategy)).
+5. Add fixtures and a golden test per edge family. Use `describe.skipIf` when the engine is missing, and call `runConverterContract` for the must-pass set ([TRD section 6](TRD.md#6-testing-strategy)).
 6. Add a license row in [TRD section 4](TRD.md#4-engine-matrix).
 
 A combiner or extractor is the same: implement `Combiner` or `Extractor` and register it.

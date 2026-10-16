@@ -7,5 +7,7 @@ test/output/
 *.log
 .DS_Store
 
+docs/plans/
+
 CLAUDE.md
 .claude/

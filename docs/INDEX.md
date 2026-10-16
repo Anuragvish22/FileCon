@@ -118,5 +118,6 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 | Job / Batch | One convert or merge / all jobs from one `submit` call |
 | Exclusive commit | Saving output via `fs.link` so an existing file is never replaced |
 | JobCtx | Per-step context: abort signal, temp dir, progress callback |
+| Must also pass | The non-happy-path tests each [BUILD-PLAN](BUILD-PLAN.md) task lists: edge cases, errors, cancel, cleanup. Converters also pass the [TRD section 6](TRD.md#6-testing-strategy) must-pass set |
 | Golden test | A fixed fixture is converted and the test asserts the output parses. Never a byte hash |
 | Mismatch | The detected (content) format differs from the extension |
