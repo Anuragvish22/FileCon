@@ -1,0 +1,10 @@
+{
+  "name": "@filecon/app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'app shell lands in M1-6'",
+    "build": "echo 'app shell lands in M1-6'"
+  }
+}

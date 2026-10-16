@@ -33,6 +33,7 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 | Add an IPC channel | [CONTRACTS section 7](CONTRACTS.md#7-ipc-renderer--main) · [ARCH section 2](ARCHITECTURE.md#2-processes) · [TRD section 3](TRD.md#3-non-functional-requirements) (NFR-6 to NFR-8) |
 | Add an error code | [CONTRACTS section 5](CONTRACTS.md#5-errors) · [FLOWS F9](FLOWS.md#f9-failure-and-retry) |
 | Change settings | [CONTRACTS section 8](CONTRACTS.md#8-settings) · [FLOWS F11](FLOWS.md#f11-settings-change) |
+| Add UI text, a language or an accent | [CONTRACTS section 10](CONTRACTS.md#10-text-and-themes) · [ARCH section 13](ARCHITECTURE.md#13-renderer-architecture) · [UI section 7](UI-DESIGN.md#7-accessibility) (contrast) |
 | Add an option (quality, dpi…) | [CONTRACTS section 2](CONTRACTS.md#2-options) |
 | Core crash, startup, quit | [ARCH section 12](ARCHITECTURE.md#12-core-host-and-supervision) · [FLOWS F1](FLOWS.md#f1-app-startup) · [F12](FLOWS.md#f12-core-crash-and-recovery) · [F13](FLOWS.md#f13-app-quit) |
 | Where does module X go, what can it import | [ARCH section 3](ARCHITECTURE.md#3-repo-layout) · [ARCH section 4](ARCHITECTURE.md#4-layering) · [ARCH section 5](ARCHITECTURE.md#5-module-map) |
@@ -53,7 +54,7 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 | [8. Routing algorithm](ARCHITECTURE.md#8-routing-algorithm) | Graph build, cost scale, bounded Bellman-Ford, fan-out, targets |
 | [9. Job runner](ARCHITECTURE.md#9-job-runner) · [10. Output commit](ARCHITECTURE.md#10-output-commit) | Scheduling, steps, progress, cancel, never-overwrite commit |
 | [11. Engine discovery](ARCHITECTURE.md#11-engine-discovery) · [12. Core host and supervision](ARCHITECTURE.md#12-core-host-and-supervision) | Finding engines, install assistant and pins, process lifecycle, crash recovery |
-| [13. Renderer architecture](ARCHITECTURE.md#13-renderer-architecture) · [14. Extensibility](ARCHITECTURE.md#14-extensibility) · [15. ADR log](ARCHITECTURE.md#15-adr-log) | Store slices, adding converters, ADR-1 to ADR-15 |
+| [13. Renderer architecture](ARCHITECTURE.md#13-renderer-architecture) · [14. Extensibility](ARCHITECTURE.md#14-extensibility) · [15. ADR log](ARCHITECTURE.md#15-adr-log) | Store slices, text and theme, adding converters, ADR-1 to ADR-17 |
 
 ## CONTRACTS.md
 
@@ -61,9 +62,10 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 |---|---|
 | [1. Domain types](CONTRACTS.md#1-domain-types) · [2. Options](CONTRACTS.md#2-options) | Format, Edge, Converter, Combiner, Route, ConvertOptions |
 | [3. Detection and planning](CONTRACTS.md#3-detection-and-planning) · [4. Jobs](CONTRACTS.md#4-jobs) | DetectResult, TargetsResult, JobRequest, Job, legal transitions |
-| [5. Errors](CONTRACTS.md#5-errors) | CoreError, every ErrorCode with message and retryability |
+| [5. Errors](CONTRACTS.md#5-errors) | CoreError (code + params), ERROR_CODES, English text and retryability |
 | [6. Core RPC protocol](CONTRACTS.md#6-core-rpc-protocol) · [7. IPC](CONTRACTS.md#7-ipc-renderer--main) | Main ⇄ core methods and events, renderer ⇄ main channels, path validation |
 | [8. Settings](CONTRACTS.md#8-settings) · [9. Engines](CONTRACTS.md#9-engines) | Settings schema, defaults, storage, EngineInfo, EngineSpec |
+| [10. Text and themes](CONTRACTS.md#10-text-and-themes) | Core sends no prose, `t()` key namespaces, Locale, Accent |
 
 ## FLOWS.md
 
@@ -107,6 +109,8 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 |---|---|
 | Format | Canonical lowercase id (`jpg`, `pdf`). Aliases are mapped in `formats.ts` |
 | Edge | One conversion a converter can do: `from → to`, with `cost`, `lossy`, `fanOut` and `options` |
+| Text key | A flat key like `error.EMPTY_FILE` or `format.jpg` that `t()` turns into text from `locales/<locale>.json`. Core sends only the ids, never text ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)) |
+| Theme token | A CSS variable (`--bg`, `--accent`, …) set per mode and accent from `renderer/theme/tokens.ts`. Components use only tokens, never raw colors |
 | Route | Cheapest chain of edges, at most 3 **hops**, with at most one fan-out |
 | Fan-out | An edge producing one file per page or frame (pdf → png). Later steps run per file, and the output goes to a folder |
 | Converter / Combiner / Extractor | Adapter around one engine (1 → 1 or N) / N → 1 operation outside the graph (`merge-pdf`) / 1 → many files of mixed formats outside the graph (`pdfimages`) |

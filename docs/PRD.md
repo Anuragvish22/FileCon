@@ -29,11 +29,14 @@ fileCon doesn't implement formats itself. It **routes** each conversion through 
 - G3: Be honest about quality. Every lossy route says what gets lost before the user converts.
 - G4: Safe by default. The app never overwrites or modifies a source file.
 - G5: Runs the same on Windows, macOS and Linux.
+- G6: Ready for other languages and looks. The UI follows the OS theme and locale, offers light, dark and accent colors, and adding a language is one translation file.
 
 **Non-goals (v1)**
 - Explorer, Finder or Nautilus context-menu integration
 - Watch folders, CLI, cloud sync or any network conversion
 - Editing file contents (cropping, PDF page editing, and so on)
+- Languages other than English. The UI is translation-ready (G6), but only English ships in v1.
+- User-made theme files or a theme editor.
 - Supporting literally every format. Proprietary formats come only where a usable engine exists.
 
 ## 5. Features by milestone

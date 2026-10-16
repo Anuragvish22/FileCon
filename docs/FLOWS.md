@@ -331,12 +331,12 @@ sequenceDiagram
   Core->>Core: remove tmp, release slot
   Core-->>Main: job.update failed { error }
   Main-->>Renderer: job:update
-  Renderer->>Renderer: row shows message, Details shows detail
+  Renderer->>Renderer: row shows t("error.<code>", params), Details shows detail
   Renderer->>Main: submit(same JobRequest) on Retry
 ```
 
 **Steps**
-1. `message` follows the template in [CONTRACTS section 5](CONTRACTS.md#5-errors). `detail` is shown only under "Details".
+1. The row text is `t("error.<code>", params)`, using the English text in [CONTRACTS section 5](CONTRACTS.md#5-errors) as `en.json`. `detail` is shown raw, only under "Details".
 2. Retry is offered only for retryable codes. It creates a **new** job, and the failed row stays in the list.
 3. `ENOSPC` at any point gives `DISK_FULL`.
 
@@ -376,7 +376,7 @@ sequenceDiagram
 
 ## F11. Settings change
 
-**Trigger:** the user edits Settings (output folder, concurrency, priority, theme).
+**Trigger:** the user edits Settings (output folder, concurrency, priority, theme, accent, language).
 
 ```mermaid
 sequenceDiagram
@@ -393,7 +393,7 @@ sequenceDiagram
 ```
 
 **Errors:** an invalid patch gives `INVALID_REQUEST`, and nothing is persisted.
-**Invariants:** running jobs are never interrupted by a settings change. Theme changes never reach core.
+**Invariants:** running jobs are never interrupted by a settings change. Theme, accent and language changes never reach core, and apply without a reload: the renderer updates `<html>` attributes and theme tokens, and re-renders text with the new locale.
 **Tests:** `settings.test.ts` (validation, atomic write, bad file recovery), `scheduler.test.ts` (setConcurrency).
 
 ## F12. Core crash and recovery

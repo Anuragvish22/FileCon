@@ -2,7 +2,7 @@
 
 Status: draft v1 · Related: [Architecture](ARCHITECTURE.md) · [Flows](FLOWS.md) · [TRD](TRD.md) · [Index](INDEX.md)
 
-**This file is the single source of truth** for types, messages, error codes and settings. Other docs refer to these names and never redefine them. If code and this file disagree, the code is wrong. If this file needs to change, change it and the code in the same change.
+**This file is the single source of truth** for types, messages, error codes, settings and text keys. Other docs refer to these names and never redefine them. If code and this file disagree, the code is wrong. If this file needs to change, change it and the code in the same change.
 
 All types are JSON-serializable unless they're marked *(in-process only)*.
 
@@ -16,8 +16,7 @@ type FormatCategory =
   | "audio" | "video" | "markup" | "ebook" | "3d" | "cad" | "archive";
 
 interface FormatInfo {
-  id: Format;
-  label: string;                      // "JPEG image"
+  id: Format;                         // display name: t("format.<id>") (section 10)
   category: FormatCategory;
   exts: string[];                     // without dot, first = preferred output ext
   mimes: string[];
@@ -25,12 +24,13 @@ interface FormatInfo {
 }
 
 type OptionKey = keyof ConvertOptions;
+type LossyId = string;                // kebab-case, e.g. "layout-approx". Text: t("lossy.<id>")
 
 interface Edge {
   from: Format;
   to: Format;
   cost: number;                       // scale: ARCHITECTURE section 8
-  lossy?: string;                     // user-facing, e.g. "layout approximate"
+  lossy?: LossyId;                    // set when quality or data is lost (section 10)
   fanOut?: boolean;                   // produces one file per page/frame
   options?: OptionKey[];              // options this edge honours
 }
@@ -78,8 +78,7 @@ interface Extractor {
   id: string;                         // "pdfimages"
   engineId: string;                   // "poppler"
   pack: PackId;
-  accepts: Format;                    // "pdf"
-  label: string;                      // UI action, e.g. "Extract images"
+  accepts: Format;                    // "pdf". UI action text: t("extract.<id>")
   options?: OptionKey[];              // e.g. ["pages"]
   timeoutMs?: number;
   available(): Promise<boolean>;
@@ -93,7 +92,7 @@ interface Route {
   steps: Step[];                      // length 1..3
   cost: number;                       // sum of edge costs
   hops: number;                       // = steps.length
-  lossy: string[];                    // union of edge notes, in step order, deduped
+  lossy: LossyId[];                   // union of edge notes, in step order, deduped
   fanOut: boolean;                    // true if any step fans out (max one per route)
 }
 ```
@@ -113,7 +112,7 @@ interface ConvertOptions {
 - A converter ignores keys that aren't in its edge's `options` list.
 - **`pages` grammar:** a comma-separated list of `N`, `N-M` or `N-` (to the end). Spaces are ignored. Numbers are ≥ 1 and `N ≤ M`. The result is normalized to sorted, merged ranges.
   - Bad syntax gives `INVALID_REQUEST` at `submit`.
-  - Pages past the end are checked at run time against the real page count, and give `INVALID_REQUEST` ("page 9 is past the end (5 pages)").
+  - Pages past the end are checked at run time against the real page count, and give `INVALID_REQUEST` with params `{ what: "page-past-end", page: 9, count: 5 }`.
   - Output files are named by the **real page number** (`page-003`), not by their position in the list.
 - The UI shows an option only if some step of the chosen route lists it.
 - shortcut: this is a fixed set with no per-converter schema. Upgrade to a declared schema per edge when the ffmpeg codec and bitrate options arrive (M1.1).
@@ -136,7 +135,7 @@ interface TargetOption {
   status: "ready" | "needs-pack";
   pack?: PackId;                      // set when status = needs-pack (first missing pack on cheapest full-graph route)
   route?: Route;                      // set when ready and a single source format is given
-  lossy: string[];                    // union across all inputs' routes
+  lossy: LossyId[];                   // union across all inputs' routes
   fanOut: boolean;                    // any input's route fans out
   options: OptionKey[];               // union of options honoured on the routes
 }
@@ -144,7 +143,7 @@ interface TargetOption {
 interface TargetsResult {
   convert: TargetOption[];            // formats reachable from every input
   merge: { combinerId: string; output: Format; status: "ready" | "needs-pack"; pack?: PackId }[];
-  extract: { extractorId: string; label: string; status: "ready" | "needs-pack"; pack?: PackId; options: OptionKey[] }[];
+  extract: { extractorId: string; status: "ready" | "needs-pack"; pack?: PackId; options: OptionKey[] }[];
   // extract: extractors whose `accepts` equals every input's format (no routing)
 }
 ```
@@ -198,15 +197,28 @@ interface Job {
 ```ts
 interface CoreError {
   code: ErrorCode;
-  message: string;                    // short, user-facing, no paths beyond the file name
-  detail?: string;                    // engine stderr tail ≤ 2 KB, or technical cause
+  params: Record<string, string | number>;  // fills the text t("error.<code>", params). No prose (section 10)
+  detail?: string;                    // engine stderr tail ≤ 2 KB, or technical cause. Shown raw, never translated
   input?: string;                     // which input path this concerns
 }
+
+// Runtime list so tests can enumerate the codes. Same order as the table below.
+const ERROR_CODES = [
+  "INVALID_REQUEST", "INPUT_NOT_FOUND", "INPUT_UNREADABLE", "EMPTY_FILE", "UNSUPPORTED_FORMAT",
+  "INPUT_ENCRYPTED", "NO_ROUTE", "ENGINE_MISSING", "ENGINE_FAILED", "ENGINE_OUTPUT_MISSING",
+  "TIMEOUT", "CANCELLED", "OUTPUT_DIR_NOT_WRITABLE", "OUTPUT_WRITE_FAILED", "DISK_FULL",
+  "CORE_CRASHED", "CORE_UNAVAILABLE", "NOTHING_TO_EXTRACT", "INSTALL_FAILED", "CHECKSUM_MISMATCH",
+] as const;
+type ErrorCode = (typeof ERROR_CODES)[number];
 ```
 
-| Code | Raised when | User message (template) | Retryable |
+- Params use these names only: `name` (file name, no directories), `engine`, `pack`, `from`, `to`, `dir`, `what`. `what` is an id, not prose: its text is `t("invalid.<what>")`, plus any extra numeric params it needs (`page-past-end` adds `page` and `count`).
+- Logs write `code` and `params`, never translated text.
+- The English column below is the source for `en.json` key `error.<CODE>`. The app owns that text, core never sends it.
+
+| Code | Raised when | English text (`en.json` `error.<CODE>`) | Retryable |
 |---|---|---|---|
-| `INVALID_REQUEST` | Malformed params, bad option range, unknown combiner | "Invalid request: {what}" | no |
+| `INVALID_REQUEST` | Malformed params, bad option range, unknown combiner | "Invalid request". When `what` is set the UI shows `t("invalid.<what>", params)` instead | no |
 | `INPUT_NOT_FOUND` | Path missing at detect or job start | "{name} no longer exists" | no |
 | `INPUT_UNREADABLE` | EACCES, EPERM, or the path is a directory or special file | "Can't read {name}" | no |
 | `EMPTY_FILE` | size = 0 | "{name} is empty" | no |
@@ -323,7 +335,11 @@ interface Settings {
     paths: Record<string, string>;    // engineId → absolute binary path (user override)
     priority: string[];               // converter ids, earlier wins equal-cost ties
   };
-  ui: { theme: "system" | "light" | "dark" };
+  ui: {
+    theme: "system" | "light" | "dark";
+    accent: Accent;                   // section 10
+    language: "system" | Locale;      // system = navigator.language if it's a known Locale, else "en"
+  };
 }
 ```
 
@@ -334,6 +350,8 @@ interface Settings {
 | `engines.paths` | `{}` |
 | `engines.priority` | `[]`. Unlisted converters keep registration order |
 | `ui.theme` | `"system"` |
+| `ui.accent` | `"blue"` |
+| `ui.language` | `"system"` |
 
 Storage:
 - Main owns `app.getPath("userData")/settings.json`.
@@ -385,3 +403,28 @@ type InstallMethod =
 - A failed install removes its partial dir.
 - Pinned values are reviewed when the engine is bumped. They're never fetched as "latest" at run time.
 
+## 10. Text and themes
+
+**Rule: core never sends user-facing prose.** It sends ids, codes and params. The app turns them into text with `t(key, params)` from `packages/app/src/locales/<locale>.json`. This keeps core language-free, so adding a language never touches core, RPC or converters.
+
+| Key | Filled from | Example (en) |
+|---|---|---|
+| `format.<Format>` | `FormatInfo.id` | `format.jpg` → "JPEG image" |
+| `category.<FormatCategory>` | `FormatInfo.category` | `category.image` → "Images" |
+| `pack.<PackId>` | `PackId` | `pack.office` → "Office pack" |
+| `lossy.<LossyId>` | `Edge.lossy`, `Route.lossy` | `lossy.layout-approx` → "layout approximate" |
+| `extract.<extractorId>` | `Extractor.id` | `extract.pdfimages` → "Extract images" |
+| `error.<ErrorCode>` | `CoreError.code` + `params` | `error.EMPTY_FILE` → "{name} is empty" |
+| `invalid.<what>` | `params.what` of `INVALID_REQUEST` | `invalid.page-past-end` → "page {page} is past the end ({count} pages)" |
+| anything else | UI-only text (buttons, labels, help) | `convert.button` → "Convert" |
+
+- Keys are flat strings. `{param}` is replaced by the param. Plurals use `<key>.one` / `<key>.other`, picked with `Intl.PluralRules`. Numbers and sizes are formatted with `Intl.NumberFormat` for the active locale.
+- A missing key falls back to `en`, then to the key itself, and logs a warning once. It never throws.
+- `InstallMethod` command `label`s ("Homebrew", "Debian/Ubuntu") and engine names are names, not prose, and are shown as-is.
+
+```ts
+type Locale = "en";                   // add one entry per shipped locale file
+type Accent = "blue" | "green" | "purple" | "orange";
+```
+
+**Themes.** `ui.theme` picks the mode (`system` follows `prefers-color-scheme`) and `ui.accent` the accent color. The renderer sets `<html data-theme="light|dark" data-accent="<Accent>" lang="<locale>" dir="ltr|rtl">`. Every color is a CSS variable from the theme tokens ([ARCHITECTURE section 13](ARCHITECTURE.md#13-renderer-architecture)). Theme, accent and language never reach core.

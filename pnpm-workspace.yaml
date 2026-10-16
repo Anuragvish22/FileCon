@@ -1,0 +1,6 @@
+packages:
+  - packages/*
+
+# its postinstall only downloads a fallback binary; the prebuilt optional dep is enough
+allowBuilds:
+  unrs-resolver: false

@@ -50,7 +50,7 @@ fileCon/
 │   │   ├── index.ts              re-exports for tests and host
 │   │   ├── host.ts               utilityProcess / sidecar entry: wires transport → rpc/server
 │   │   ├── types.ts              CONTRACTS types, verbatim
-│   │   ├── errors.ts             CoreError factory per ErrorCode
+│   │   ├── errors.ts             CoreError factory: code + params, no prose
 │   │   ├── formats.ts            FormatInfo table, aliases, ext → format lookup
 │   │   ├── detect.ts             content + extension detection
 │   │   ├── registry.ts           register / list converters and combiners
@@ -81,8 +81,11 @@ fileCon/
 │       │   ├── paths.ts          path validation, folder expansion
 │       │   ├── settings.ts       load / validate / atomic save
 │       │   └── log.ts            rotating log file in userData/logs
+│       ├── shared/i18n.ts        t(key, params) for main and renderer (CONTRACTS section 10)
+│       ├── locales/en.json       every user-facing English string, flat keys
 │       ├── preload/index.ts      contextBridge → window.filecon
 │       └── renderer/
+│           ├── theme/            tokens.ts (light/dark × accent), applied as CSS variables
 │           ├── store/            reducer, actions, selectors, useCoreEvents
 │           ├── components/       DropZone, FileList, TargetPicker, OptionsBar, JobsPanel, …
 │           └── pages/            ConvertPage, EnginesPage, SettingsPage
@@ -115,7 +118,7 @@ All modules may import `types.ts` and `errors.ts`.
 Rules:
 - **Converters and combiners never import** `runner`, `scheduler`, `graph`, `output` or `rpc`. They're pure adapters.
 - Only `host.ts` knows the transport (parentPort or stdio).
-- No import cycles. ESLint `import/no-cycle` and `import/no-restricted-paths` enforce this from M0-1.
+- No import cycles. ESLint `import-x/no-cycle` enforces this from M0-1. `import-x/no-restricted-paths` gets the layering zones above as the modules land (M0-2 on).
 - `packages/app` imports only `@filecon/core/types`, never core runtime code. Main talks to core over RPC only.
 
 ## 5. Module map
@@ -161,6 +164,8 @@ M1 formats are listed below. The first extension is the one used for outputs.
 | ods | spreadsheet | ods | — | |
 | pptx | presentation | pptx | — | |
 | odp | presentation | odp | — | |
+
+Display names aren't in this table or in core: the UI shows `t("format.<id>")` ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)).
 
 In v1, multi-page tiff and gif are read as their first frame only. shortcut: per-frame fan-out comes when an animated gif/tiff edge is added.
 
@@ -388,12 +393,23 @@ The result is cached per session. It's refreshed on `engines.refresh`, after `en
 - Components never call `window.filecon` directly. They dispatch action creators in `store/actions.ts`, which do the IPC.
 - Derived values (`canConvert`, `visibleOptions`, `batchSummary`) are pure selectors in `store/selectors.ts`, tested without React.
 
+**Text** ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)):
+- Every visible string comes from `t(key, params)` in `shared/i18n.ts`, which reads `locales/<locale>.json`. Components never contain literal text. ESLint `react/jsx-no-literals` enforces this from M1-7.
+- Core results carry ids and codes (`format`, `lossy`, `error.code` + `params`). Components translate them at render time, so a language change re-renders without asking core again.
+- Main uses the same `t()` for native dialogs (the install confirm) and the app menu, with the locale from settings.
+- CSS uses logical properties (`margin-inline-start`, `inset-inline-end`, `text-align: start`) so a right-to-left locale only needs `dir="rtl"`.
+
+**Theme:**
+- `renderer/theme/tokens.ts` holds the base tokens per mode (`--bg`, `--fg`, `--muted`, `--border`, `--danger`, …) and the accent tokens per accent × mode (`--accent`, `--accent-fg`). At startup and on every settings change it writes them as CSS variables on `<html>` and sets `data-theme` and `data-accent`.
+- `system` mode follows `matchMedia("(prefers-color-scheme: dark)")` and updates live when the OS changes.
+- Components use only `var(--…)`. Raw color values appear only in `tokens.ts`, whose test checks contrast for every accent × mode.
+
 ## 14. Extensibility
 
 To add a converter (checklist mirrored in CLAUDE.md):
 1. Add an `EngineSpec` to `engines/specs.ts`, unless the engine is already there.
 2. Create `converters/<id>.ts` exporting a `Converter` ([CONTRACTS section 1](CONTRACTS.md#1-domain-types)).
-   - `edges` use the cost scale ([section 8](#8-routing-algorithm)), with honest `lossy` notes, `fanOut` and `options`.
+   - `edges` use the cost scale ([section 8](#8-routing-algorithm)), with honest `lossy` ids, `fanOut` and `options`. Each new `lossy` id gets its `lossy.<id>` text in `en.json`.
    - `convert` writes only inside `req.outDir` and returns the produced paths. External engines go through `jobs/spawn.run`. In-process engines check `ctx.signal` and report `ctx.onProgress`.
 3. Add any new formats to `formats.ts` ([section 6](#6-format-registry)).
 4. Register it in `registry.ts`.
@@ -421,3 +437,5 @@ A combiner or extractor is the same: implement `Combiner` or `Extractor` and reg
 | ADR-13 | One JSON-RPC envelope set, with the transport chosen by host | parentPort now, stdio for Tauri, and identical server code | Electron IPC inside core |
 | ADR-14 | Poppler for PDF → image and extraction | One engine gives accurate rendering (`pdftoppm`), lossless extraction (`pdfimages`) and metadata (`pdfinfo`). GPL is fine as a separate process. Windows gets a one-click pinned download | pdfium (no official CLI), pdf.js + canvas (less exact, and no lossless extraction), Ghostscript (AGPL), MuPDF (AGPL) |
 | ADR-15 | Extraction as its own `Extractor` kind | 1 → many files of mixed, unknown formats doesn't fit a `from → to` edge, and it mirrors Combiner for N → 1 | A fake `images` format node in the graph |
+| ADR-16 | Core sends codes, ids and params, the app owns all text | Core stays language-free and JSON-only. A new language is one locale file, with no change to core, RPC or converters. Logs stay stable across languages | English messages from core, translated in the UI by string matching |
+| ADR-17 | Own `t()` and a token file, no i18n or theme library | Flat keys, `{param}` and `Intl.PluralRules` cover the need in a few lines. CSS variables already do theming | i18next / react-intl, a CSS-in-JS theme library |

@@ -11,7 +11,8 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
 3. **Show only what's possible.** The target list contains reachable formats only. Pack-gated formats are clearly marked.
 4. **Originals are sacred.** The UI never offers an "overwrite" option.
 5. **Keyboard-first and accessible.** Everything can be reached with Tab, Enter, Space and the arrow keys ([section 7](#7-accessibility)).
-6. **Follows the OS.** Light and dark theme come from `prefers-color-scheme`, and system fonts are used.
+6. **Follows the OS by default.** Theme follows `prefers-color-scheme`, language follows the OS locale, and system fonts are used. Theme (system, light, dark), accent color and language can each be overridden in Settings.
+7. **No hard-coded text or colors.** Every string comes from `t()` and the locale file, and every color from a theme token ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)). Layout uses CSS logical properties so right-to-left languages work later without a redesign.
 
 ## 2. Screens
 
@@ -20,7 +21,7 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
 | **Main** | Drop files, see detection, pick target, convert | App start |
 | **Jobs panel** | Progress, cancel, open output, errors | Docked at the bottom of Main. It expands when jobs exist |
 | **Engines** | Pack status, paths, versions, install links | Sidebar or top-nav tab |
-| **Settings** | Output folder, concurrency, engine priority and path overrides | Sidebar or top-nav tab |
+| **Settings** | Output folder, concurrency, engine priority and path overrides, theme, accent, language | Sidebar or top-nav tab |
 
 ## 3. Wireframes
 
@@ -61,7 +62,7 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
  │   PNG   WEBP   AVIF  TIFF │
  │ Documents                 │
  │   PDF                     │
- │   DOCX  ⚠ lossy           │   ← tooltip: "layout approximate"
+ │   DOCX  ⚠ lossy           │   ← tooltip: t("lossy.layout-approx")
  │ Unavailable               │
  │   ODT   🔒 needs Office   │   ← click → Engines page
  └───────────────────────────┘
@@ -125,7 +126,7 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
 | File row | detecting (spinner) · ready · mismatch ⚠ · unsupported (no targets) ✗ |
 | Target picker | disabled (no files) · options · no common target ("These files share no output format") |
 | Convert button | disabled (no target) · enabled · busy while submitting |
-| Job row | queued · running (step i/n + %, or an indeterminate bar with "working…" when `fraction` is null) · done ✓ ("Show in folder", or "Open folder" for multi-output) · failed ✗ (message from [CONTRACTS section 5](CONTRACTS.md#5-errors), Details = `detail`, Retry only if retryable) · cancelled ⊘ |
+| Job row | queued · running (step i/n + %, or an indeterminate bar with "working…" when `fraction` is null) · done ✓ ("Show in folder", or "Open folder" for multi-output) · failed ✗ (`t("error.<code>", params)` from [CONTRACTS section 5](CONTRACTS.md#5-errors), Details = `detail`, Retry only if retryable) · cancelled ⊘ |
 | OptionsBar | hidden (route has no options) · shows only the keys in `TargetOption.options`: Quality slider 1–100, Page size auto/A4/Letter, DPI, Pages text field (`2-3,7`, invalid = red outline + "Use numbers and ranges like 1-3,7") |
 | Extract action | hidden (not all rows are PDF) · ready · 🔒 needs PDF pack |
 | Install assistant | download: confirm → downloading (bytes) → verifying → unpacking → done / failed (message + Retry) · command: list with Copy → Re-check → found / still missing |
@@ -139,6 +140,7 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
 
 - State lives in one store (React context + reducer). Its slices and event wiring are in [ARCHITECTURE section 13](ARCHITECTURE.md#13-renderer-architecture), and the flows are in [FLOWS](FLOWS.md).
 - No UI library is planned for v1: plain CSS with CSS variables for theme tokens. This gets revisited if it becomes painful.
+- Settings shows Theme as a 3-way choice (System, Light, Dark), Accent as swatches with text names (not color alone), and Language as a list of shipped locales plus "System". Each applies instantly, without a reload.
 
 ## 7. Accessibility
 
@@ -147,5 +149,5 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
 - [ ] The target picker is a proper listbox (`role="listbox"`, arrow keys, typeahead).
 - [ ] Job progress is announced through an `aria-live="polite"` region, with throttled updates.
 - [ ] Every icon-only control has an `aria-label`. Badges have text equivalents (⚠ → "format mismatch").
-- [ ] Contrast is ≥ 4.5:1 in both themes, and focus rings are always visible.
+- [ ] Contrast is ≥ 4.5:1 in both modes for **every accent**, and focus rings are always visible.
 - [ ] Nothing relies on color alone. Each state has an icon and text.

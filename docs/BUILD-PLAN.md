@@ -18,14 +18,14 @@ Status legend: ☐ todo · ◐ in progress · ☑ done. Update the marker in thi
 
 Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no Electron and no UI.
 
-### M0-1 Workspace scaffold ☐
+### M0-1 Workspace scaffold ☑
 - **Files:**
-  - root `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `eslint.config.js`, `.prettierrc`, `vitest.workspace.ts`
+  - root `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `eslint.config.js`, `.prettierrc`, `vitest.config.ts` (with `test.projects`)
   - `packages/core/{package.json,tsconfig.json,src/index.ts}`
   - `packages/app/package.json`, as a placeholder
 - **Details:**
   - TS `strict`, ESM, Node 22 target.
-  - ESLint with typescript-eslint, `import/no-cycle`, and `no-restricted-imports: electron` in core.
+  - ESLint with typescript-eslint, eslint-plugin-import-x (`import-x/no-cycle`), and `no-restricted-imports: electron` in core.
   - Root scripts: `dev`, `test`, `typecheck`, `lint`, `build`, `docs:check`.
 - **Tests:**
   - Happy path:
@@ -39,15 +39,15 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
 ### M0-2 Types, errors, formats ☐
 - **Depends on:** M0-1
 - **Files:** `core/src/types.ts` (copy of [CONTRACTS](CONTRACTS.md), verbatim), `core/src/errors.ts`, `core/src/formats.ts`
-- **Details:** `errors.ts` has a `coreError(code, vars)` factory that renders the [CONTRACTS section 5](CONTRACTS.md#5-errors) message templates. `formats.ts` holds the [ARCHITECTURE section 6](ARCHITECTURE.md#6-format-registry) table.
+- **Details:** `types.ts` includes the `ERROR_CODES` array. `errors.ts` has a `coreError(code, params, detail?)` factory that builds a [CONTRACTS section 5](CONTRACTS.md#5-errors) `CoreError` with **no prose**: the text lives in the app ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)). `formats.ts` holds the [ARCHITECTURE section 6](ARCHITECTURE.md#6-format-registry) table, with no display labels.
 - **Tests:**
   - Happy path:
     - `formats.test.ts`: alias → canonical, first ext = output ext
-    - `errors.test.ts`: every code has a template
+    - `errors.test.ts`: `coreError("EMPTY_FILE", { name: "a.png" })` gives that code and params
   - Must also pass:
     - ext lookup is case-insensitive, unknown → null
-    - the codes in `errors.ts` match [CONTRACTS section 5](CONTRACTS.md#5-errors) exactly, both ways
-    - a missing template var renders without throwing
+    - `ERROR_CODES` matches the [CONTRACTS section 5](CONTRACTS.md#5-errors) table exactly, both ways (test parses the table)
+    - a `CoreError` survives `JSON.parse(JSON.stringify(e))` unchanged, and `params` keys are only the allowed names
 
 ### M0-3 Registry ☐
 - **Depends on:** M0-2
@@ -214,6 +214,8 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
   - `webPreferences`: `contextIsolation`, `sandbox`, no `nodeIntegration`.
   - CSP: `default-src 'self'`.
   - Navigation and new windows are blocked.
+  - `shared/i18n.ts` (`t()`) and `locales/en.json` land here, because main's install-confirm dialog uses them ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)).
+  - Settings validation covers `ui.accent` and `ui.language`.
 - **Dependencies to add (ask):** `electron`, `electron-vite`.
 - **Tests:**
   - Happy path:
@@ -221,18 +223,22 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
     - `coreClient.test.ts`: id matching
     - `paths.test.ts`: a valid file path is accepted
     - `settings.test.ts`: load and save round-trip
+    - `i18n.test.ts`: `{param}` substitution, `.one` / `.other` plurals
   - Must also pass:
     - supervisor: ready timeout, crash and restart, budget exhaustion, synthesized `CORE_CRASHED` updates
     - coreClient: timeouts, out-of-order responses
     - paths: a relative path, a path with `..`, and a non-string are refused
-    - settings: invalid values rejected, a corrupt settings file recovers to defaults
+    - settings: invalid values rejected (including an unknown accent or locale), a corrupt settings file recovers to defaults
+    - i18n: a missing key falls back to `en`, then to the key, warns once and never throws; a missing param leaves `{param}` visible
+    - tooling test `test/tooling/i18n-keys.test.ts`: every key core can emit exists in `en.json`: `error.<code>` for all `ERROR_CODES`, `format.<id>` and `category.<c>` from `formats.ts`, `pack.<id>`, every converter's `lossy` id, every extractor id, every `invalid.<what>` core raises
     - preload exposes only `window.filecon`; `webPreferences` has `contextIsolation`, `sandbox` and no `nodeIntegration`
 
 ### M1-7 Renderer ☐
 - **Depends on:** M1-6
 - **Files:** `app/src/renderer/{store,components,pages}/…`
-- **Details:** [ARCHITECTURE section 13](ARCHITECTURE.md#13-renderer-architecture) and [UI-DESIGN](UI-DESIGN.md). Build order: store and selectors → DropZone and FileList → TargetPicker and OptionsBar → JobsPanel → EnginesPage → SettingsPage.
-- **Dependencies to add (ask):** `react`, `react-dom`, `@testing-library/react`.
+- **Details:** [ARCHITECTURE section 13](ARCHITECTURE.md#13-renderer-architecture) and [UI-DESIGN](UI-DESIGN.md). Build order: theme tokens → store and selectors → DropZone and FileList → TargetPicker and OptionsBar → JobsPanel → EnginesPage → SettingsPage (with theme, accent, language).
+  - All text through `t()`, all colors through theme tokens, CSS logical properties only ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)).
+- **Dependencies to add (ask):** `react`, `react-dom`, `@testing-library/react`, `eslint-plugin-react` (for `react/jsx-no-literals`).
 - **Tests:**
   - Happy path: `reducer.test.ts` and `selectors.test.ts` (pure) for add files → pick target → job done.
   - Must also pass:
@@ -240,6 +246,9 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
     - JobsPanel live-region text
     - empty state (no files) and failed-job state render
     - a 🔒 target can't be submitted
+    - `tokens.test.ts`: text, muted text and accent-on-background meet 4.5:1 for every accent × mode
+    - changing theme, accent or language updates `<html>` (`data-theme`, `data-accent`, `lang`, `dir`) and the visible text without a reload
+    - a JSX literal string in a component fails lint
 
 ### M1-8 CI matrix ☐
 - **Depends on:** M1-7
@@ -275,7 +284,7 @@ Goal: PRD F9, F21 and F22 work. You can render PDF pages to images, extract embe
   - Must also pass:
     - overlapping and unsorted input merged (`"3,1-2"` → `1-3`)
     - rejects `"0"`, `"3-1"`, `"a"`, `"1--2"`, `""`
-    - `boundPages` past the end gives the exact message
+    - `boundPages` past the end gives `what: "page-past-end"` with the right `page` and `count`
     - an open end (`5-`) bounded to the count
 
 ### M1.1-2 Poppler engine and render edges ☐
@@ -292,7 +301,7 @@ Goal: PRD F9, F21 and F22 work. You can render PDF pages to images, extract embe
     - `runConverterContract` ([TRD section 6](TRD.md#6-testing-strategy)), engine-gated
     - jpg quality applied (the file at q=30 is smaller than at q=95)
     - encrypted fixture → `INPUT_ENCRYPTED`
-    - `pages` past the end → `INVALID_REQUEST` with the `boundPages` message
+    - `pages` past the end → `INVALID_REQUEST` with `what: "page-past-end"`
     - cancel mid-render leaves no `page-*` files in the destination
 
 ### M1.1-3 Extractor kind and pdfimages ☐
