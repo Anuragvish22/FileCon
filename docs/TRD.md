@@ -59,12 +59,17 @@ This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) 
 
 | Engine | Pack | Mode | Formats (in → out) | License | Milestone |
 |---|---|---|---|---|---|
-| sharp (libvips) | builtin | in core host | jpg, png, webp, avif, tiff, gif ↔ each other | Apache-2.0 / LGPL libvips | M1 |
+| sharp (libvips) | builtin | in core host | jpg, png, webp, avif, tiff, gif ↔ each other (M1) · svg, svgz → raster (M1.3) | Apache-2.0 / LGPL libvips | M1, M1.3 |
 | pdf-lib | builtin | in core host | jpg, png → pdf; merge pdf | MIT | M1 |
-| LibreOffice | office | child process | doc, docx, odt, rtf, xlsx, ods, pptx, odp → pdf (M1) · Office ↔ Office incl. txt, csv, xls, ppt (M1.2) | MPL-2.0 | M1, M1.2 |
+| LibreOffice | office | child process | doc, docx, odt, rtf, xlsx, ods, pptx, odp → pdf (M1) · Office ↔ Office incl. txt, csv, xls, ppt and the docm/xlsm/pptm-style variants (M1.2) · svg → pdf, emf/wmf → png, pdf, svg (M1.3) | MPL-2.0 | M1, M1.2, M1.3 |
 | Poppler (`pdftoppm`, `pdfimages`, `pdfinfo`) | pdf | child process | pdf → png, jpg, tiff (per page) · extract embedded images · page count | GPL-2.0+ (Windows build packaging: MIT) | M1.1 |
-| FFmpeg | media | child process | audio and video ↔ each other, video → gif | LGPL or GPL build | M1.1 |
+| FFmpeg | media | child process | audio and video ↔ each other, video → gif (M1.1) · subtitles srt, vtt, ass (M1.3) | LGPL or GPL build | M1.1, M1.3 |
 | Pandoc | docs | child process | md, html, docx, epub, odt, rst, latex | GPL-2.0 | M1.2 |
+| ImageMagick (`magick`) | imaging | child process | bmp, ico, tga, jxl, jp2, qoi ↔ images · psd, ppm, pcx, camera raw read | ImageMagick License (Apache-2.0 style) | M1.3 |
+| 7-Zip (`7zz` / `7z`) | archive | child process | zip, 7z, tar (+ gz, bz2, xz) ↔ each other · rar read only · extract · pack | LGPL-2.1 + unRAR restriction (rar extract only) | M1.3 |
+| Built-in libraries (fonts, data, comics, email) | builtin | in core host | ttf, otf, woff, woff2, eot · json, yaml, toml, xml, csv · cbz · eml, msg | permissive only (MIT, BSD, Apache); each one is chosen and asked for in its task | M1.3, M3 |
+| calibre (`ebook-convert`) | ebook | child process | epub, mobi, azw3, fb2 ↔ each other · → pdf, txt, html | GPL-3.0 | M2 |
+| Ghostscript (`gs`, `gswin64c`) | postscript | child process, **detect only** | eps, ps, ai → pdf, png · pdf → eps, ps | AGPL-3.0 | M3 |
 | Assimp CLI | 3d | child process | obj, fbx, gltf, glb, stl, ply, dae | BSD-3 | M2 |
 | Blender | 3d | child process (`-b --python`) | blend → obj, fbx, gltf, stl | GPL-2.0+ | M2 |
 | ODA File Converter | cad | child process | dwg ↔ dxf | Proprietary, free to use | M3 |
@@ -78,7 +83,8 @@ This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) 
 ## 5. License constraints
 
 - Engines are **invoked as separate processes**, never linked, except sharp and pdf-lib, which are permissively licensed.
-- **Avoid Ghostscript** (AGPL) and MuPDF (AGPL). Use **Poppler** for PDF rasterizing and extraction. It's GPL, which is fine because it's only ever invoked as a separate process.
+- **Ghostscript (AGPL) is detect-only**: fileCon never bundles it and never offers a download. If the user installed it, it's found like any engine and run as a separate process, which doesn't put fileCon under the AGPL. The Engines page shows install commands. MuPDF (AGPL) is not used.
+- Use **Poppler** for PDF rasterizing and extraction. It's GPL, which is fine because it's only ever invoked as a separate process.
 - Poppler is never bundled in the installer:
   - Windows: users get a one-click download of the pinned `oschwartz10612/poppler-windows` release, fetched from GitHub at their request and verified by SHA-256.
   - macOS and Linux: users install it with their package manager.
@@ -88,6 +94,8 @@ This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) 
 - Before adding any engine: record its license in section 4 and confirm that invoking it as a process is allowed.
 
 ## 6. Testing strategy
+
+Tests live in `<package>/test/`, mirroring `src/` (`src/jobs/output.ts` → `test/jobs/output.test.ts`), never next to the source. `test/tooling/layout.test.ts` enforces this.
 
 | Layer | What | How |
 |---|---|---|

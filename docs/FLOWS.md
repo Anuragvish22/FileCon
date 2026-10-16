@@ -61,7 +61,7 @@ sequenceDiagram
   Main->>Core: utilityProcess.fork(host)
   Main-->>Renderer: core:status starting
   Main->>Renderer: create window, load renderer
-  Main->>Core: init { settings }
+  Main->>Core: init { settings, dataDir }
   Core->>Core: sweep temp older than 24 h
   Core->>Core: discoverAll(specs, settings.engines.paths)
   Core->>Core: buildGraph(available) and buildGraph(full)
@@ -189,7 +189,7 @@ sequenceDiagram
   participant Poppler as pdftoppm (Poppler)
   Core->>Core: route(docx, png) = 2 steps, fanOut
   Core->>Core: acquire libreoffice semaphore (max 1)
-  Core->>Soffice: soffice --headless --norestore -env:UserInstallation=file://tmp/lo --convert-to pdf --outdir tmp/s0 report.docx
+  Core->>Soffice: soffice --headless --norestore -env:UserInstallation=file://dataDir/lo-profile-0 --convert-to pdf --outdir tmp/s0 report.docx
   Soffice-->>Core: exit 0
   Core->>Core: release semaphore, check tmp/s0/report.pdf
   Core->>Poppler: pdftoppm -r dpi -png tmp/s0/report.pdf tmp/s1/p

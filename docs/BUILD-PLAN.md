@@ -14,6 +14,8 @@ Happy path proves the feature works for normal input. Must also pass covers edge
 
 Status legend: ☐ todo · ◐ in progress · ☑ done. Update the marker in this file as part of the task.
 
+A **Parked to review first** line points at [PARKED](PARKED.md) items to decide with the user before the task starts.
+
 ## 1. M0 — Core logic
 
 Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no Electron and no UI.
@@ -36,10 +38,10 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
     - a core file importing `electron` fails lint
 - **Done when:** all scripts run green on a clean clone, and `pnpm --filter @filecon/core test` works.
 
-### M0-2 Types, errors, formats ☐
+### M0-2 Types, errors, formats ☑
 - **Depends on:** M0-1
-- **Files:** `core/src/types.ts` (copy of [CONTRACTS](CONTRACTS.md), verbatim), `core/src/errors.ts`, `core/src/formats.ts`
-- **Details:** `types.ts` includes the `ERROR_CODES` array. `errors.ts` has a `coreError(code, params, detail?)` factory that builds a [CONTRACTS section 5](CONTRACTS.md#5-errors) `CoreError` with **no prose**: the text lives in the app ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)). `formats.ts` holds the [ARCHITECTURE section 6](ARCHITECTURE.md#6-format-registry) table, with no display labels.
+- **Files:** `core/src/types/` (copy of [CONTRACTS](CONTRACTS.md), verbatim, one file per section), `core/src/errors.ts`, `core/src/formats.ts`
+- **Details:** `types/errors.ts` includes the `ERROR_CODES` array. `errors.ts` has a `coreError(code, params, detail?)` factory, and `CoreFailure`, the Error subclass core throws (its plain `.error` is what crosses RPC), that builds a [CONTRACTS section 5](CONTRACTS.md#5-errors) `CoreError` with **no prose**: the text lives in the app ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)). `formats.ts` holds the [ARCHITECTURE section 6](ARCHITECTURE.md#6-format-registry) table, with no display labels.
 - **Tests:**
   - Happy path:
     - `formats.test.ts`: alias → canonical, first ext = output ext
@@ -48,6 +50,7 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
     - ext lookup is case-insensitive, unknown → null
     - `ERROR_CODES` matches the [CONTRACTS section 5](CONTRACTS.md#5-errors) table exactly, both ways (test parses the table)
     - a `CoreError` survives `JSON.parse(JSON.stringify(e))` unchanged, and `params` keys are only the allowed names
+    - `CoreFailure` is an `Error` with a stack, and its `.error` survives `structuredClone` unchanged
 
 ### M0-3 Registry ☐
 - **Depends on:** M0-2
@@ -71,10 +74,10 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
     - a 4-hop route returning null
     - a cheaper route with more hops being found (the case capped Dijkstra gets wrong)
     - tie → fewer hops → priority
-    - no self-edges
+    - a self-edge is offered only as the 1-step route `route(f, f)`, never inside a multi-hop route; `route(f, f)` without one is null
     - at most one fan-out
     - no cycles
-    - `targets` excludes the input's own format, and `needs-pack` comes from the full graph
+    - `targets` offers the input's own format only when it has a self-edge (mixed inputs: only if every input reaches it), and `needs-pack` comes from the full graph
     - the cache being cleared on rebuild
 
 ### M0-5 Detection ☐
@@ -92,6 +95,7 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
     - a no-ext binary
 
 ### M0-6 Output commit ☐
+- **Parked to review first:** [P2 keep source dates](PARKED.md#2-items)
 - **Depends on:** M0-2
 - **Files:** `core/src/jobs/output.ts`, `core/src/jobs/tmp.ts`
 - **Details:** [ARCHITECTURE section 10](ARCHITECTURE.md#10-output-commit). The `fs` functions used are injectable, so EXDEV and EPERM can be simulated.
@@ -107,6 +111,7 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
     - EXDEV fallback
     - FAT-like fallback (link → EPERM)
     - ENOSPC → `DISK_FULL`
+    - `safeStem`: `a:b?` → `a_b_`, trailing dots and spaces trimmed, `CON`/`con.txt`/`COM1` get `_`, a 300-byte name (also multi-byte, e.g. Hindi or emoji) is cut to ≤ 200 bytes without breaking a character, empty → `file`
     - 999 limit → `OUTPUT_WRITE_FAILED`
     - `sweep` removes only old `filecon-*` dirs
 
@@ -137,8 +142,8 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
 
 ### M1-2 Scheduler and runner ☐
 - **Depends on:** M0-4, M0-6, M1-1
-- **Files:** `core/src/jobs/scheduler.ts`, `core/src/jobs/runner.ts`
-- **Details:** [ARCHITECTURE section 9](ARCHITECTURE.md#9-job-runner) and [FLOWS F4 to F9](FLOWS.md#f4-single-convert). Updates are throttled to 10/s, and state changes are emitted immediately.
+- **Files:** `core/src/jobs/scheduler.ts`, `core/src/jobs/runner.ts`, `core/src/errors.ts` (`toCoreError`)
+- **Details:** [ARCHITECTURE section 9](ARCHITECTURE.md#9-job-runner) and [FLOWS F4 to F9](FLOWS.md#f4-single-convert). Updates are throttled to 10/s, and state changes are emitted immediately. `toCoreError(e: unknown): CoreError` turns anything caught into the plain error a `Job` carries: a `CoreFailure` gives its `.error`, `ENOSPC` gives `DISK_FULL`, and anything else keeps its message and stack in `detail` (pick its code in this task).
 - **Tests:** with fakes:
   - Happy path:
     - update sequence for one job
@@ -154,6 +159,9 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
     - a converter writing outside `outDir` → failure
     - temp dir removed in every terminal state
     - the source is untouched in every terminal state
+    - overall `fraction` never decreases, even when a step reports a lower value
+    - `ctx.note` ids end up in `Job.notes`, deduped and in order
+    - `toCoreError`: one test per branch (CoreFailure, ENOSPC, a plain Error, a non-Error value)
 
 ### M1-3 Engine discovery ☐
 - **Depends on:** M0-2
@@ -174,11 +182,12 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
     - version probe failure → found with an error
 
 ### M1-4 Converters and combiner ☐
+- **Parked to review first:** [P9 fonts in office → pdf](PARKED.md#2-items)
 - **Depends on:** M1-1, M1-3
 - **Files:**
-  - `converters/sharp.ts`: jpg, png, webp, avif, tiff and gif between each other, with `quality`
+  - `converters/sharp.ts`: jpg, png, webp, avif, tiff and gif between each other, with `quality`. Self-edges jpg → jpg, webp → webp and avif → avif (cost 3, `quality`, lossy `reencoded`). Scales down to the target's size limit with `ctx.note("downscaled")` ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm))
   - `converters/pdflib.ts`: jpg and png → pdf at cost 1, with `pageSize`. Other images first route through sharp → png.
-  - `converters/libreoffice.ts`: office formats → pdf at cost 5, `maxConcurrent: 1`, timeout 180 s, with an isolated `-env:UserInstallation`
+  - `converters/libreoffice.ts`: office formats → pdf at cost 5, `maxConcurrent: 1`, timeout 180 s, with a persistent profile per slot in `<dataDir>/lo-profile-<slot>/`, deleted after a failed run ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm))
   - `combiners/merge-pdf.ts`
 - **Dependencies to add (ask):** `sharp`, `pdf-lib`.
 - **Tests:** golden tests, which assert parse results only:
@@ -191,8 +200,12 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
     - each converter and the combiner call `runConverterContract` ([TRD section 6](TRD.md#6-testing-strategy))
     - a corrupt fixture → `ENGINE_FAILED`, temp dir removed
     - sharp `quality` out of range → `INVALID_REQUEST`
+    - sharp: a 20,000 × 10 png → webp comes out ≤ 16,383 px wide with `Job.notes` = `["downscaled"]`; a normal one has no notes
+    - sharp: jpg → jpg at quality 40 gives a valid, smaller jpg named `<stem> (1).jpg`
+    - libreoffice: two jobs in a row reuse the profile dir; after a failed run the dir is gone and the next job still succeeds
 
 ### M1-5 RPC server and core host ☐
+- **Parked to review first:** [P10 types vs CONTRACTS check](PARKED.md#2-items)
 - **Depends on:** M1-2, M1-3, M1-4
 - **Files:** `core/src/rpc/protocol.ts`, `core/src/rpc/server.ts`, `core/src/host.ts`
 - **Details:** [CONTRACTS section 6](CONTRACTS.md#6-core-rpc-protocol).
@@ -280,10 +293,10 @@ Goal: PRD F9, F21 and F22 work. You can render PDF pages to images, extract embe
 - **Depends on:** M0-2
 - **Files:** `core/src/pages.ts`. Add `pages` to `ConvertOptions` validation in `submit`.
 - **Tests** in `pages.test.ts`:
-  - Happy path: `"1-3,7"`, `" 2 , 4-5 "`, `"5-"`
+  - Happy path: `"1-3,7"`, `" 2 , 4-5 "`, `"5-"`, `"-4"` (pages 1 to 4)
   - Must also pass:
     - overlapping and unsorted input merged (`"3,1-2"` → `1-3`)
-    - rejects `"0"`, `"3-1"`, `"a"`, `"1--2"`, `""`
+    - rejects `"0"`, `"3-1"`, `"a"`, `"1--2"`, `"-"`, `"-0"`, `""`
     - `boundPages` past the end gives `what: "page-past-end"` with the right `page` and `count`
     - an open end (`5-`) bounded to the count
 
@@ -358,3 +371,5 @@ Goal: PRD F9, F21 and F22 work. You can render PDF pages to images, extract embe
 ## 5. After M1
 
 The rest of M1.1 (FFmpeg, the Engines page polish), M1.2, M2 and M3 get their own task sections here when they start. Their scope is in [PRD section 5](PRD.md#5-features-by-milestone).
+
+**Parked to review first:** when writing the FFmpeg tasks, [P1 remux](PARKED.md#2-items) and [P5 presets](PARKED.md#2-items). When writing the M1.3 tasks, [P3 two-part extensions](PARKED.md#2-items) and [P11 HEIC](PARKED.md#2-items). After M1, [P6 watch folders](PARKED.md#2-items), [P7 command line](PARKED.md#2-items) and [P8 files opened while starting](PARKED.md#2-items).

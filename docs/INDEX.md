@@ -13,12 +13,13 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 | [BUILD-PLAN](BUILD-PLAN.md) | Ordered M0/M1 tasks: files, tests, done-when |
 | [CONVERSIONS](CONVERSIONS.md) | **At-a-glance From → To table, plus a checklist of every conversion by phase.** If it's not there, it's out of scope |
 | [UI-DESIGN](UI-DESIGN.md) | Screens, wireframes, states, accessibility |
+| [PARKED](PARKED.md) | Ideas not built yet, each with when to revisit it |
 
 ## By task
 
 | Task | Read |
 |---|---|
-| Start or continue building | [BUILD-PLAN](BUILD-PLAN.md): find the first ☐ task, then read the sections it links |
+| Start or continue building | [BUILD-PLAN](BUILD-PLAN.md): find the first ☐ task, raise its **Parked to review first** items, then read the sections it links |
 | Add a converter | [CONVERSIONS](CONVERSIONS.md) (is it in scope for this phase?) · [ARCH section 14](ARCHITECTURE.md#14-extensibility) · [CONTRACTS section 1](CONTRACTS.md#1-domain-types) · [ARCH section 8](ARCHITECTURE.md#8-routing-algorithm) (cost scale) · [TRD section 4](TRD.md#4-engine-matrix) · [TRD section 6](TRD.md#6-testing-strategy) |
 | Add or change a format | [ARCH section 6](ARCHITECTURE.md#6-format-registry) · [ARCH section 7](ARCHITECTURE.md#7-detection-algorithm) |
 | Add an engine or discovery path | [ARCH section 11](ARCHITECTURE.md#11-engine-discovery) · [CONTRACTS section 9](CONTRACTS.md#9-engines) · [TRD section 4](TRD.md#4-engine-matrix) · [TRD section 5](TRD.md#5-license-constraints) |
@@ -40,6 +41,7 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 | Build or change a screen | [UI section 2](UI-DESIGN.md#2-screens) to [UI section 6](UI-DESIGN.md#6-components) · [ARCH section 13](ARCHITECTURE.md#13-renderer-architecture) |
 | Accessibility check | [UI section 7](UI-DESIGN.md#7-accessibility) |
 | Is conversion X planned? Which phase? | [CONVERSIONS](CONVERSIONS.md) |
+| Park an idea for later | [PARKED section 1](PARKED.md#1-how-this-list-works) |
 | Scope or priority question | [PRD section 4](PRD.md#4-goals-and-non-goals) · [PRD section 5](PRD.md#5-features-by-milestone) |
 | CI, packaging, release | [TRD section 7](TRD.md#7-build-and-release) · [BUILD-PLAN M1-8](BUILD-PLAN.md#m1-8-ci-matrix-) |
 | Why X was chosen | [ARCH section 15](ARCHITECTURE.md#15-adr-log) |
@@ -93,7 +95,8 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 |---|---|
 | [0. At a glance](CONVERSIONS.md#0-at-a-glance) | One From → To table by category, with phase and the engine each needs |
 | [1. M1](CONVERSIONS.md#1-phase-m1--images-office-and-pdf-basics) · [2. M1.1](CONVERSIONS.md#2-phase-m11--pdf-to-images-audio-and-video) · [3. M1.2](CONVERSIONS.md#3-phase-m12--documents-and-markup) | Checklists: images, Office → PDF, merge · PDF pages, extract, media · Pandoc, Office ↔ Office, chains |
-| [4. M2](CONVERSIONS.md#4-phase-m2--3d) · [5. M3](CONVERSIONS.md#5-phase-m3--cad-and-ocr) · [6. Ideas](CONVERSIONS.md#6-ideas-not-scheduled) | 3D · CAD, OCR · unscheduled ideas (out of scope) |
+| [3a. M1.3](CONVERSIONS.md#3a-phase-m13--breadth) | More images (ImageMagick), vector, fonts, data, subtitles, archives, comics |
+| [4. M2](CONVERSIONS.md#4-phase-m2--3d) · [5. M3](CONVERSIONS.md#5-phase-m3--cad-and-ocr) · [6. Ideas](CONVERSIONS.md#6-ideas-not-scheduled) | 3D, e-books · CAD, PostScript, email, OCR · unscheduled ideas (out of scope) |
 
 ## PRD.md · TRD.md · UI-DESIGN.md
 

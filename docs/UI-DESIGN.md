@@ -114,7 +114,7 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
 | Extract images | PDF row → [Extract images] → optional Pages → 1 job per PDF → "report (images)/" | "No embedded images found" shows as an info row, not an error |
 | Install engine | 🔒 target or Extract on a missing Poppler → Install assistant ([FLOWS F16](FLOWS.md#f16-install-an-engine)) | On success the 🔒 disappears with no restart |
 | Mismatch | ⚠ badge on the file row. The conversion uses the **detected** format | Tooltip explains what was detected |
-| Lossy | ⓘ line under the picker lists the route's lossy notes | Shown, not blocking |
+| Lossy | ⓘ line under the picker lists the route's lossy notes | Shown, not blocking. Losses found while running (`Job.notes`, e.g. downscaled) show on the done row the same way |
 | Cancel | [Cancel] → state `cancelled` within 2 s | No partial output is left behind |
 | Failure | ✗ row with a short reason, plus [Details] (engine stderr) and [Retry] | Retry resubmits the same job |
 

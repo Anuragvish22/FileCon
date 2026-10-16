@@ -11,6 +11,10 @@ Every conversion we do or plan to do, by phase. **If a conversion isn't on this 
 | Category | Takes in | Gives out | Engine | Phase |
 |---|---|---|---|---|
 | Images | jpg, png, webp, avif, tiff, gif | any other image in this list · pdf (one image, or several combined) | built in | M1 |
+| | bmp, ico, tga, psd, jxl, jp2, qoi, ppm, pcx, camera raw (dng, cr2, nef, arw…) | the M1 images · bmp, ico, tga, jxl, jp2, qoi (psd and raw are read only) | ImageMagick | M1.3 |
+| Vector graphics | svg, svgz | png, jpg, webp · pdf (vector) | built in · LibreOffice | M1.3 |
+| | emf, wmf | png · pdf · svg | LibreOffice | M1.3 |
+| | eps, ps, ai | pdf · png | Ghostscript, which the user installs | M3 |
 | PDF | pdf | one combined pdf | built in | M1 |
 | | | png, jpg or tiff per page (pick pages and DPI) · the embedded images, untouched | Poppler | M1.1 |
 | | scanned pdf | pdf with selectable text | OCRmyPDF | M3 |
@@ -18,18 +22,28 @@ Every conversion we do or plan to do, by phase. **If a conversion isn't on this 
 | | | png or jpg per page | LibreOffice + Poppler | M1.1 |
 | | | one another, txt | LibreOffice | M1.2 |
 | | | md, html, epub | LibreOffice + Pandoc | M1.2 |
+| | docm, dotx, dotm, dot | docx · pdf · the others above | LibreOffice | M1.2 |
 | Spreadsheets | xls, xlsx, ods, csv | pdf (from xlsx, ods) | LibreOffice | M1 |
 | | | one another, csv | LibreOffice | M1.2 |
+| | xlsm, xltx, tsv | xlsx · pdf · csv | LibreOffice | M1.2 |
 | Slides | ppt, pptx, odp | pdf (from pptx, odp) | LibreOffice | M1 |
 | | | png or jpg per slide | LibreOffice + Poppler | M1.1 |
 | | | one another | LibreOffice | M1.2 |
+| | pptm, potx, ppsx | pptx · pdf | LibreOffice | M1.2 |
 | Markup and plain text | md, html, rst, latex, txt | one another · docx, odt, epub | Pandoc | M1.2 |
 | | | doc, pdf | Pandoc + LibreOffice | M1.2 |
 | E-books | epub | md, html, docx | Pandoc | M1.2 |
 | | | pdf | Pandoc + LibreOffice | M1.2 |
+| | epub, mobi, azw3, fb2, … | one another · pdf | calibre | M2 |
+| Comics | cbz, cbr, cb7 | pdf · cbz | built in · 7-Zip | M1.3 |
 | Combine | a mix of images, pdfs and office files | a single pdf, in the order you set | built in (+ LibreOffice for office files) | M1 |
-| Video | mp4, mkv, webm, mov | one another · audio track as mp3 or m4a · animated gif | FFmpeg | M1.1 |
-| Audio | mp3, wav, flac, ogg, m4a | one another | FFmpeg | M1.1 |
+| Video | mp4, mkv, webm, mov, avi, wmv, flv, ts, mpg, 3gp, m4v, ogv | one another · audio track · animated gif | FFmpeg | M1.1 |
+| Audio | mp3, wav, flac, ogg, m4a, aac, opus, wma, aiff, m4b | one another | FFmpeg | M1.1 |
+| Subtitles | srt, vtt, ass | one another · the text track out of a video | FFmpeg | M1.3 |
+| Fonts | ttf, otf, woff, woff2, eot | one another (otf → ttf converts the outlines) | built in | M1.3 |
+| Data | json, yaml, toml, xml, csv | one another (csv only for table-shaped data) | built in | M1.3 |
+| Archives | zip, 7z, tar, tar.gz, tar.bz2, tar.xz, rar | a folder (extract) · one another (rar is read only) · many files → one archive | 7-Zip | M1.3 |
+| Email | eml, msg | html · pdf · the attachments | built in (+ LibreOffice for pdf) | M3 |
 | 3D models | obj, fbx, gltf, glb, stl, ply, dae | one another | Assimp | M2 |
 | Blender scenes | blend | obj, fbx, gltf, stl | Blender | M2 |
 | 2D CAD | dwg, dxf | dwg ↔ dxf · pdf, svg, png | ODA File Converter | M3 |
@@ -49,6 +63,9 @@ Every conversion we do or plan to do, by phase. **If a conversion isn't on this 
 | ☐ avif | jpg · png · webp · tiff · gif |
 | ☐ tiff | jpg · png · webp · avif · gif (first page only) |
 | ☐ gif | jpg · png · webp · avif · tiff (first frame only) |
+| ☐ jpg, webp, avif | the same format again, at another quality (re-encode) |
+
+Images larger than the target format allows (JPEG 65,535 px, WebP 16,383 px a side) are scaled down to fit, and the result says so.
 
 **Image → PDF** (pdf-lib, built in)
 
@@ -94,10 +111,12 @@ Every conversion we do or plan to do, by phase. **If a conversion isn't on this 
 **Video ↔ video** (FFmpeg, Media pack)
 
 - ☐ mp4 ↔ mkv ↔ webm ↔ mov
+- ☐ avi, wmv, flv, ts, mpg, 3gp, m4v, ogv ↔ the formats above
 
 **Audio ↔ audio** (FFmpeg)
 
 - ☐ mp3 ↔ wav ↔ flac ↔ ogg ↔ m4a
+- ☐ aac, opus, wma, aiff, m4b ↔ the formats above
 
 **Video → other** (FFmpeg)
 
@@ -117,7 +136,10 @@ Every conversion we do or plan to do, by phase. **If a conversion isn't on this 
 - ☐ Spreadsheets: xls ↔ xlsx ↔ ods, and → csv (csv is lossy: first sheet only, no formulas or styles)
 - ☐ csv → xlsx · ods
 - ☐ Presentations: ppt ↔ pptx ↔ odp
-- ☐ New formats to register: txt, csv, xls, ppt
+- ☐ Word variants: docm, dotx, dotm, dot → docx · pdf · the others (macros are dropped)
+- ☐ Spreadsheet variants: xlsm, xltx → xlsx · pdf · csv · tsv ↔ csv · xlsx
+- ☐ Slide variants: pptm, potx, ppsx → pptx · pdf
+- ☐ New formats to register: txt, csv, tsv, xls, ppt and the variants above
 
 **Chained automatically** (Docs pack + Office pack)
 
@@ -133,6 +155,50 @@ Every conversion we do or plan to do, by phase. **If a conversion isn't on this 
 
 - ☐ Output preview before saving (images, PDF first page)
 
+## 3a. Phase M1.3 — Breadth
+
+More formats with the engines and patterns M1 to M1.2 already built. New packs: Imaging (ImageMagick) and Archive (7-Zip).
+
+**More images** (ImageMagick, Imaging pack)
+
+- ☐ bmp, ico, tga, jxl, jp2, qoi ↔ the M1 images
+- ☐ psd → M1 images (flattened, read only)
+- ☐ ppm, pcx → M1 images
+- ☐ Camera raw (dng, cr2, cr3, nef, arw, orf, rw2, raf) → jpg · png · tiff (read only)
+- ☐ ico output holds several sizes (16 to 256 px)
+
+**Vector graphics**
+
+- ☐ svg, svgz → png · jpg · webp (sharp, built in). Scripts never run and nothing is fetched from the network
+- ☐ svg → pdf, kept as vectors (LibreOffice Draw)
+- ☐ emf, wmf → png · pdf · svg (LibreOffice Draw)
+
+**Fonts** (built in)
+
+- ☐ ttf ↔ otf ↔ woff ↔ woff2 ↔ eot
+
+**Data** (built in)
+
+- ☐ json ↔ yaml ↔ toml ↔ xml
+- ☐ csv ↔ json (an array of rows); other data → csv only when it's a table
+
+**Subtitles** (FFmpeg, Media pack)
+
+- ☐ srt ↔ vtt ↔ ass
+- ☐ Video → srt · vtt · ass (the first text track)
+
+**Archives** (7-Zip, Archive pack)
+
+- ☐ zip, 7z, tar, tar.gz, tar.bz2, tar.xz, rar → a folder (extract)
+- ☐ zip ↔ 7z ↔ tar ↔ tar.gz ↔ tar.bz2 ↔ tar.xz (rar → the others; rar is never written)
+- ☐ Many files → one archive (a new combiner)
+- ☐ Design first: extraction safety (no paths outside the target folder, size and file-count limits against zip bombs), two-part extensions ([PARKED P3](PARKED.md#2-items))
+
+**Comics**
+
+- ☐ cbz → pdf (built in) · cbr, cb7 → pdf (7-Zip)
+- ☐ pdf → cbz (Poppler pages, zipped)
+
 ## 4. Phase M2 — 3D
 
 **Mesh formats** (Assimp, 3D pack)
@@ -142,6 +208,12 @@ Every conversion we do or plan to do, by phase. **If a conversion isn't on this 
 **Blender files** (Blender, 3D pack)
 
 - ☐ blend → obj · fbx · gltf · stl
+
+**E-books** (calibre, E-book pack)
+
+- ☐ epub ↔ mobi ↔ azw3 ↔ fb2
+- ☐ epub, mobi, azw3, fb2 → pdf · txt · html
+- ☐ Read only: azw, prc, lit, pdb → epub
 
 ## 5. Phase M3 — CAD and OCR
 
@@ -153,6 +225,18 @@ Every conversion we do or plan to do, by phase. **If a conversion isn't on this 
 **CAD solids** (FreeCAD / OpenCASCADE, marked lossy)
 
 - ☐ step, iges → stl · obj · gltf
+
+**PostScript** (Ghostscript, which the user installs. fileCon never bundles or downloads it: [TRD section 5](TRD.md#5-license-constraints))
+
+- ☐ eps, ps → pdf · png
+- ☐ ai → pdf (an ai saved as PDF-compatible needs no engine) · png
+- ☐ pdf → eps · ps
+
+**Email** (built in, + LibreOffice for pdf)
+
+- ☐ eml, msg → html · pdf · txt
+- ☐ eml, msg → their attachments, in a folder
+- ☐ msg → eml
 
 **OCR** (OCRmyPDF)
 
@@ -168,11 +252,7 @@ These are noted so they aren't forgotten, but they're **not in scope**. Each one
 
 | Idea | Likely engine | Why not now |
 |---|---|---|
-| heic / heif → jpg, png | sharp + libheif | HEVC patent/licensing questions |
-| svg → png, jpg | sharp | Easy. Decide whether it belongs in M1.2 |
+| heic / heif → jpg, png | OS decoders or ImageMagick | HEVC patent/licensing questions. See [PARKED P11](PARKED.md#2-items) |
 | pdf → docx | LibreOffice / other | Layout is only approximate (lossy, cost 8) |
-| epub ↔ mobi ↔ azw3 | calibre | New engine and pack |
-| Archives (zip, 7z) and "compress into one archive" | 7-Zip | New combiner kind |
 | Animated gif / multi-page tiff → frames | sharp | Needs per-frame fan-out |
-| Camera raw (dng, cr2, nef) → jpg | libraw | New engine |
 | Password-protected pdf | Poppler | Needs password input UI |

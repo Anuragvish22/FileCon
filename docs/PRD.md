@@ -59,23 +59,36 @@ Each feature lists its acceptance criteria (AC). A milestone ships only when eve
 - F9: pdf → png, jpg and tiff, one image per page (Poppler), with an optional page range (`2-3,7`) and DPI. Saved in a `<name> (png)/` folder as `page-002.png`… (named by real page).
 - F21: Extract embedded images from a PDF, losslessly in their original formats, into `<name> (images)/`. An optional page range applies. "No images found" is reported as info.
 - F22: One-click install of the PDF pack (Poppler) on Windows. macOS and Linux get copyable install commands and a Re-check button. This is F20's mechanism, pulled forward for this one engine.
-- F10: Audio and video through FFmpeg (mp4, mkv, webm, mov, mp3, wav, flac, ogg, m4a), including video → audio and video → gif.
+- F10: Audio and video through FFmpeg (video: mp4, mkv, webm, mov, avi, wmv, flv, ts, mpg, 3gp, m4v, ogv · audio: mp3, wav, flac, ogg, m4a, aac, opus, wma, aiff, m4b), including video → audio and video → gif.
 - F11: Engines page showing each pack as found or missing, with its path override.
 
 ### M1.2
 - F12: Markup and ebooks through Pandoc (md, html, docx, epub, odt, rst, latex, plus txt input). Chains with Office give md → doc and pdf, and doc → md.
 - F23: Office ↔ Office through LibreOffice: doc, docx, odt and rtf between each other and → txt · xls, xlsx and ods between each other plus csv ↔ · ppt, pptx and odp between each other.
+- F23b: Office variants through LibreOffice: docm, dotx, dotm, dot · xlsm, xltx, tsv · pptm, potx, ppsx.
 - F13: Output preview before saving (images and the PDF first page).
 - F14: Signed or unsigned installers for all three OSes, built by CI.
+
+### M1.3 — Breadth
+- F24: More images through ImageMagick: bmp, ico, tga, jxl, jp2, qoi ↔ the M1 images; psd, ppm, pcx and camera raw read.
+- F25: Vector graphics: svg and svgz → png, jpg, webp (sharp) and → pdf as vectors; emf and wmf → png, pdf, svg (LibreOffice).
+- F26: Fonts: ttf, otf, woff, woff2 and eot convert to each other, built in.
+- F27: Data: json, yaml, toml and xml convert to each other; csv ↔ json for tables. Built in.
+- F28: Subtitles: srt, vtt and ass convert to each other, and a video's text track can be saved (FFmpeg).
+- F29: Archives through 7-Zip: extract zip, 7z, tar (+ gz, bz2, xz) and rar to a folder, convert between them (rar read only), and pack many files into one archive. Extraction never writes outside its folder and stops at size limits.
+- F30: Comics: cbz, cbr and cb7 → pdf, and pdf → cbz.
 
 ### M2 — 3D
 - F15: Mesh formats obj, fbx, gltf, glb, stl, ply and dae convert to each other through Assimp.
 - F16: `.blend` export to obj, fbx, gltf and stl through headless Blender.
+- F31: E-books through calibre: epub, mobi, azw3 and fb2 to each other and → pdf, txt, html.
 
 ### M3 — CAD and more
 - F17: DWG ↔ DXF and DWG/DXF → pdf, svg and png (ODA File Converter, which the user installs).
 - F18: STEP and IGES → stl, obj and gltf (FreeCAD or OpenCASCADE), marked lossy.
 - F19: OCR turns scanned PDFs into searchable PDFs (OCRmyPDF).
+- F32: eps, ps and ai → pdf and png, pdf → eps and ps, through a Ghostscript the user installs (never shipped by fileCon).
+- F33: Email: eml and msg → html, pdf, txt and their attachments; msg → eml.
 - F20: One-click engine pack download, with checksums verified, for every pack that has a redistributable build (the mechanism already exists from F22).
 
 ## 6. Success metrics

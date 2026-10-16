@@ -49,8 +49,8 @@ fileCon/
 │   ├── core/src/
 │   │   ├── index.ts              re-exports for tests and host
 │   │   ├── host.ts               utilityProcess / sidecar entry: wires transport → rpc/server
-│   │   ├── types.ts              CONTRACTS types, verbatim
-│   │   ├── errors.ts             CoreError factory: code + params, no prose
+│   │   ├── types/                CONTRACTS types, verbatim, one file per section + index.ts
+│   │   ├── errors.ts             coreError() + CoreFailure (what core throws): code + params, no prose
 │   │   ├── formats.ts            FormatInfo table, aliases, ext → format lookup
 │   │   ├── detect.ts             content + extension detection
 │   │   ├── registry.ts           register / list converters and combiners
@@ -72,24 +72,27 @@ fileCon/
 │   │   ├── combiners/            merge-pdf.ts
 │   │   ├── extractors/           pdfimages.ts
 │   │   └── pages.ts              parse / normalize / bound-check the `pages` option
-│   └── app/src/
-│       ├── main/
-│       │   ├── index.ts          app lifecycle, window, wiring
-│       │   ├── supervisor.ts     fork core host, restart with backoff, CoreStatus
-│       │   ├── coreClient.ts     RPC client: ids, pending map, event fan-out
-│       │   ├── ipc.ts            ipcMain handlers (CONTRACTS section 7)
-│       │   ├── paths.ts          path validation, folder expansion
-│       │   ├── settings.ts       load / validate / atomic save
-│       │   └── log.ts            rotating log file in userData/logs
-│       ├── shared/i18n.ts        t(key, params) for main and renderer (CONTRACTS section 10)
-│       ├── locales/en.json       every user-facing English string, flat keys
-│       ├── preload/index.ts      contextBridge → window.filecon
-│       └── renderer/
-│           ├── theme/            tokens.ts (light/dark × accent), applied as CSS variables
-│           ├── store/            reducer, actions, selectors, useCoreEvents
-│           ├── components/       DropZone, FileList, TargetPicker, OptionsBar, JobsPanel, …
-│           └── pages/            ConvertPage, EnginesPage, SettingsPage
+│   ├── core/test/                tests mirroring src/ (jobs/output.test.ts), plus contract.ts, fakes.ts
+│   ├── app/src/
+│   │   ├── main/
+│   │   │   ├── index.ts          app lifecycle, window, wiring
+│   │   │   ├── supervisor.ts     fork core host, restart with backoff, CoreStatus
+│   │   │   ├── coreClient.ts     RPC client: ids, pending map, event fan-out
+│   │   │   ├── ipc.ts            ipcMain handlers (CONTRACTS section 7)
+│   │   │   ├── paths.ts          path validation, folder expansion
+│   │   │   ├── settings.ts       load / validate / atomic save
+│   │   │   └── log.ts            rotating log file in userData/logs
+│   │   ├── shared/i18n.ts        t(key, params) for main and renderer (CONTRACTS section 10)
+│   │   ├── locales/en.json       every user-facing English string, flat keys
+│   │   ├── preload/index.ts      contextBridge → window.filecon
+│   │   └── renderer/
+│   │       ├── theme/            tokens.ts (light/dark × accent), applied as CSS variables
+│   │       ├── store/            reducer, actions, selectors, useCoreEvents
+│   │       ├── components/       DropZone, FileList, TargetPicker, OptionsBar, JobsPanel, …
+│   │       └── pages/            ConvertPage, EnginesPage, SettingsPage
+│   └── app/test/                 tests mirroring src/
 ├── test/fixtures/<format>/       tiny license-clean inputs (≤ 1 MB each)
+├── test/tooling/                 tests for repo tooling (docs check, lint rules, layout)
 └── docs/
 ```
 
@@ -113,7 +116,7 @@ flowchart TD
   discovery --> specs["engines/specs"]
 ```
 
-All modules may import `types.ts` and `errors.ts`.
+All modules may import `types/` and `errors.ts`.
 
 Rules:
 - **Converters and combiners never import** `runner`, `scheduler`, `graph`, `output` or `rpc`. They're pure adapters.
@@ -122,6 +125,8 @@ Rules:
 - `packages/app` imports only `@filecon/core/types`, never core runtime code. Main talks to core over RPC only.
 
 ## 5. Module map
+
+The Test column names files under `<package>/test/`, at the same path as the module in `src/`.
 
 | Module | Responsibility | Public API | Test |
 |---|---|---|---|
@@ -149,7 +154,7 @@ M1 formats are listed below. The first extension is the one used for outputs.
 
 | id | Category | Extensions | multiPage | Aliases |
 |---|---|---|---|---|
-| jpg | image | jpg, jpeg, jpe | — | jpeg |
+| jpg | image | jpg, jpeg, jpe, jfif | — | jpeg |
 | png | image | png | — | |
 | webp | image | webp | — | |
 | avif | image | avif | — | |
@@ -189,6 +194,7 @@ The format core uses is always `format`, so a mislabeled file converts correctly
 
 **Graph build** (`buildGraph`):
 - Nodes are formats. For each converter whose `available()` was true, and for each edge with `from !== to`, add a candidate.
+- Edges with `from === to` (**self-edges**: re-encode at another quality, later resize or page selection) go into a separate per-format table, with the same lowest-cost and priority rule.
 - When several converters offer the same (from, to), keep the lowest cost. On a tie, keep the converter earlier in `Settings.engines.priority`, and after that the one registered first.
 - Two graphs are kept: **available** (installed engines only) and **full** (every registered converter). The full graph is used only to label targets `needs-pack`.
 
@@ -218,6 +224,13 @@ better = lower cost, then fewer hops, then higher priority (sum of priority rank
 answer = best[3][to] or null
 ```
 
+**Self-edges.**
+- `route(g, f, f)` returns the self-edge as a 1-step route, or null when `f` has none. A self-edge is never part of a multi-hop route, so the search below never sees it.
+- The output keeps the source's name and ext, so the never-overwrite rule names it `photo (1).jpg` ([section 10](#10-output-commit)).
+- A self-edge must honour at least one option; one that changes nothing is a bug.
+
+**Image size limits (sharp).** Some formats cap the pixel size: JPEG and GIF at 65,535 px a side, WebP at 16,383. When the input is larger than the target allows, the converter scales it down to fit (aspect kept, never enlarged) and calls `ctx.note("downscaled")`, so the done row says so. AVIF and TIFF limits are checked against sharp in M1-4 and added here.
+
 **Fan-out.**
 - A `fanOut` edge (pdf → png) returns N files.
 - The runner runs every later step once per file, preserving order. pdf → png → webp gives N webp files.
@@ -239,11 +252,13 @@ answer = best[3][to] or null
 
 **Targets** (`targets(available, full, formats)`):
 1. For each distinct input format, compute every node reachable within 3 hops in the **available** graph, and also in the **full** graph.
-2. `convert` = formats reachable from every input in the full graph, excluding formats equal to every input's own format.
+2. `convert` = formats reachable from every input in the full graph. An input's own format counts as reachable only through its self-edge, so `jpg` is offered for jpg inputs only when a jpg self-edge exists.
    - `status = "ready"` if they're reachable in the available graph for every input. Otherwise `"needs-pack"`, with the first missing pack on the cheapest full-graph route.
 3. `merge` = combiners whose `accepts` is reachable (available or full) from every input. Offered only when there are 2 or more files.
 4. `lossy`, `fanOut` and `options` are unioned across the inputs' routes.
 5. `extract` = extractors whose `accepts` equals the format of **every** input. There's no routing, so in M1.1 only PDFs offer "Extract images". `status` comes from the extractor's engine.
+
+**LibreOffice profile.** soffice needs a profile dir, and two runs sharing one fail silently, while creating one costs seconds per run. So the converter keeps one persistent profile per LibreOffice slot, `<dataDir>/lo-profile-<slot>/` (`-env:UserInstallation=file://…`). With `maxConcurrent: 1` that's one dir. When soffice fails, its profile dir is deleted so the next run starts clean.
 
 **Caching:** routes are memoized per (from, to) per graph. The cache is cleared when the graph is rebuilt, which happens on `init`, `engines.refresh` and `settings.apply` when engine paths or priority change.
 
@@ -289,6 +304,9 @@ answer = best[3][to] or null
 - Convert: `(stepIndex + stepFraction) / steps`.
 - Merge: `(inputsDone + inputFraction) / (inputs + 1)`.
 - If the current step reports `null`, the overall `fraction` is `null` (indeterminate), but `unit`/`total` still advance.
+- The overall `fraction` **never decreases**: a lower value than the last one sent is replaced by the last one (engines and fan-out steps can report out of order).
+
+**Notes:** `ctx.note(id)` from any step adds `id` to `Job.notes` (deduped, in order). The done row shows them like route lossy notes.
 
 **Timeouts and cancel:**
 - Each step gets its own `AbortController`, linked to the job's controller. A timer of `converter.timeoutMs` aborts it with the reason `TIMEOUT`.
@@ -305,6 +323,12 @@ answer = best[3][to] or null
 This section is the "never overwrite" guarantee ([PRD G4](PRD.md#4-goals-and-non-goals)). It's implemented in `jobs/output.ts` (flow: [FLOWS F4](FLOWS.md#f4-single-convert)).
 
 **Destination dir:** the `JobRequest.outDir` if given, otherwise `Settings.output`. Its writability is checked at `submit` with `fs.access(W_OK)`. On failure, `OUTPUT_DIR_NOT_WRITABLE`.
+
+**Safe stem** (`safeStem(name)`, used for every stem and `baseName`): the output folder can be on another file system (a FAT USB stick, a Windows share), so a name that was valid for the source may not be valid there.
+- Replace `< > : " / \ | ? *` and control characters with `_`. Trim trailing dots and spaces.
+- Windows reserved names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`, with or without an extension, any case) get a `_` suffix.
+- Cut to 200 UTF-8 bytes without splitting a character, leaving room for ` (999)`, ` (<ext>)` and the extension.
+- An empty result becomes `file`.
 
 **Single file** (`commitFile(src, dir, stem, ext)`):
 1. For n = 0..999, the candidate is `stem.ext` when n = 0, otherwise `stem (n).ext`.
@@ -333,7 +357,7 @@ This section is the "never overwrite" guarantee ([PRD G4](PRD.md#4-goals-and-non
 `discover(spec, deps)`, where `deps = { platform, env, isExecutable, exec }` is injectable so tests need no real binaries:
 1. **Bundled** (`spec.bundled`): `found = true`, `source = "bundled"`, and the version comes from package.json.
 2. **Override:** `Settings.engines.paths[id]`. If it's set but not executable, `found = false` with an error. It doesn't fall through, so the user sees their path is wrong.
-3. **Installed:** the newest `userData/engines/<id>/<version>/<binDir>` from a previous install ([CONTRACTS section 9](CONTRACTS.md#9-engines)).
+3. **Installed:** the newest `<dataDir>/engines/<id>/<version>/<binDir>` (`dataDir` comes with `init`) from a previous install ([CONTRACTS section 9](CONTRACTS.md#9-engines)).
 4. **PATH:** for each name in `bins[platform]`, look in each PATH dir. On win32, also try `PATHEXT` extensions.
 5. **Known paths:** `knownPaths[platform]`, with globs expanded (e.g. `/opt/libreoffice*/program/soffice`).
 6. **WSL guard:** if `/proc/version` contains "microsoft", skip any candidate under `/mnt/<letter>/`. A Windows `.exe` would get Linux-style paths it can't read.

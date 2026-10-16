@@ -6,20 +6,24 @@ Status: draft v1 · Related: [Architecture](ARCHITECTURE.md) · [Flows](FLOWS.md
 
 All types are JSON-serializable unless they're marked *(in-process only)*.
 
+Each section's code block is mirrored in its own file under `core/src/types/`: 1 `domain.ts`, 2 `options.ts`, 3 `detect.ts`, 4 `jobs.ts`, 5 `errors.ts`, 6 `rpc.ts`, 7 `ipc.ts`, 8 `settings.ts`, 9 `engines.ts`, 10 `text.ts`. `types/index.ts` re-exports them all.
+
 ## 1. Domain types
 
 ```ts
 type Format = string;                 // canonical lowercase id: "jpg", "pdf", "docx"
-type PackId = "builtin" | "office" | "media" | "docs" | "3d" | "cad" | "ocr";
+type PackId =
+  | "builtin" | "office" | "media" | "docs" | "imaging" | "archive" | "ebook"
+  | "3d" | "cad" | "postscript" | "ocr";
 type FormatCategory =
   | "image" | "pdf" | "document" | "spreadsheet" | "presentation"
-  | "audio" | "video" | "markup" | "ebook" | "3d" | "cad" | "archive";
+  | "audio" | "video" | "markup" | "ebook" | "3d" | "cad" | "archive"
+  | "vector" | "font" | "data" | "subtitle" | "email";
 
 interface FormatInfo {
   id: Format;                         // display name: t("format.<id>") (section 10)
   category: FormatCategory;
   exts: string[];                     // without dot, first = preferred output ext
-  mimes: string[];
   multiPage?: boolean;                // pdf, tiff, gif: may hold many pages/frames
 }
 
@@ -49,6 +53,7 @@ interface JobCtx {
   signal: AbortSignal;
   tmpDir: string;                     // job-private root, deleted by runner
   onProgress(fraction: number | null): void;  // 0..1 for this step, null = indeterminate
+  note(id: LossyId): void;            // a loss found only at run time (e.g. "downscaled"). Collected into Job.notes
 }
 
 // (in-process only)
@@ -110,7 +115,7 @@ interface ConvertOptions {
 
 - Validation happens in core at `submit`. Out-of-range values fail with `INVALID_REQUEST`, never silently clamped.
 - A converter ignores keys that aren't in its edge's `options` list.
-- **`pages` grammar:** a comma-separated list of `N`, `N-M` or `N-` (to the end). Spaces are ignored. Numbers are ≥ 1 and `N ≤ M`. The result is normalized to sorted, merged ranges.
+- **`pages` grammar:** a comma-separated list of `N`, `N-M`, `N-` (to the end) or `-M` (from page 1). Spaces are ignored. Numbers are ≥ 1 and `N ≤ M`. The result is normalized to sorted, merged ranges.
   - Bad syntax gives `INVALID_REQUEST` at `submit`.
   - Pages past the end are checked at run time against the real page count, and give `INVALID_REQUEST` with params `{ what: "page-past-end", page: 9, count: 5 }`.
   - Output files are named by the **real page number** (`page-003`), not by their position in the list.
@@ -170,6 +175,7 @@ interface Job {
   state: JobState;
   progress: { unit: number; total: number; fraction: number | null };  // overall 0..1, null = indeterminate
   outputs: string[];                  // final paths; a multi-output job has 1 folder + its files
+  notes: LossyId[];                   // run-time losses reported by steps via JobCtx.note, deduped, in order
   error?: CoreError;
   createdAt: number;                  // epoch ms
   startedAt?: number;
@@ -249,11 +255,17 @@ type RpcMessage =
   | { t: "res"; id: number; ok: true; result: unknown }
   | { t: "res"; id: number; ok: false; error: CoreError }
   | { t: "evt"; name: RpcEvent; data: unknown };
+
+// The names in the tables below
+type RpcMethod =
+  | "init" | "detect" | "targets" | "plan" | "submit" | "cancel" | "cancelAll"
+  | "engines.list" | "engines.refresh" | "engines.install" | "settings.apply" | "shutdown";
+type RpcEvent = "ready" | "job.update" | "engines.changed" | "engine.install.progress" | "log";
 ```
 
 | Method | Params | Result | Notes |
 |---|---|---|---|
-| `init` | `{ settings: Settings }` | `void` | First call. Sweeps temp, discovers engines, builds graph, then emits `ready` |
+| `init` | `{ settings: Settings; dataDir: string }` | `void` | First call. `dataDir` is the app's data folder (Electron `userData`): engine installs and the LibreOffice profile live there. Sweeps temp, discovers engines, builds graph, then emits `ready` |
 | `detect` | `{ paths: string[] }` | `DetectResult[]` | Same order. A per-file error goes in `DetectResult.error`, not a rejection |
 | `targets` | `{ formats: Format[] }` | `TargetsResult` | Intersection over all formats |
 | `plan` | `{ from: Format; to: Format }` | `Route \| null` | Used for tooltips and debugging |
