@@ -132,7 +132,7 @@ The Test column names files under `<package>/test/`, at the same path as the mod
 |---|---|---|---|
 | `formats` | Canonical ids, aliases, ext lookup | `FORMATS`, `byExt(ext)`, `canonical(id)`, `info(id)` | `formats.test.ts` |
 | `detect` | Content-first detection | `detect(path): Promise<DetectResult>` | `detect.test.ts` + fixtures |
-| `registry` | Hold converters, combiners and extractors | `register(x)`, `converters()`, `combiners()`, `extractors()`, `get(id)` | `registry.test.ts` |
+| `registry` | Hold converters, combiners and extractors | `createRegistry()` → `register(x)`, `converters()`, `combiners()`, `get(id)`; `extractors()` from M1.1-3 | `registry.test.ts` |
 | `pages` | `pages` option | `parsePages(str)`, `boundPages(ranges, count)`, `toRanges(pages)` | `pages.test.ts` |
 | `graph` | Graph build and route search | `buildGraph(convs, availableIds, priority)`, `route(g, from, to)`, `targets(g, full, formats)` | `graph.test.ts` |
 | `jobs/scheduler` | Slots and semaphores | `createScheduler(n)`, `acquire(convId, max)`, `setConcurrency(n)` | `scheduler.test.ts` |

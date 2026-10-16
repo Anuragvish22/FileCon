@@ -52,9 +52,9 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
     - a `CoreError` survives `JSON.parse(JSON.stringify(e))` unchanged, and `params` keys are only the allowed names
     - `CoreFailure` is an `Error` with a stack, and its `.error` survives `structuredClone` unchanged
 
-### M0-3 Registry ☐
+### M0-3 Registry ☑
 - **Depends on:** M0-2
-- **Files:** `core/src/registry.ts`
+- **Files:** `core/src/registry.ts`, `core/test/registry.test.ts`
 - **Tests:**
   - Happy path: `converters()` keeps registration order.
   - Must also pass:
