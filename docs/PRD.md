@@ -1,0 +1,102 @@
+# fileCon — Product Requirements (PRD)
+
+Status: draft v0 · Owner: Anurag · Related: [TRD](TRD.md) · [Architecture](ARCHITECTURE.md) · [UI Design](UI-DESIGN.md) · [Index](INDEX.md)
+
+## 1. Problem
+
+Converting files today means one of two bad options:
+- A pile of single-purpose tools (an image converter, an office suite, a PDF merger, a video tool), each with its own UI.
+- Uploading files to online converters, which is slow on big files and a privacy risk for personal or work documents.
+
+## 2. Vision
+
+One offline desktop app for Windows, macOS and Linux. You drop files in, pick a target format, and get the result.
+fileCon doesn't implement formats itself. It **routes** each conversion through mature open engines (libvips, LibreOffice, FFmpeg, Blender…), chaining them when no single engine can do the job.
+
+## 3. Users
+
+| Persona | Needs | Success looks like |
+|---|---|---|
+| **Everyday user** | Convert a few files with no setup | Drag, drop, pick a format, done in under 3 clicks |
+| **Power user** | Big batches, control over engines and quality | Engine paths, priorities and output folder are configurable, and failures explain themselves |
+| **Developer (you)** | Learn the architecture and extend it | Adding a converter is one file plus one test ([ARCH section 9](ARCHITECTURE.md#9-extensibility)) |
+
+## 4. Goals and non-goals
+
+**Goals**
+- G1: Small base install. Images and PDF work with no extra downloads.
+- G2: Heavy engines are optional **packs**, used when already installed or added on demand.
+- G3: Be honest about quality. Every lossy route says what gets lost before the user converts.
+- G4: Safe by default. The app never overwrites or modifies a source file.
+- G5: Runs the same on Windows, macOS and Linux.
+
+**Non-goals (v1)**
+- Explorer, Finder or Nautilus context-menu integration
+- Watch folders, CLI, cloud sync or any network conversion
+- Editing file contents (cropping, PDF page editing, and so on)
+- Supporting literally every format. Proprietary formats come only where a usable engine exists.
+
+## 5. Features by milestone
+
+Each feature lists its acceptance criteria (AC). A milestone ships only when every AC passes on all three OSes.
+
+### M1 — Core MVP
+| ID | User story | Acceptance criteria |
+|---|---|---|
+| F1 | As a user I convert images between common formats | jpg, png, webp, avif, tiff and gif all convert to each other. Output opens in the OS default viewer, and dimensions are preserved |
+| F2 | As a user I convert office docs to PDF | doc, docx, odt, rtf, xlsx, ods, pptx and odp convert to pdf through LibreOffice. The page count is greater than 0 |
+| F3 | As a user I combine many files into one PDF | Select N images and/or docs, reorder them, then get one PDF with the pages in that order |
+| F4 | As a user I batch convert | Select N files, pick one target, and get N outputs. One failure doesn't stop the others |
+| F5 | As a user I see the real format of each file | Detection uses file content. A `.jpg` that's actually WebP shows a mismatch badge and still converts correctly |
+| F6 | As a user my originals are safe | Output never overwrites anything. Name conflicts become `name (1).ext` |
+| F7 | As a user I only see conversions that can actually run | The target list shows reachable formats only. Formats that need a missing pack are marked, with an install link |
+| F8 | As a user I can cancel | Cancelling stops the engine process within 2 s and leaves no temp files or partial output |
+
+### M1.1
+- F9: pdf → png and jpg, one image per page (pdfium).
+- F10: Audio and video through FFmpeg (mp4, mkv, webm, mov, mp3, wav, flac, ogg, m4a), including video → audio and video → gif.
+- F11: Engines page showing each pack as found or missing, with its path override.
+
+### M1.2
+- F12: Markup and ebooks through Pandoc (md, html, docx, epub, odt, rst, latex).
+- F13: Output preview before saving (images and the PDF first page).
+- F14: Signed or unsigned installers for all three OSes, built by CI.
+
+### M2 — 3D
+- F15: Mesh formats obj, fbx, gltf, glb, stl, ply and dae convert to each other through Assimp.
+- F16: `.blend` export to obj, fbx, gltf and stl through headless Blender.
+
+### M3 — CAD and more
+- F17: DWG ↔ DXF and DWG/DXF → pdf, svg and png (ODA File Converter, which the user installs).
+- F18: STEP and IGES → stl, obj and gltf (FreeCAD or OpenCASCADE), marked lossy.
+- F19: OCR turns scanned PDFs into searchable PDFs (OCRmyPDF).
+- F20: One-click engine pack download, with checksums verified.
+
+## 6. Success metrics
+
+- M1 features F1–F8 pass on Windows 11, macOS 14+ and Ubuntu 22.04+ with no network connection.
+- The base installer is about 120 MB or less. Engines aren't bundled.
+- A batch of 20 mixed files completes, and the UI stays responsive throughout (no frame longer than 100 ms).
+- Typical files (under 10 MB) finish in under 5 s for images and under 15 s for office → PDF.
+- Zero source-file modifications across the whole golden test suite.
+
+## 7. Differentiators
+
+fileCon aims to go further than existing offline converters on:
+1. Cross-platform from day one.
+2. Content-based (magic-byte) format detection, not extension-based.
+3. A lossy note on every route, shown in the UI before converting.
+4. Engines isolated in workers or child processes, with timeouts, so a bad file can't crash the app.
+5. 3D (obj, fbx, gltf, .blend) and broader CAD (STEP, IGES).
+6. A golden-file regression suite across engine upgrades.
+7. OCR.
+
+## 8. Risks
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Proprietary formats (DWG, newer Adobe formats) have no open reader | Some conversions impossible | Use the ODA converter the user installs. List what's unsupported clearly |
+| Engine size (LibreOffice is about 300 MB, Blender is bigger) | Heavy installs | Optional packs, plus detection of existing installs |
+| Engine licenses (GPL, AGPL, restricted) | Distribution blocked | Call engines as separate processes, check licenses per engine ([TRD section 5](TRD.md#5-license-constraints)) |
+| Engines hang or crash on malformed files | Stuck jobs | Timeouts, process kill and isolation ([ARCH section 6](ARCHITECTURE.md#6-job-runner)) |
+| Engine output varies by version | Flaky tests | Golden tests check that output parses, not byte hashes |

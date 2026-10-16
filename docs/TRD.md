@@ -1,0 +1,103 @@
+# fileCon — Technical Requirements (TRD)
+
+Status: draft v0 · Related: [PRD](PRD.md) · [Architecture](ARCHITECTURE.md) · [UI Design](UI-DESIGN.md) · [Index](INDEX.md)
+
+This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) says **how it's built**.
+
+## 1. Stack
+
+| Concern | Choice | Why |
+|---|---|---|
+| Shell | Electron (latest stable) with electron-vite | Node-native, so sharp and pdf-lib run directly. TS end to end |
+| UI | React 18+ with TypeScript (`strict: true`) | Familiar, large ecosystem |
+| Runtime | Node 22 LTS | Matches the Electron Node version family |
+| Packages | pnpm workspace (`packages/core`, `packages/app`) | Keeps core independent of the shell |
+| Tests | vitest | Fast, native TS/ESM |
+| Packaging | electron-builder | NSIS, dmg, AppImage and deb from one config |
+| Lint/format | ESLint (typescript-eslint) + Prettier | Standard |
+
+## 2. Functional requirements
+
+| ID | Requirement | Verified by |
+|---|---|---|
+| FR-1 | Detect format from content (magic bytes) first, extension second. Report a mismatch when they disagree | Unit tests with renamed fixtures |
+| FR-2 | Build a format graph from the converters whose engine is **available** | Unit test with mocked `available()` |
+| FR-3 | Find the cheapest route from source to target, **max 3 hops**. Ties go to the user's engine priority | Graph unit tests |
+| FR-4 | Every route reports the lossy notes of all its edges | Graph unit tests |
+| FR-5 | For multiple inputs, offer only targets reachable from **every** input | Unit test |
+| FR-6 | Merge: route every input to the combiner's input format, then run the combiner (for example `merge-pdf`) | Golden test |
+| FR-7 | Output naming: `<dir>/<stem>.<ext>`, adding ` (n)` on conflict. Never overwrite | Unit test |
+| FR-8 | Jobs run concurrently with per-job progress, cancellation and a failure reason | Integration test |
+| FR-9 | Engine discovery checks the user override, then PATH, then known install dirs per OS | Unit test with fake FS |
+| FR-10 | One job failing in a batch doesn't affect the others | Integration test |
+
+## 3. Non-functional requirements
+
+| ID | Category | Requirement |
+|---|---|---|
+| NFR-1 | Performance | The main process and renderer never run conversion work. CPU work goes to `worker_threads` or child processes |
+| NFR-2 | Performance | Default concurrency is `max(1, os.cpus().length - 1)`. LibreOffice runs one at a time |
+| NFR-3 | Reliability | Every engine call has a timeout (default 120 s, per-converter override) and an `AbortSignal` |
+| NFR-4 | Reliability | Each job's temp dir is removed on done, failed, cancelled and app quit. Leftover temp dirs from crashes are swept on startup |
+| NFR-5 | Reliability | Outputs are written to temp first, then **moved** into place, so no partial files appear at the destination |
+| NFR-6 | Security | Electron: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, strict CSP, no remote content |
+| NFR-7 | Security | Engines spawn with an argument array. `shell: true` is forbidden |
+| NFR-8 | Security | Input files are untrusted. Paths from the renderer are validated in main (absolute, exists, regular file) |
+| NFR-9 | Portability | OS-specific code lives only in `core/src/engines/discovery.ts` and the app packaging config |
+| NFR-10 | Size | Engine binaries are never bundled in the installer or committed to the repo |
+| NFR-11 | Privacy | No network calls except user-initiated engine downloads (M3). No telemetry |
+
+## 4. Engine matrix
+
+| Engine | Pack | Mode | Formats (in → out) | License | Milestone |
+|---|---|---|---|---|---|
+| sharp (libvips) | builtin | in-proc worker | jpg, png, webp, avif, tiff, gif ↔ each other | Apache-2.0 / LGPL libvips | M1 |
+| pdf-lib | builtin | in-proc worker | jpg, png → pdf; merge pdf | MIT | M1 |
+| LibreOffice | office | child process | doc, docx, odt, rtf, xlsx, ods, pptx, odp → pdf (and docx ↔ odt and others later) | MPL-2.0 | M1 |
+| pdfium (CLI) | builtin or pdf | child process | pdf → png, jpg | BSD-3 / Apache-2.0 | M1.1 |
+| FFmpeg | media | child process | audio and video ↔ each other, video → gif | LGPL or GPL build | M1.1 |
+| Pandoc | docs | child process | md, html, docx, epub, odt, rst, latex | GPL-2.0 | M1.2 |
+| Assimp CLI | 3d | child process | obj, fbx, gltf, glb, stl, ply, dae | BSD-3 | M2 |
+| Blender | 3d | child process (`-b --python`) | blend → obj, fbx, gltf, stl | GPL-2.0+ | M2 |
+| ODA File Converter | cad | child process | dwg ↔ dxf | Proprietary, free to use | M3 |
+| FreeCAD / OCCT | cad | child process | step, iges → stl, obj, gltf | LGPL-2.1 | M3 |
+| OCRmyPDF | ocr | child process | pdf → searchable pdf | MPL-2.0 | M3 |
+
+**Discovery paths (examples, kept in `discovery.ts`):**
+- LibreOffice: Windows `C:\Program Files\LibreOffice\program\soffice.exe` · macOS `/Applications/LibreOffice.app/Contents/MacOS/soffice` · Linux `soffice` on PATH, plus `/usr/bin`, `/opt/libreoffice*/program` and `/snap/bin`.
+- Others: PATH first, then user override. Known dirs are added when needed.
+
+## 5. License constraints
+
+- Engines are **invoked as separate processes**, never linked, except sharp and pdf-lib, which are permissively licensed.
+- **Avoid Ghostscript** (AGPL). Use pdfium for PDF rasterizing.
+- FFmpeg: if the app ever bundles it (M3 download), use an **LGPL** build.
+- **ODA File Converter** can't be redistributed. The user installs it and fileCon only detects it.
+- LibreDWG (GPL, incomplete) is not planned.
+- Before adding any engine: record its license in section 4 and confirm that invoking it as a process is allowed.
+
+## 6. Testing strategy
+
+| Layer | What | How |
+|---|---|---|
+| Unit | graph, routing, detection, output naming, discovery | vitest, pure functions, no engines |
+| Golden | each converter edge | `test/fixtures/<fmt>/` inputs → convert → assert the output **parses**: `file-type` matches, image dimensions or PDF page count are as expected. **No byte hashes** |
+| Engine-gated | anything that needs an external engine | `describe.skipIf(!(await conv.available()))`, so CI without LibreOffice still passes |
+| Integration | job runner | Cancel mid-job (no temp left, no output), timeout, a batch with one bad file |
+| Manual | UI | Checklist in [UI-DESIGN section 7](UI-DESIGN.md#7-accessibility) plus a smoke test per OS before release |
+
+Rule: a converter isn't done until it has at least one golden test per edge family.
+
+## 7. Build and release
+
+- Dev: run inside WSL2 with WSLg (`pnpm dev`). Install engines with apt for local testing.
+- CI: GitHub Actions matrix on `windows-latest`, `macos-latest` and `ubuntu-latest`. Lint, typecheck, test, then build.
+- Artifacts: NSIS `.exe` (Windows), `.dmg` (macOS, universal or arm64+x64), `.AppImage` and `.deb` (Linux).
+- sharp's prebuilt binaries are per-platform, so each OS builds natively in CI. No cross-building.
+- Code signing is out of scope for v1. Users will see an unsigned-app warning, and the README documents it.
+
+## 8. Tauri port path
+
+- `@filecon/core` has **no Electron imports**. Lint enforces this with `no-restricted-imports` on `electron`.
+- The core API is message-shaped (`detect`, `plan`, `submit`, `cancel`, `progress` events) and JSON-serializable.
+- Port plan: run core as a Node **sidecar** speaking JSON-RPC over stdio. Rewrite only the shell, IPC and packaging. Reuse the React renderer with a different IPC adapter.

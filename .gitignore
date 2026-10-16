@@ -1,0 +1,11 @@
+node_modules/
+dist/
+out/
+release/
+.env*
+test/output/
+*.log
+.DS_Store
+
+CLAUDE.md
+.claude/
