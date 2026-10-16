@@ -98,6 +98,7 @@ export interface Extractor {
   engineId: string; // "poppler"
   pack: PackId;
   accepts: Format; // "pdf". UI action text: t("extract.<id>")
+  folder: string; // output folder suffix: "images" → "report (images)/"
   options?: OptionKey[]; // e.g. ["pages"]
   timeoutMs?: number;
   available(): Promise<boolean>;

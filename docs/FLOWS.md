@@ -245,7 +245,7 @@ sequenceDiagram
 
 ## F7. Merge to PDF
 
-**Trigger:** 2 or more files, target pdf, Merge ticked, rows reordered.
+**Trigger:** 2 or more files, target pdf, Merge ticked, rows reordered. The same flow runs "One long image" (`stack-png`, target png), which also accepts 1 file whose route fans out; a fanned-out input adds all its pages in order.
 
 ```mermaid
 sequenceDiagram
@@ -523,6 +523,7 @@ sequenceDiagram
 1. Extraction is **lossless**: each image is written in its stored format with no re-encode. Formats that can't be stored natively are written as png.
 2. Progress is indeterminate (`fraction = null`), with `unit` advancing per range.
 3. A PDF with many inputs selected shows "Extract images" only when **every** selected file is a PDF. That runs one extract job per file.
+4. "Split into pages" (`split-pdf`, pdf-lib, M1.1-6) is a second extractor and runs the same flow, writing `page-<n>.pdf` into `report (pages)/`.
 
 **Errors:** `NOTHING_TO_EXTRACT` (not retryable, shown as info rather than an error style), `INPUT_ENCRYPTED`, `INVALID_REQUEST` (pages), `ENGINE_FAILED`, `ENGINE_MISSING`.
 **Invariants:** extracted bytes equal the embedded stream for natively stored formats.

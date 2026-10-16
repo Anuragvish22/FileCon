@@ -31,7 +31,7 @@ This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) 
 | FR-9 | Engine discovery checks the user override, then PATH, then known install dirs per OS | Unit test with fake FS |
 | FR-10 | One job failing in a batch doesn't affect the others | Integration test |
 | FR-11 | Folder drops expand recursively, skipping hidden entries, capped at 1000 files | Unit test |
-| FR-12 | Conversion options (`quality`, `dpi`, `pageSize`, `pages`) are validated and applied only where the route supports them | Unit + golden test |
+| FR-12 | Conversion options ([CONTRACTS section 2](CONTRACTS.md#2-options): `quality`, `dpi`, `pageSize`, `pages`, `width`, `height`, `grayscale`, `keepMetadata`, `tiffCompression`) are validated and applied only where the route supports them | Unit + golden test |
 | FR-13 | PDF → image renders only the pages in `pages` (grammar in [CONTRACTS section 2](CONTRACTS.md#2-options)), named by real page number | Unit + golden test |
 | FR-14 | "Extract images" writes every embedded image of the chosen pages in its stored format, without re-encoding | Golden test (byte-identical) |
 | FR-15 | An engine with a `download` install method installs in one click: confirm, download, SHA-256 verify, unpack, re-discover. A `command` method shows copyable commands | Unit test with a local HTTPS server |

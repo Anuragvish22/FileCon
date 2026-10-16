@@ -17,6 +17,7 @@ Every conversion we do or plan to do, by phase. **If a conversion isn't on this 
 | | eps, ps, ai | pdf · png | Ghostscript, which the user installs | M3 |
 | PDF | pdf | one combined pdf | built in | M1 |
 | | | png, jpg or tiff per page (pick pages and DPI) · the embedded images, untouched | Poppler | M1.1 |
+| | | only the chosen pages · one pdf per page · one long png | built in (+ Poppler for the long image) | M1.1 |
 | | scanned pdf | pdf with selectable text | OCRmyPDF | M3 |
 | Word-style documents | doc, docx, odt, rtf | pdf | LibreOffice | M1 |
 | | | png or jpg per page | LibreOffice + Poppler | M1.1 |
@@ -64,6 +65,12 @@ Every conversion we do or plan to do, by phase. **If a conversion isn't on this 
 | ☐ tiff | jpg · png · webp · avif · gif (first page only) |
 | ☐ gif | jpg · png · webp · avif · tiff (first frame only) |
 | ☐ jpg, webp, avif | the same format again, at another quality (re-encode) |
+| ☐ png, tiff, gif | the same format again (resize, grayscale) |
+
+- ☐ Resize: width and/or height, aspect kept, never enlarged
+- ☐ Grayscale
+- ☐ Photo info (EXIF, GPS): stripped by default, kept on request. Photos always come out upright
+- ☐ TIFF compression: LZW, Deflate, JPEG or none
 
 Images larger than the target format allows (JPEG 65,535 px, WebP 16,383 px a side) are scaled down to fit, and the result says so.
 
@@ -101,6 +108,12 @@ Images larger than the target format allows (JPEG 65,535 px, WebP 16,383 px a si
 - ☐ pdf → tiff pages
 - ☐ Page range option (`2-3,7`) and DPI
 - ☐ Extract embedded images from a pdf (originals, lossless)
+
+**PDF pages** (pdf-lib, built in)
+
+- ☐ pdf → pdf with only the chosen pages
+- ☐ Split a pdf into one pdf per page (optionally only some pages)
+- ☐ One long image: a pdf's pages, or several images, stacked into one tall png
 - ☐ One-click Poppler install on Windows, plus install commands on macOS and Linux
 
 **Chained automatically** (needs Office pack + PDF pack)
@@ -112,11 +125,13 @@ Images larger than the target format allows (JPEG 65,535 px, WebP 16,383 px a si
 
 - ☐ mp4 ↔ mkv ↔ webm ↔ mov
 - ☐ avi, wmv, flv, ts, mpg, 3gp, m4v, ogv ↔ the formats above
+- ☐ Resolution option: keep, 2160p, 1080p, 720p, 480p (aspect kept, never upscaled)
 
 **Audio ↔ audio** (FFmpeg)
 
 - ☐ mp3 ↔ wav ↔ flac ↔ ogg ↔ m4a
 - ☐ aac, opus, wma, aiff, m4b ↔ the formats above
+- ☐ Bitrate option for lossy audio: 96–320 kbps
 
 **Video → other** (FFmpeg)
 

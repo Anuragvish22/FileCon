@@ -254,7 +254,7 @@ answer = best[3][to] or null
 1. For each distinct input format, compute every node reachable within 3 hops in the **available** graph, and also in the **full** graph.
 2. `convert` = formats reachable from every input in the full graph. An input's own format counts as reachable only through its self-edge, so `jpg` is offered for jpg inputs only when a jpg self-edge exists.
    - `status = "ready"` if they're reachable in the available graph for every input. Otherwise `"needs-pack"`, with the first missing pack on the cheapest full-graph route.
-3. `merge` = combiners whose `accepts` is reachable (available or full) from every input. Offered only when there are 2 or more files.
+3. `merge` = combiners whose `accepts` is reachable (available or full) from every input. Offered only when there are 2 or more files, or 1 file whose route to `accepts` fans out (one pdf → one long image).
 4. `lossy`, `fanOut` and `options` are unioned across the inputs' routes.
 5. `extract` = extractors whose `accepts` equals the format of **every** input. There's no routing, so in M1.1 only PDFs offer "Extract images". `status` comes from the extractor's engine.
 
@@ -296,7 +296,7 @@ answer = best[3][to] or null
 - Inline images, and some soft masks, are written as separate files. That's expected and documented in the UI tooltip.
 
 **Executing a merge job:**
-1. For each input in user order, route it to `combiner.accepts` (as in steps 2 and 3 above) and collect `part-i`. Inputs that are already in `accepts` format are used directly. In v1 this runs sequentially. shortcut: parallel parts once merges of 50+ office docs feel slow.
+1. For each input in user order, route it to `combiner.accepts` (as in steps 2 and 3 above) and collect `part-i`. An input whose route fans out adds all its files, in page order. Inputs that are already in `accepts` format are used directly. In v1 this runs sequentially. shortcut: parallel parts once merges of 50+ office docs feel slow.
 2. `combiner.combine(parts, tmp/combine/, options, ctx)` → `commitFile`.
 3. If any input fails, the whole job fails with that input's error and `error.input` set. No partial PDF is written.
 
@@ -345,7 +345,7 @@ This section is the "never overwrite" guarantee ([PRD G4](PRD.md#4-goals-and-non
 - `mkdir("<stem> (<ext>)")`, which fails if it exists. On conflict, try `"<stem> (<ext>) (n)"`.
 - Commit each file inside as `page-001.<ext>`, zero-padded to the width of the file count (minimum 3).
 - Files from a fan-out keep their `page-<n>` stem, re-padded to the width of the highest page number (minimum 3): `page-003.<ext>`. Extractor files keep the name and extension the extractor gave them. Otherwise they're named by position.
-- The folder suffix is the target ext, or `images` for extract jobs: `report (png)/`, `report (images)/`.
+- The folder suffix is the target ext, or the extractor's `folder` for extract jobs: `report (png)/`, `report (images)/`, `report (pages)/`.
 - `outputs` = `[folder, ...files]`.
 
 **By construction**, a source file can never be the destination: every candidate is checked for existence atomically. Example: `a.png` that's really a JPEG, converted to png, lands at `a (1).png`.

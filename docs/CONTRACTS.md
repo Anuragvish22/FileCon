@@ -84,6 +84,7 @@ interface Extractor {
   engineId: string;                   // "poppler"
   pack: PackId;
   accepts: Format;                    // "pdf". UI action text: t("extract.<id>")
+  folder: string;                     // output folder suffix: "images" → "report (images)/"
   options?: OptionKey[];              // e.g. ["pages"]
   timeoutMs?: number;
   available(): Promise<boolean>;
@@ -110,11 +111,17 @@ interface ConvertOptions {
   dpi?: number;                       // 72..600, rasterizing (pdf→image). Default 150
   pageSize?: "auto" | "a4" | "letter"; // image→pdf. "auto" = page fits image. Default "auto"
   pages?: string;                     // pdf input only: "1-3,7,10-" (1-based). Empty/absent = all pages
+  width?: number;                     // 1..65535 px, images. Fit inside width × height, aspect kept, never enlarged
+  height?: number;                    // 1..65535 px. Either one alone works. shortcut: no upscaling, add when asked
+  grayscale?: boolean;                // images. Default false
+  keepMetadata?: boolean;             // images. Default false: EXIF, GPS and XMP are stripped. The ICC profile is always kept
+  tiffCompression?: "lzw" | "deflate" | "jpeg" | "none"; // tiff output only. Default "lzw"
 }
 ```
 
 - Validation happens in core at `submit`. Out-of-range values fail with `INVALID_REQUEST`, never silently clamped.
 - A converter ignores keys that aren't in its edge's `options` list.
+- Images are always turned upright from their EXIF orientation first, so stripping metadata never leaves a photo sideways.
 - **`pages` grammar:** a comma-separated list of `N`, `N-M`, `N-` (to the end) or `-M` (from page 1). Spaces are ignored. Numbers are ≥ 1 and `N ≤ M`. The result is normalized to sorted, merged ranges.
   - Bad syntax gives `INVALID_REQUEST` at `submit`.
   - Pages past the end are checked at run time against the real page count, and give `INVALID_REQUEST` with params `{ what: "page-past-end", page: 9, count: 5 }`.

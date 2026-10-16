@@ -46,7 +46,7 @@ Each feature lists its acceptance criteria (AC). A milestone ships only when eve
 ### M1 — Core MVP
 | ID | User story | Acceptance criteria |
 |---|---|---|
-| F1 | As a user I convert images between common formats | jpg, png, webp, avif, tiff and gif all convert to each other. Output opens in the OS default viewer, and dimensions are preserved. A quality option (1–100) applies to lossy targets |
+| F1 | As a user I convert images between common formats | jpg, png, webp, avif, tiff and gif all convert to each other. Output opens in the OS default viewer, and dimensions are preserved. A quality option (1–100) applies to lossy targets. Images can be resized (aspect kept), made grayscale, and keep or strip their photo info (stripped by default). TIFF output picks its compression |
 | F2 | As a user I convert office docs to PDF | doc, docx, odt, rtf, xlsx, ods, pptx and odp convert to pdf through LibreOffice. The page count is greater than 0 |
 | F3 | As a user I combine many files into one PDF | Select N images and/or docs, reorder them, then get one PDF with the pages in that order. Page size for images can be auto, A4 or Letter |
 | F4 | As a user I batch convert | Select N files or drop a folder (up to 1000 files), pick one target, and get N outputs. One failure doesn't stop the others |
@@ -58,8 +58,10 @@ Each feature lists its acceptance criteria (AC). A milestone ships only when eve
 ### M1.1
 - F9: pdf → png, jpg and tiff, one image per page (Poppler), with an optional page range (`2-3,7`) and DPI. Saved in a `<name> (png)/` folder as `page-002.png`… (named by real page).
 - F21: Extract embedded images from a PDF, losslessly in their original formats, into `<name> (images)/`. An optional page range applies. "No images found" is reported as info.
+- F34: Pick pages out of a PDF into a new PDF, or split it into one PDF per page in `<name> (pages)/`. Built in.
+- F35: One long image: a PDF's pages, or several images, stacked top to bottom into one png.
 - F22: One-click install of the PDF pack (Poppler) on Windows. macOS and Linux get copyable install commands and a Re-check button. This is F20's mechanism, pulled forward for this one engine.
-- F10: Audio and video through FFmpeg (video: mp4, mkv, webm, mov, avi, wmv, flv, ts, mpg, 3gp, m4v, ogv · audio: mp3, wav, flac, ogg, m4a, aac, opus, wma, aiff, m4b), including video → audio and video → gif.
+- F10: Audio and video through FFmpeg (video: mp4, mkv, webm, mov, avi, wmv, flv, ts, mpg, 3gp, m4v, ogv · audio: mp3, wav, flac, ogg, m4a, aac, opus, wma, aiff, m4b), including video → audio and video → gif. Video can be scaled down to 2160p, 1080p, 720p or 480p, and lossy audio takes a bitrate (96–320 kbps).
 - F11: Engines page showing each pack as found or missing, with its path override.
 
 ### M1.2

@@ -185,7 +185,7 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
 - **Parked to review first:** [P9 fonts in office → pdf](PARKED.md#2-items)
 - **Depends on:** M1-1, M1-3
 - **Files:**
-  - `converters/sharp.ts`: jpg, png, webp, avif, tiff and gif between each other, with `quality`. Self-edges jpg → jpg, webp → webp and avif → avif (cost 3, `quality`, lossy `reencoded`). Scales down to the target's size limit with `ctx.note("downscaled")` ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm))
+  - `converters/sharp.ts`: jpg, png, webp, avif, tiff and gif between each other, with `quality`. Self-edges jpg → jpg, webp → webp and avif → avif (cost 3, `quality`, lossy `reencoded`). Scales down to the target's size limit with `ctx.note("downscaled")` ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm)). Every sharp edge also takes `width`, `height`, `grayscale` and `keepMetadata`, and → tiff edges take `tiffCompression` ([CONTRACTS section 2](CONTRACTS.md#2-options)). Self-edges png → png, tiff → tiff and gif → gif at cost 2, no `lossy` id (for resize and grayscale). Always `rotate()` from EXIF first
   - `converters/pdflib.ts`: jpg and png → pdf at cost 1, with `pageSize`. Other images first route through sharp → png.
   - `converters/libreoffice.ts`: office formats → pdf at cost 5, `maxConcurrent: 1`, timeout 180 s, with a persistent profile per slot in `<dataDir>/lo-profile-<slot>/`, deleted after a failed run ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm))
   - `combiners/merge-pdf.ts`
@@ -202,6 +202,10 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
     - sharp `quality` out of range → `INVALID_REQUEST`
     - sharp: a 20,000 × 10 png → webp comes out ≤ 16,383 px wide with `Job.notes` = `["downscaled"]`; a normal one has no notes
     - sharp: jpg → jpg at quality 40 gives a valid, smaller jpg named `<stem> (1).jpg`
+    - sharp: 400×200 at `width` 100 → 100×50; `width` 1000 on a 400 px image stays 400; `width` 0 → `INVALID_REQUEST`
+    - sharp: `grayscale` output has 1 channel (or is `b-w`)
+    - sharp: GPS survives only with `keepMetadata`; an EXIF-rotated fixture comes out upright with metadata stripped
+    - sharp: each `tiffCompression` value gives that compression
     - libreoffice: two jobs in a row reuse the profile dir; after a failed run the dir is gone and the next job still succeeds
 
 ### M1-5 RPC server and core host ☐
@@ -287,7 +291,7 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
 
 ## 4. M1.1 — PDF to images
 
-Goal: PRD F9, F21 and F22 work. You can render PDF pages to images, extract embedded images, and install Poppler in one click on Windows. Design: [ARCH section 8](ARCHITECTURE.md#8-routing-algorithm) (PDF edges), [ARCH section 9](ARCHITECTURE.md#9-job-runner) (extract job), [ARCH section 11](ARCHITECTURE.md#11-engine-discovery) (install assistant), [FLOWS F14](FLOWS.md#f14-pdf-pages-to-images) to [F16](FLOWS.md#f16-install-an-engine).
+Goal: PRD F9, F21, F22, F34 and F35 work. You can render PDF pages to images, extract embedded images, pick or split PDF pages, stitch pages into one long image, and install Poppler in one click on Windows. Design: [ARCH section 8](ARCHITECTURE.md#8-routing-algorithm) (PDF edges), [ARCH section 9](ARCHITECTURE.md#9-job-runner) (extract job), [ARCH section 11](ARCHITECTURE.md#11-engine-discovery) (install assistant), [FLOWS F14](FLOWS.md#f14-pdf-pages-to-images) to [F16](FLOWS.md#f16-install-an-engine).
 
 ### M1.1-1 Page range parser ☐
 - **Depends on:** M0-2
@@ -368,8 +372,36 @@ Goal: PRD F9, F21 and F22 work. You can render PDF pages to images, extract embe
   - [ ] Windows without Poppler: the 🔒 target → Install → progress → the target unlocks with no restart.
   - [ ] Tamper the pinned hash in a dev build → `CHECKSUM_MISMATCH`, and nothing is left in `userData/engines/`.
 
+### M1.1-6 PDF page selection and split ☐
+- **Depends on:** M1.1-1, M1.1-3, M1-4
+- **Files:** `converters/pdflib.ts` (self-edge pdf → pdf, cost 1, `pages`: keeps only those pages in one pdf), `extractors/split-pdf.ts` (accepts pdf, `folder: "pages"`, `pages`: one `page-<n>.pdf` per page), renderer "Split into pages" next to "Extract images". Engine is pdf-lib, built in.
+- **Tests:**
+  - Happy path:
+    - `pages "2-3"` on a 5-page pdf → a 2-page pdf
+    - split of a 3-page pdf → `report (pages)/page-001.pdf` … `page-003.pdf`, one page each
+  - Must also pass:
+    - pages past the end → `INVALID_REQUEST` with `what: "page-past-end"`
+    - encrypted pdf → `INPUT_ENCRYPTED`
+    - `runConverterContract` for both
+
+### M1.1-7 One long image ☐
+- **Depends on:** M1.1-2, M1-4
+- **Files:** `combiners/stack-png.ts` (sharp: accepts png, output png, stacked top to bottom in input order, centred on the widest, white background; past sharp's pixel limit it scales down and calls `ctx.note("downscaled")`), `graph.ts` (`targets().merge` for 1 file whose route fans out), `jobs/runner.ts` (a fanned-out merge input adds all its files in page order), renderer "One long image" toggle for target png.
+- **Details:** [ARCH section 9](ARCHITECTURE.md#9-job-runner) merge job, [FLOWS F7](FLOWS.md#f7-merge-to-pdf). shortcut: output is png only, because jpg stops at 65,535 px; route onward when asked.
+- **Tests:**
+  - Happy path:
+    - two 100×50 pngs → one 100×100
+    - a 3-page pdf → height = sum of the page heights
+  - Must also pass:
+    - mixed widths are centred
+    - over the pixel limit → downscaled, `Job.notes` = `["downscaled"]`
+    - `targets` offers it for a single pdf, not for a single png
+    - `runConverterContract`
+
 ## 5. After M1
 
 The rest of M1.1 (FFmpeg, the Engines page polish), M1.2, M2 and M3 get their own task sections here when they start. Their scope is in [PRD section 5](PRD.md#5-features-by-milestone).
 
-**Parked to review first:** when writing the FFmpeg tasks, [P1 remux](PARKED.md#2-items) and [P5 presets](PARKED.md#2-items). When writing the M1.3 tasks, [P3 two-part extensions](PARKED.md#2-items) and [P11 HEIC](PARKED.md#2-items). After M1, [P6 watch folders](PARKED.md#2-items), [P7 command line](PARKED.md#2-items) and [P8 files opened while starting](PARKED.md#2-items).
+The FFmpeg tasks must cover the resolution and audio bitrate options ([CONVERSIONS section 2](CONVERSIONS.md#2-phase-m11--pdf-to-images-audio-and-video)), defined in the per-edge option schema ([CONTRACTS section 2](CONTRACTS.md#2-options) shortcut).
+
+**Parked to review first:** when writing the FFmpeg tasks, [P1 remux](PARKED.md#2-items), [P5 presets](PARKED.md#2-items) and [P14 naming patterns](PARKED.md#2-items). When writing the M1.3 image tasks, [P13 ICO sizes](PARKED.md#2-items). After M1, [P12 background removal](PARKED.md#2-items). When writing the M1.3 tasks, [P3 two-part extensions](PARKED.md#2-items) and [P11 HEIC](PARKED.md#2-items). After M1, [P6 watch folders](PARKED.md#2-items), [P7 command line](PARKED.md#2-items) and [P8 files opened while starting](PARKED.md#2-items).

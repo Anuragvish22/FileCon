@@ -81,7 +81,7 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
 
 **PDF row selected (M1.1)**
 ```
- Convert to: [ PNG ▾ ]      or   [ Extract images ]
+ Convert to: [ PNG ▾ ]  ☐ One long image   or   [ Extract images ] [ Split into pages ]
  Pages: [ 2-3,7      ]  (empty = all)    DPI: [ 150 ▾ ]
    ⓘ report.pdf → one PNG per page, saved in "report (png)/"
 ```
@@ -109,6 +109,7 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
 | Single convert | drop → auto-detect → pick target → Convert → job done → Show in folder | Target defaults to the last-used target if it's valid |
 | Batch | drop N → common targets shown → Convert → N jobs | One failure doesn't block the rest |
 | Merge to PDF | drop N → target PDF → tick Merge → reorder → Convert → 1 job | The Merge toggle shows only for N ≥ 2 and target = pdf |
+| One long image | drop a PDF (or N images) → target PNG → tick "One long image" → Convert → 1 job | Shown when `targets().merge` has `stack-png`: a single file only when its route fans out |
 | Missing engine | pick a 🔒 target → dialog: "Needs Office pack (LibreOffice)" with [Install guide] [Set path] | After a path is set, the target list refreshes |
 | PDF to images | PDF row → target PNG/JPG/TIFF → optional Pages and DPI → Convert → "report (png)/" | Pages are validated as you type (red outline + message on bad syntax) |
 | Extract images | PDF row → [Extract images] → optional Pages → 1 job per PDF → "report (images)/" | "No embedded images found" shows as an info row, not an error |
@@ -127,8 +128,8 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
 | Target picker | disabled (no files) · options · no common target ("These files share no output format") |
 | Convert button | disabled (no target) · enabled · busy while submitting |
 | Job row | queued · running (step i/n + %, or an indeterminate bar with "working…" when `fraction` is null) · done ✓ ("Show in folder", or "Open folder" for multi-output) · failed ✗ (`t("error.<code>", params)` from [CONTRACTS section 5](CONTRACTS.md#5-errors), Details = `detail`, Retry only if retryable) · cancelled ⊘ |
-| OptionsBar | hidden (route has no options) · shows only the keys in `TargetOption.options`: Quality slider 1–100, Page size auto/A4/Letter, DPI, Pages text field (`2-3,7`, invalid = red outline + "Use numbers and ranges like 1-3,7") |
-| Extract action | hidden (not all rows are PDF) · ready · 🔒 needs PDF pack |
+| OptionsBar | hidden (route has no options) · shows only the keys in `TargetOption.options`: Quality slider 1–100, Page size auto/A4/Letter, DPI, Pages text field (`2-3,7`, invalid = red outline + "Use numbers and ranges like 1-3,7"), Width and Height fields (px), Grayscale toggle, "Keep photo info" toggle (off), TIFF compression select |
+| Extract action | hidden (not all rows are PDF) · ready · 🔒 needs PDF pack. "Split into pages" sits next to "Extract images" and never needs a pack |
 | Install assistant | download: confirm → downloading (bytes) → verifying → unpacking → done / failed (message + Retry) · command: list with Copy → Re-check → found / still missing |
 | Core banner | hidden (`ready`) · "Starting…" (`starting`) · "Converter restarting…" (`restarting`) · "Converter unavailable, restart fileCon" with a Quit button (`unavailable`) |
 | Folder drop | toast "Added N files, skipped M hidden". When capped: "Added the first 1000 files" |
