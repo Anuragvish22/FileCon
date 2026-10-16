@@ -2,7 +2,7 @@
 
 Status: draft v0 · Related: [PRD](PRD.md) · [Architecture](ARCHITECTURE.md) · [UI Design](UI-DESIGN.md) · [Index](INDEX.md)
 
-This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) says **how it's built**.
+This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) says **how it's built**, and [CONTRACTS](CONTRACTS.md) defines every type, message and error code these requirements mention.
 
 ## 1. Stack
 
@@ -26,16 +26,21 @@ This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) 
 | FR-4 | Every route reports the lossy notes of all its edges | Graph unit tests |
 | FR-5 | For multiple inputs, offer only targets reachable from **every** input | Unit test |
 | FR-6 | Merge: route every input to the combiner's input format, then run the combiner (for example `merge-pdf`) | Golden test |
-| FR-7 | Output naming: `<dir>/<stem>.<ext>`, adding ` (n)` on conflict. Never overwrite | Unit test |
-| FR-8 | Jobs run concurrently with per-job progress, cancellation and a failure reason | Integration test |
+| FR-7 | Output naming: `<dir>/<stem>.<ext>`, adding ` (n)` on conflict. Multi-output goes in a `<stem> (<ext>)/` folder. Never overwrite, using an exclusive commit ([ARCH section 10](ARCHITECTURE.md#10-output-commit)) | Unit test, including a concurrent race |
+| FR-8 | Jobs run concurrently with per-job progress (indeterminate allowed), cancellation and a `CoreError` failure reason | Integration test |
 | FR-9 | Engine discovery checks the user override, then PATH, then known install dirs per OS | Unit test with fake FS |
 | FR-10 | One job failing in a batch doesn't affect the others | Integration test |
+| FR-11 | Folder drops expand recursively, skipping hidden entries, capped at 1000 files | Unit test |
+| FR-12 | Conversion options (`quality`, `dpi`, `pageSize`, `pages`) are validated and applied only where the route supports them | Unit + golden test |
+| FR-13 | PDF → image renders only the pages in `pages` (grammar in [CONTRACTS section 2](CONTRACTS.md#2-options)), named by real page number | Unit + golden test |
+| FR-14 | "Extract images" writes every embedded image of the chosen pages in its stored format, without re-encoding | Golden test (byte-identical) |
+| FR-15 | An engine with a `download` install method installs in one click: confirm, download, SHA-256 verify, unpack, re-discover. A `command` method shows copyable commands | Unit test with a local HTTPS server |
 
 ## 3. Non-functional requirements
 
 | ID | Category | Requirement |
 |---|---|---|
-| NFR-1 | Performance | The main process and renderer never run conversion work. CPU work goes to `worker_threads` or child processes |
+| NFR-1 | Performance | Conversion work runs only in the **core host** (an Electron `utilityProcess`) or in engine child processes, never in main or the renderer |
 | NFR-2 | Performance | Default concurrency is `max(1, os.cpus().length - 1)`. LibreOffice runs one at a time |
 | NFR-3 | Reliability | Every engine call has a timeout (default 120 s, per-converter override) and an `AbortSignal` |
 | NFR-4 | Reliability | Each job's temp dir is removed on done, failed, cancelled and app quit. Leftover temp dirs from crashes are swept on startup |
@@ -46,15 +51,16 @@ This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) 
 | NFR-9 | Portability | OS-specific code lives only in `core/src/engines/discovery.ts` and the app packaging config |
 | NFR-10 | Size | Engine binaries are never bundled in the installer or committed to the repo |
 | NFR-11 | Privacy | No network calls except user-initiated engine downloads (M3). No telemetry |
+| NFR-12 | Reliability | A core host crash never takes down the UI. Running jobs fail with `CORE_CRASHED`, and the host restarts (at most 3 times in 60 s) ([FLOWS F12](FLOWS.md#f12-core-crash-and-recovery)) |
 
 ## 4. Engine matrix
 
 | Engine | Pack | Mode | Formats (in → out) | License | Milestone |
 |---|---|---|---|---|---|
-| sharp (libvips) | builtin | in-proc worker | jpg, png, webp, avif, tiff, gif ↔ each other | Apache-2.0 / LGPL libvips | M1 |
-| pdf-lib | builtin | in-proc worker | jpg, png → pdf; merge pdf | MIT | M1 |
-| LibreOffice | office | child process | doc, docx, odt, rtf, xlsx, ods, pptx, odp → pdf (and docx ↔ odt and others later) | MPL-2.0 | M1 |
-| pdfium (CLI) | builtin or pdf | child process | pdf → png, jpg | BSD-3 / Apache-2.0 | M1.1 |
+| sharp (libvips) | builtin | in core host | jpg, png, webp, avif, tiff, gif ↔ each other | Apache-2.0 / LGPL libvips | M1 |
+| pdf-lib | builtin | in core host | jpg, png → pdf; merge pdf | MIT | M1 |
+| LibreOffice | office | child process | doc, docx, odt, rtf, xlsx, ods, pptx, odp → pdf (M1) · Office ↔ Office incl. txt, csv, xls, ppt (M1.2) | MPL-2.0 | M1, M1.2 |
+| Poppler (`pdftoppm`, `pdfimages`, `pdfinfo`) | pdf | child process | pdf → png, jpg, tiff (per page) · extract embedded images · page count | GPL-2.0+ (Windows build packaging: MIT) | M1.1 |
 | FFmpeg | media | child process | audio and video ↔ each other, video → gif | LGPL or GPL build | M1.1 |
 | Pandoc | docs | child process | md, html, docx, epub, odt, rst, latex | GPL-2.0 | M1.2 |
 | Assimp CLI | 3d | child process | obj, fbx, gltf, glb, stl, ply, dae | BSD-3 | M2 |
@@ -70,7 +76,10 @@ This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) 
 ## 5. License constraints
 
 - Engines are **invoked as separate processes**, never linked, except sharp and pdf-lib, which are permissively licensed.
-- **Avoid Ghostscript** (AGPL). Use pdfium for PDF rasterizing.
+- **Avoid Ghostscript** (AGPL) and MuPDF (AGPL). Use **Poppler** for PDF rasterizing and extraction. It's GPL, which is fine because it's only ever invoked as a separate process.
+- Poppler is never bundled in the installer:
+  - Windows: users get a one-click download of the pinned `oschwartz10612/poppler-windows` release, fetched from GitHub at their request and verified by SHA-256.
+  - macOS and Linux: users install it with their package manager.
 - FFmpeg: if the app ever bundles it (M3 download), use an **LGPL** build.
 - **ODA File Converter** can't be redistributed. The user installs it and fileCon only detects it.
 - LibreDWG (GPL, incomplete) is not planned.
@@ -81,7 +90,7 @@ This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) 
 | Layer | What | How |
 |---|---|---|
 | Unit | graph, routing, detection, output naming, discovery | vitest, pure functions, no engines |
-| Golden | each converter edge | `test/fixtures/<fmt>/` inputs → convert → assert the output **parses**: `file-type` matches, image dimensions or PDF page count are as expected. **No byte hashes** |
+| Golden | each converter edge | `test/fixtures/<fmt>/` inputs → convert → assert the output **parses**: `file-type` matches, image dimensions or PDF page count are as expected. **No byte hashes**, with one exception: extraction (`pdfimages`) must be **byte-identical** to the embedded originals, because being lossless is its whole point |
 | Engine-gated | anything that needs an external engine | `describe.skipIf(!(await conv.available()))`, so CI without LibreOffice still passes |
 | Integration | job runner | Cancel mid-job (no temp left, no output), timeout, a batch with one bad file |
 | Manual | UI | Checklist in [UI-DESIGN section 7](UI-DESIGN.md#7-accessibility) plus a smoke test per OS before release |
@@ -99,5 +108,5 @@ Rule: a converter isn't done until it has at least one golden test per edge fami
 ## 8. Tauri port path
 
 - `@filecon/core` has **no Electron imports**. Lint enforces this with `no-restricted-imports` on `electron`.
-- The core API is message-shaped (`detect`, `plan`, `submit`, `cancel`, `progress` events) and JSON-serializable.
-- Port plan: run core as a Node **sidecar** speaking JSON-RPC over stdio. Rewrite only the shell, IPC and packaging. Reuse the React renderer with a different IPC adapter.
+- The core already runs as a separate process (the core host) and speaks the JSON-RPC envelopes in [CONTRACTS section 6](CONTRACTS.md#6-core-rpc-protocol) over `parentPort`.
+- Port plan: start the same `core/src/host.ts` as a Node **sidecar**, with the transport switched to stdio (newline-delimited JSON). The server code doesn't change. Rewrite only main (in Rust), the preload bridge and packaging. The React renderer is reused behind the same `window.filecon` shape.

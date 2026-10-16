@@ -1,207 +1,423 @@
 # fileCon — Architecture
 
-Status: draft v0 · Related: [PRD](PRD.md) · [TRD](TRD.md) · [UI Design](UI-DESIGN.md) · [Index](INDEX.md)
+Status: draft v1 · Related: [Contracts](CONTRACTS.md) · [Flows](FLOWS.md) · [Build plan](BUILD-PLAN.md) · [TRD](TRD.md) · [Index](INDEX.md)
+
+This doc explains **how the system is structured and how its algorithms work**. Type definitions live only in [CONTRACTS](CONTRACTS.md). Step-by-step interactions live in [FLOWS](FLOWS.md).
 
 ## 1. Overview
 
-fileCon is an **orchestrator**. It detects formats, plans routes and runs jobs. The engines do the actual format work.
+fileCon is an **orchestrator**. It detects formats, plans routes through a graph of converter edges and runs jobs. Engines (libvips, LibreOffice, FFmpeg…) do the actual format work.
 
+```mermaid
+flowchart LR
+  subgraph App["Electron app"]
+    R["Renderer<br/>React, sandboxed"]
+    P["Preload<br/>window.filecon"]
+    M["Main<br/>window · dialogs · settings · validation · supervisor"]
+  end
+  subgraph Core["Core host (utilityProcess)"]
+    S["rpc/server"] --> D["detect"]
+    S --> G["graph"]
+    S --> J["runner"]
+    J --> C["converters / combiners"]
+  end
+  E["Engine processes<br/>soffice · ffmpeg · …"]
+  R -- invoke --> P -- ipcRenderer --> M
+  M -- "RPC (parentPort)" --> S
+  S -- "events" --> M -- "webContents.send" --> R
+  C -- "spawn, args array" --> E
+  C -. "in-process" .-> L["sharp · pdf-lib"]
 ```
-┌──────────────────────── packages/app (Electron) ────────────────────────┐
-│  Renderer (React)  ──window.filecon.*──▶  Preload (contextBridge)       │
-│        ▲                                        │ ipcRenderer.invoke    │
-│        └──────── job:progress events ◀──────────▼                       │
-│                                          Main process                   │
-│                                          (validates paths, settings)    │
-└──────────────────────────────────────────────┬──────────────────────────┘
-                                               │ direct calls (Tauri: stdio JSON-RPC)
-┌──────────────────────── packages/core (pure Node) ──────────────────────┐
-│   detect ──▶ plan (graph) ──▶ JobRunner ──▶ OutputResolver             │
-│                  ▲                 │                                    │
-│              Registry ◀── converters/*, combiners/*                    │
-└──────────────────────────────────┬─────────────────┬────────────────────┘
-                     worker_threads│                 │child_process.spawn
-                     sharp, pdf-lib│                 │soffice, ffmpeg, blender…
-```
 
-**Boundary rule:** `packages/core` never imports `electron`. Everything it exposes is JSON-serializable ([TRD section 8](TRD.md#8-tauri-port-path)).
+## 2. Processes
 
-## 2. Repo layout
+| Process | Owns | Must never |
+|---|---|---|
+| **Renderer** | UI state, user intent, rendering | Touch `fs`, spawn anything, see Node APIs. It gets paths only from drop (`webUtils`) or dialogs |
+| **Preload** | The typed `window.filecon` bridge ([CONTRACTS section 7](CONTRACTS.md#7-ipc-renderer--main)) | Contain logic beyond forwarding |
+| **Main** | Window lifecycle, single-instance lock, native dialogs, `settings.json`, path validation, folder expansion, `shell:reveal`, the core supervisor, the log file | Run conversions, load engines, or block for more than a few ms |
+| **Core host** | Detection, graph, planning, scheduling, temp dirs, output commit, engine discovery, in-process engines (sharp, pdf-lib) | Import `electron`, or trust paths without re-checking that they exist |
+| **Engine process** | One conversion step | Write outside its step `outDir`. That's enforced by args and cwd, not by trust |
+
+The core host is a plain Node entry (`core/src/host.ts`). Electron starts it with `utilityProcess.fork`. A Tauri build would start the same code as a Node sidecar, using the same protocol over stdio ([ADR-13](#15-adr-log)).
+
+## 3. Repo layout
 
 ```
 fileCon/
 ├── packages/
 │   ├── core/src/
-│   │   ├── index.ts            public API: detect, plan, createRunner, listEngines
-│   │   ├── types.ts            Format, Edge, Converter, Combiner, JobCtx, Route, Job
-│   │   ├── detect.ts           magic bytes (file-type) → extension fallback
-│   │   ├── formats.ts          canonical ids + aliases (jpeg→jpg, tif→tiff) + ext map
-│   │   ├── registry.ts         register/list converters & combiners
-│   │   ├── graph.ts            build graph from available edges, Dijkstra, maxHops
-│   │   ├── jobs/runner.ts      queue, concurrency, state machine, cancel
-│   │   ├── jobs/output.ts      output naming + atomic move
-│   │   ├── jobs/spawn.ts       spawn wrapper: args array, timeout, tree-kill
-│   │   ├── jobs/worker.ts      worker_thread pool for in-proc engines
-│   │   ├── engines/discovery.ts the ONLY OS-specific code: find engine binaries
-│   │   ├── converters/         sharp.ts, pdflib.ts, libreoffice.ts, …
-│   │   └── combiners/          merge-pdf.ts
+│   │   ├── index.ts              re-exports for tests and host
+│   │   ├── host.ts               utilityProcess / sidecar entry: wires transport → rpc/server
+│   │   ├── types.ts              CONTRACTS types, verbatim
+│   │   ├── errors.ts             CoreError factory per ErrorCode
+│   │   ├── formats.ts            FormatInfo table, aliases, ext → format lookup
+│   │   ├── detect.ts             content + extension detection
+│   │   ├── registry.ts           register / list converters and combiners
+│   │   ├── graph.ts              build graph, route search, targets
+│   │   ├── jobs/
+│   │   │   ├── runner.ts         job lifecycle, step execution, progress, cleanup
+│   │   │   ├── scheduler.ts      FIFO queue, global slots, per-converter semaphores
+│   │   │   ├── output.ts         name reservation, exclusive commit, multi-output folder
+│   │   │   ├── spawn.ts          safe spawn: args array, timeout, abort, tree kill, stderr tail
+│   │   │   └── tmp.ts            mkdtemp, recursive remove, startup sweep
+│   │   ├── engines/
+│   │   │   ├── specs.ts          EngineSpec per engine (the only per-OS data)
+│   │   │   ├── discovery.ts      override → installed → PATH → known paths, version probe
+│   │   │   └── install.ts        download → verify SHA-256 → unpack → re-discover
+│   │   ├── rpc/
+│   │   │   ├── protocol.ts       envelope guards, method/event names
+│   │   │   └── server.ts         dispatch methods → modules, emit events
+│   │   ├── converters/           sharp.ts · pdflib.ts · libreoffice.ts · poppler.ts · …
+│   │   ├── combiners/            merge-pdf.ts
+│   │   ├── extractors/           pdfimages.ts
+│   │   └── pages.ts              parse / normalize / bound-check the `pages` option
 │   └── app/src/
-│       ├── main/               window, ipc handlers, settings store
-│       ├── preload/            contextBridge → window.filecon
-│       └── renderer/           React UI (see UI-DESIGN)
-├── test/fixtures/<fmt>/        golden inputs (small, license-clean)
+│       ├── main/
+│       │   ├── index.ts          app lifecycle, window, wiring
+│       │   ├── supervisor.ts     fork core host, restart with backoff, CoreStatus
+│       │   ├── coreClient.ts     RPC client: ids, pending map, event fan-out
+│       │   ├── ipc.ts            ipcMain handlers (CONTRACTS section 7)
+│       │   ├── paths.ts          path validation, folder expansion
+│       │   ├── settings.ts       load / validate / atomic save
+│       │   └── log.ts            rotating log file in userData/logs
+│       ├── preload/index.ts      contextBridge → window.filecon
+│       └── renderer/
+│           ├── store/            reducer, actions, selectors, useCoreEvents
+│           ├── components/       DropZone, FileList, TargetPicker, OptionsBar, JobsPanel, …
+│           └── pages/            ConvertPage, EnginesPage, SettingsPage
+├── test/fixtures/<format>/       tiny license-clean inputs (≤ 1 MB each)
 └── docs/
 ```
 
-## 3. Core interfaces
+## 4. Layering
 
-These are the source of truth. Code must match them, and any change to them updates this section in the same change.
+Arrows point from a module to what it may import. Anything not shown is forbidden.
 
-```ts
-type Format = string;            // canonical lowercase id: "jpg", "pdf", "docx"
-type PackId = "builtin" | "office" | "media" | "docs" | "3d" | "cad" | "ocr";
-
-interface Edge {
-  from: Format;
-  to: Format;
-  cost: number;                  // 1 = lossless & fast … 10 = very lossy/slow
-  lossy?: string;                // shown to user, e.g. "layout approximate"
-}
-
-interface JobCtx {
-  signal: AbortSignal;           // cancel
-  tmpDir: string;                // job-private, deleted by runner
-  onProgress(fraction: number): void;  // 0..1 for current step
-}
-
-interface Converter {
-  id: string;                    // "sharp", "libreoffice"
-  pack: PackId;
-  edges: Edge[];
-  timeoutMs?: number;            // default 120_000
-  maxConcurrent?: number;        // e.g. libreoffice = 1
-  available(): Promise<boolean>; // engine present?
-  convert(input: string, output: string, ctx: JobCtx): Promise<void>;
-}
-
-interface Combiner {
-  id: string;                    // "merge-pdf"
-  accepts: Format;               // every input is routed to this first
-  output: Format;
-  combine(inputs: string[], output: string, ctx: JobCtx): Promise<void>;
-}
-
-interface Step { converterId: string; from: Format; to: Format }
-interface Route { steps: Step[]; cost: number; lossy: string[] }
-
-type JobState = "queued" | "running" | "done" | "failed" | "cancelled";
-interface Job {
-  id: string;
-  inputs: string[];              // 1 for convert, N for combine
-  target: Format;
-  combinerId?: string;
-  state: JobState;
-  step?: { index: number; total: number; fraction: number };
-  output?: string;
-  error?: string;
-}
+```mermaid
+flowchart TD
+  host --> server["rpc/server"]
+  server --> protocol["rpc/protocol"]
+  server --> detect & routing["graph"] & runner & discovery["engines/discovery"] & registry & install["engines/install"]
+  install --> discovery
+  runner --> scheduler & output & tmp & routing & registry
+  routing --> registry & formats
+  detect --> formats
+  registry --> converters & combiners & extractors
+  extractors --> spawn
+  converters --> spawn["jobs/spawn"] & discovery
+  combiners --> spawn
+  discovery --> specs["engines/specs"]
 ```
 
-## 4. Data flow
+All modules may import `types.ts` and `errors.ts`.
 
-1. **Detect.** `detect(path)` returns `{ format, byContent, byExt, mismatch }`.
-   - It reads the first 4100 bytes and runs `file-type`.
-   - If there's no match (text formats such as md, csv, svg, dxf, obj), it falls back to the extension through `formats.ts`.
-   - ZIP-based containers (docx, xlsx, pptx, odt) can't be told apart by magic bytes alone, so the extension decides between them.
-2. **Plan.** `plan(from, to)` returns `Route | null`.
-   - It builds the graph from converters whose `available()` is true. That result is cached and refreshed when engines change.
-   - It runs Dijkstra on `cost`, capped at **3 hops**. An equal cost goes to the route whose converters rank higher in user priority.
-   - `lossy` is the union of each step's notes.
-   - `targets(froms[])` gives the intersection of formats reachable from every input, which feeds the UI target picker.
-3. **Submit.** The runner creates a `Job` and queues it.
-4. **Run.** Each step writes to `tmpDir/step-<i>.<ext>`, and the next step reads that file.
-5. **Finish.** The last file is moved atomically to the output path ([section 6](#6-job-runner)), then the temp dir is removed.
+Rules:
+- **Converters and combiners never import** `runner`, `scheduler`, `graph`, `output` or `rpc`. They're pure adapters.
+- Only `host.ts` knows the transport (parentPort or stdio).
+- No import cycles. ESLint `import/no-cycle` and `import/no-restricted-paths` enforce this from M0-1.
+- `packages/app` imports only `@filecon/core/types`, never core runtime code. Main talks to core over RPC only.
 
-## 5. Merge (N to 1)
+## 5. Module map
 
-Merges are kept outside the graph, because N-to-1 doesn't fit the edge model.
-
-```
-inputs[i] ──plan(fmt_i → combiner.accepts)──▶ tmp/part-i.pdf ─┐
-                                                            ├─▶ combiner.combine() ─▶ output.pdf
-inputs[j] ──(already pdf: no-op)──────────────────────────────┘
-```
-
-- Input order is the order the user set in the UI.
-- If any input has no route, the job fails before running anything, and the error names that input.
-- v1 has one combiner, `merge-pdf` (pdf-lib). A later candidate is `zip` (archive).
-
-## 6. Job runner
-
-**State machine:** `queued → running → done | failed | cancelled`. Every terminal state cleans up.
-
-- **Temp dir:** `os.tmpdir()/filecon-<jobId>/`. On startup, the runner sweeps `filecon-*` dirs older than 24 h that were left by crashes.
-- **Concurrency:** a global limit of `cpus - 1`, plus a per-converter `maxConcurrent` limit. LibreOffice is limited to 1, and each call gets `-env:UserInstallation=file://<tmpDir>/lo-profile` so its profile can't lock.
-- **External engines** (`jobs/spawn.ts`):
-  - `spawn(bin, args[], { shell: false })`
-  - kill on `signal` abort or when `timeoutMs` passes
-  - kill the whole process tree (`taskkill /T /F` on Windows, process group kill on POSIX)
-  - capture stderr, and keep its last 2 KB as the failure reason
-- **In-process engines** (sharp, pdf-lib) run in a `worker_threads` pool, so main never blocks. Cancelling terminates the worker.
-- **Output** (`jobs/output.ts`):
-  - The default target folder is the source's folder, or the user can choose one.
-  - The name is `<stem>.<ext>`, or `<stem> (n).<ext>` when that exists.
-  - The file is written in temp, then moved with `fs.rename`, or copy+unlink across devices.
-  - **The runner never opens a source file for writing.**
-- **Batch:** each file is its own job. A failure only affects its own job.
-
-## 7. Engine discovery and packs
-
-The order for each engine:
-1. The user override from settings
-2. `PATH` (`which`/`where`)
-3. Known install dirs per OS ([TRD section 4](TRD.md#4-engine-matrix))
-
-- After that, a version probe (`--version`) is cached per path.
-- `listEngines()` returns `{ id, pack, found, path?, version?, installUrl }[]` for the Engines page.
-- If a pack is missing, its converters are left out of the graph. The UI can still show "needs X pack" targets by running `plan` against the **full** graph with an `includeUnavailable` flag.
-- M3 one-click downloads go to `app.getPath('userData')/engines/<id>/` and are verified against a pinned SHA-256.
-
-## 8. IPC contract
-
-The preload exposes `window.filecon`. Every call goes through `ipcRenderer.invoke` to a main handler, and main validates every path ([TRD NFR-8](TRD.md#3-non-functional-requirements)).
-
-| Channel | Direction | Request | Response |
+| Module | Responsibility | Public API | Test |
 |---|---|---|---|
-| `core:detect` | R → M | `{ paths: string[] }` | `DetectResult[]` |
-| `core:targets` | R → M | `{ formats: Format[] }` | `{ format, route?, needsPack?, lossy[] }[]` |
-| `job:submit` | R → M | `{ inputs, target, combinerId?, outDir? }` | `{ jobId }` |
-| `job:cancel` | R → M | `{ jobId }` | `void` |
-| `job:progress` | M → R (event) | — | `Job` snapshot (throttled to about 10/s) |
-| `engines:list` | R → M | — | `EngineInfo[]` |
-| `settings:get` / `settings:set` | R → M | `Partial<Settings>` | `Settings` |
-| `shell:reveal` | R → M | `{ path }` | `void` (shows the file in its folder) |
+| `formats` | Canonical ids, aliases, ext lookup | `FORMATS`, `byExt(ext)`, `canonical(id)`, `info(id)` | `formats.test.ts` |
+| `detect` | Content-first detection | `detect(path): Promise<DetectResult>` | `detect.test.ts` + fixtures |
+| `registry` | Hold converters, combiners and extractors | `register(x)`, `converters()`, `combiners()`, `extractors()`, `get(id)` | `registry.test.ts` |
+| `pages` | `pages` option | `parsePages(str)`, `boundPages(ranges, count)`, `toRanges(pages)` | `pages.test.ts` |
+| `graph` | Graph build and route search | `buildGraph(convs, availableIds, priority)`, `route(g, from, to)`, `targets(g, full, formats)` | `graph.test.ts` |
+| `jobs/scheduler` | Slots and semaphores | `createScheduler(n)`, `acquire(convId, max)`, `setConcurrency(n)` | `scheduler.test.ts` |
+| `jobs/runner` | Execute jobs | `createRunner(deps)`, `.submit(reqs)`, `.cancel(id)`, `.cancelAll()`, `on("update")` | `runner.test.ts` |
+| `jobs/output` | Never-overwrite commit | `commitFile(src, dir, stem, ext)`, `commitFolder(files, dir, stem, ext)` | `output.test.ts` |
+| `jobs/spawn` | Safe external process | `run(bin, args, { signal, timeoutMs, cwd, onStdout? })` | `spawn.test.ts` |
+| `jobs/tmp` | Temp lifecycle | `makeJobDir(id)`, `removeDir(p)`, `sweep(olderThanMs)` | `tmp.test.ts` |
+| `engines/discovery` | Find engines | `discover(spec, deps)`, `discoverAll(specs, overrides)` | `discovery.test.ts` |
+| `engines/install` | Install assistant (download kind) | `install(spec, deps, onProgress)` | `install.test.ts` (local fake HTTPS server) |
+| `rpc/server` | Dispatch and events | `createServer(transport, deps)` | `server.test.ts` (MessageChannel) |
+| `converters/*` | One engine each | `Converter` object | `converters/<id>.test.ts` (golden) |
+| `main/supervisor` | Core host lifecycle | `startCore()`, `status`, `on("status")` | `supervisor.test.ts` (fake fork) |
+| `main/paths` | Trust boundary | `validateFile(p)`, `validateDir(p)`, `expand(paths)` | `paths.test.ts` |
+| `main/settings` | Persisted settings | `load()`, `save(patch)` | `settings.test.ts` |
 
-The renderer gets file paths only from drag-drop (`webUtils.getPathForFile`) or the native open dialog.
+## 6. Format registry
 
-## 9. Extensibility
+M1 formats are listed below. The first extension is the one used for outputs.
 
-To add a converter:
-1. Create `packages/core/src/converters/<id>.ts` that implements `Converter` ([section 3](#3-core-interfaces)).
-2. Declare `edges` with honest `cost` and `lossy` notes, and set `pack` and `timeoutMs`.
-3. Implement `available()` through `engines/discovery.ts`, and `convert()` through `jobs/spawn.ts` or the worker pool.
-4. Register it in `registry.ts`. Add fixtures and a golden test ([TRD section 6](TRD.md#6-testing-strategy)). Add a license row to [TRD section 4](TRD.md#4-engine-matrix).
+| id | Category | Extensions | multiPage | Aliases |
+|---|---|---|---|---|
+| jpg | image | jpg, jpeg, jpe | — | jpeg |
+| png | image | png | — | |
+| webp | image | webp | — | |
+| avif | image | avif | — | |
+| tiff | image | tiff, tif | yes | tif |
+| gif | image | gif | yes | |
+| pdf | pdf | pdf | yes | |
+| doc | document | doc | — | |
+| docx | document | docx | — | |
+| odt | document | odt | — | |
+| rtf | document | rtf | — | |
+| xlsx | spreadsheet | xlsx | — | |
+| ods | spreadsheet | ods | — | |
+| pptx | presentation | pptx | — | |
+| odp | presentation | odp | — | |
 
-Adding a combiner works the same way: implement `Combiner` and register it.
+In v1, multi-page tiff and gif are read as their first frame only. shortcut: per-frame fan-out comes when an animated gif/tiff edge is added.
 
-## 10. ADR log
+## 7. Detection algorithm
 
-| # | Decision | Why | Alternatives rejected |
+`detect(path)` (flow: [FLOWS F2](FLOWS.md#f2-add-files-and-detect)):
+
+1. `stat`. If it's missing, the result is `INPUT_NOT_FOUND`. If it's not a regular file or can't be read, `INPUT_UNREADABLE`. If size is 0, `EMPTY_FILE`.
+2. `byExt = formats.byExt(extension)`, which may be null.
+3. Read the first 4100 bytes and run `file-type`, which gives `byContent`.
+4. Resolve:
+   1. **CFB/OLE** (`cfb`): legacy Office. If `byExt` is doc, xls or ppt, use it. Otherwise the result is `UNSUPPORTED_FORMAT`.
+   2. **Generic zip**: if `byExt` is a zip-based format (docx, xlsx, pptx, odt, ods, odp, epub), use it. Otherwise it's `UNSUPPORTED_FORMAT`, since archives aren't supported in M1.
+   3. Any other match: `format = byContent`.
+   4. No content match: if `byExt` is a text format (svg, md, csv, html, dxf, obj…), use `byExt`. svg additionally needs `<svg` within the first 4 KB. Otherwise `UNSUPPORTED_FORMAT`.
+5. `mismatch = byContent && byExt && canonical(byContent) !== canonical(byExt)`. It's never set in cases 4.1 and 4.2.
+
+The format core uses is always `format`, so a mislabeled file converts correctly ([PRD F5](PRD.md#5-features-by-milestone)).
+
+## 8. Routing algorithm
+
+**Graph build** (`buildGraph`):
+- Nodes are formats. For each converter whose `available()` was true, and for each edge with `from !== to`, add a candidate.
+- When several converters offer the same (from, to), keep the lowest cost. On a tie, keep the converter earlier in `Settings.engines.priority`, and after that the one registered first.
+- Two graphs are kept: **available** (installed engines only) and **full** (every registered converter). The full graph is used only to label targets `needs-pack`.
+
+**Cost scale.** Every edge must use these levels:
+
+| Cost | Meaning | Example |
+|---|---|---|
+| 1 | Lossless container or wrapper change | jpg → pdf (embedded as-is), mp4 → mkv remux |
+| 2 | Lossless re-encode | png → tiff, png → webp (lossless) |
+| 3 | Good-quality lossy re-encode | png → jpg, png → avif |
+| 5 | Render or rasterize | docx → pdf, pdf → png |
+| 8 | Approximate reconstruction | pdf → docx |
+| 10 | Major data loss | step → stl, video → gif |
+
+**Route search** uses hop-bounded Bellman-Ford. It's exact under the hop cap ([ADR-9](#15-adr-log)).
+
+```text
+best[0][from] = (cost 0, hops 0, path [])
+for k in 1..3:
+  best[k] = copy(best[k-1])
+  for each edge (u → v) with best[k-1][u] defined:
+    if path(u) already has a fanOut edge and edge.fanOut: skip      # max one fan-out
+    if v already on path(u): skip                                   # no cycles
+    cand = best[k-1][u] + edge
+    if better(cand, best[k][v]): best[k][v] = cand
+better = lower cost, then fewer hops, then higher priority (sum of priority ranks)
+answer = best[3][to] or null
+```
+
+**Fan-out.**
+- A `fanOut` edge (pdf → png) returns N files.
+- The runner runs every later step once per file, preserving order. pdf → png → webp gives N webp files.
+- The final outputs go into one folder ([section 10](#10-output-commit)).
+- Fan-out converters **name their files `page-<n>.<ext>`**, where n is the real 1-based page. Later steps use that stem as `baseName`, so the names stay `page-003` and `page-007` even after pdf → png → webp. `commitFolder` re-pads n to the folder's width.
+
+**PDF edges (Poppler, M1.1)**, in `converters/poppler.ts`:
+
+| Edge | Cost | fanOut | options | Command (per contiguous range a–b) |
+|---|---|---|---|---|
+| pdf → png | 5 | yes | dpi, pages | `pdftoppm -r <dpi> -png -f a -l b -progress <in> <outDir>/p` |
+| pdf → jpg | 5 | yes | dpi, pages, quality | `pdftoppm -r <dpi> -jpeg -jpegopt quality=<q> -f a -l b -progress <in> <outDir>/p` |
+| pdf → tiff | 5 | yes | dpi, pages | `pdftoppm -r <dpi> -tiff -f a -l b -progress <in> <outDir>/p` |
+
+1. First run `pdfinfo <in>`. Parse `Pages:` for the count and `Encrypted:` for encryption. Encryption that blocks reading gives `INPUT_ENCRYPTED`.
+2. `boundPages(parsePages(options.pages), count)`. Out-of-range pages give `INVALID_REQUEST`.
+3. Run `pdftoppm` once per range. Progress is pages done / total, parsed from `-progress` stderr lines.
+4. pdftoppm names files `p-<n>.<ext>`, zero-padded by document length. Rename each to `page-<n>.<ext>` by parsing n, never by sort order.
+
+**Targets** (`targets(available, full, formats)`):
+1. For each distinct input format, compute every node reachable within 3 hops in the **available** graph, and also in the **full** graph.
+2. `convert` = formats reachable from every input in the full graph, excluding formats equal to every input's own format.
+   - `status = "ready"` if they're reachable in the available graph for every input. Otherwise `"needs-pack"`, with the first missing pack on the cheapest full-graph route.
+3. `merge` = combiners whose `accepts` is reachable (available or full) from every input. Offered only when there are 2 or more files.
+4. `lossy`, `fanOut` and `options` are unioned across the inputs' routes.
+5. `extract` = extractors whose `accepts` equals the format of **every** input. There's no routing, so in M1.1 only PDFs offer "Extract images". `status` comes from the extractor's engine.
+
+**Caching:** routes are memoized per (from, to) per graph. The cache is cleared when the graph is rebuilt, which happens on `init`, `engines.refresh` and `settings.apply` when engine paths or priority change.
+
+## 9. Job runner
+
+([FLOWS F4 to F9](FLOWS.md#f4-single-convert))
+
+**Scheduling** (`scheduler.ts`):
+- A FIFO queue of jobs, with global slots = `concurrency`. A job holds one slot from `running` until it reaches a terminal state.
+- Before each step, the job also acquires the converter's semaphore (`maxConcurrent`, LibreOffice = 1) and releases it after the step.
+- shortcut: a job waiting on the LibreOffice semaphore still holds a global slot. Fine at ≤ 32 slots. Revisit if office batches starve image jobs.
+- `setConcurrency(n)` takes effect as slots free up. Running jobs are never interrupted.
+
+**Executing a convert job:**
+1. `tmp = makeJobDir(jobId)`, which is `os.tmpdir()/filecon-<jobId>-XXXX/`.
+2. Re-check that the input exists. Route = `route(available, format, target)`. If there's no route, fail with `NO_ROUTE` or `ENGINE_MISSING`.
+3. `files = [input]`. For each step i:
+   - `outDir = tmp/s<i>/`.
+   - For each file in `files`, call `converter.convert({ input: file, from, to, outDir: outDir/<n>/, baseName, options }, ctx)`. When there's one file, use `outDir` directly.
+   - **Postcondition:** each returned path is inside `outDir` and exists with size > 0. Otherwise `ENGINE_OUTPUT_MISSING`.
+   - `files` = every returned path, in order.
+4. Commit: one file uses `commitFile`. Otherwise `commitFolder` ([section 10](#10-output-commit)).
+5. Mark the job `done` with its outputs. Then `finally`: release the slot, `removeDir(tmp)`.
+
+**Executing an extract job** ([FLOWS F15](FLOWS.md#f15-extract-embedded-images)):
+1. `tmp = makeJobDir`. Re-check the input. Acquire the extractor's semaphore if it has one.
+2. `files = extractor.extract(input, tmp/x/, options, ctx)`. `[]` gives `NOTHING_TO_EXTRACT`.
+3. Postcondition: each file is inside `tmp/x/` and has size > 0.
+4. `commitFolder(files, dir, stem, "images")`, keeping each file's **own** extension and the extractor's name (`page-003-01.jpg`).
+
+**pdfimages extractor** (`extractors/pdfimages.ts`):
+- `pdfinfo` → bound pages (as for the PDF edges).
+- Then `pdfimages -all -p -f a -l b <in> <outDir>/img` per range. `-all` writes the original streams (jpg stays jpg, jp2 stays jp2, and anything that can't be written natively becomes png), with no re-encode. `-p` adds the page number.
+- Rename `img-<page>-<idx>.<ext>` to `page-<page>-<nn>.<ext>`, where `nn` is the 1-based index on that page.
+- Inline images, and some soft masks, are written as separate files. That's expected and documented in the UI tooltip.
+
+**Executing a merge job:**
+1. For each input in user order, route it to `combiner.accepts` (as in steps 2 and 3 above) and collect `part-i`. Inputs that are already in `accepts` format are used directly. In v1 this runs sequentially. shortcut: parallel parts once merges of 50+ office docs feel slow.
+2. `combiner.combine(parts, tmp/combine/, options, ctx)` → `commitFile`.
+3. If any input fails, the whole job fails with that input's error and `error.input` set. No partial PDF is written.
+
+**Progress:**
+- Convert: `(stepIndex + stepFraction) / steps`.
+- Merge: `(inputsDone + inputFraction) / (inputs + 1)`.
+- If the current step reports `null`, the overall `fraction` is `null` (indeterminate), but `unit`/`total` still advance.
+
+**Timeouts and cancel:**
+- Each step gets its own `AbortController`, linked to the job's controller. A timer of `converter.timeoutMs` aborts it with the reason `TIMEOUT`.
+- `cancel` on a queued job removes it from the queue and marks it `cancelled` immediately.
+- `cancel` on a running job aborts. `spawn.ts` kills the process tree, the converter promise rejects, the runner cleans up and then marks the job `cancelled`.
+- In-process engines check `ctx.signal.aborted` between pages or chunks. sharp operations aren't interruptible, so cancel takes effect when the current operation ends.
+
+**Temp hygiene:**
+- `sweep(24 h)` runs at `init` and removes `filecon-*` dirs whose mtime is older than 24 h.
+- `ENOSPC` anywhere becomes `DISK_FULL`.
+
+## 10. Output commit
+
+This section is the "never overwrite" guarantee ([PRD G4](PRD.md#4-goals-and-non-goals)). It's implemented in `jobs/output.ts` (flow: [FLOWS F4](FLOWS.md#f4-single-convert)).
+
+**Destination dir:** the `JobRequest.outDir` if given, otherwise `Settings.output`. Its writability is checked at `submit` with `fs.access(W_OK)`. On failure, `OUTPUT_DIR_NOT_WRITABLE`.
+
+**Single file** (`commitFile(src, dir, stem, ext)`):
+1. For n = 0..999, the candidate is `stem.ext` when n = 0, otherwise `stem (n).ext`.
+   - Skip candidates that are in the in-memory **reservation set** (shared by all jobs in the host). Otherwise reserve the candidate.
+2. `fs.link(src, candidate)`. This is atomic and fails with `EEXIST` if the file exists.
+   - On `EEXIST`, unreserve and try the next n.
+   - On success, `unlink(src)` and stop.
+3. On `EXDEV`, `EPERM` or `ENOTSUP` (cross-device, or FAT/exFAT without hard links), copy with `COPYFILE_EXCL` to `candidate + ".filecon-part"`.
+   - Then `fs.link(part, candidate)` if supported. Otherwise `fs.stat(candidate)` must be ENOENT, then `rename(part, candidate)`.
+   - Finally unlink the part file. That check-then-rename race only matters against other programs, because the reservation set guards fileCon's own jobs.
+4. Unreserve once the commit finishes. More than 999 attempts gives `OUTPUT_WRITE_FAILED`.
+
+**Multi-output** (`commitFolder(files, dir, stem, ext)`):
+- `mkdir("<stem> (<ext>)")`, which fails if it exists. On conflict, try `"<stem> (<ext>) (n)"`.
+- Commit each file inside as `page-001.<ext>`, zero-padded to the width of the file count (minimum 3).
+- Files from a fan-out keep their `page-<n>` stem, re-padded to the width of the highest page number (minimum 3): `page-003.<ext>`. Extractor files keep the name and extension the extractor gave them. Otherwise they're named by position.
+- The folder suffix is the target ext, or `images` for extract jobs: `report (png)/`, `report (images)/`.
+- `outputs` = `[folder, ...files]`.
+
+**By construction**, a source file can never be the destination: every candidate is checked for existence atomically. Example: `a.png` that's really a JPEG, converted to png, lands at `a (1).png`.
+
+## 11. Engine discovery
+
+([FLOWS F10](FLOWS.md#f10-missing-engine-then-set-path))
+
+`discover(spec, deps)`, where `deps = { platform, env, isExecutable, exec }` is injectable so tests need no real binaries:
+1. **Bundled** (`spec.bundled`): `found = true`, `source = "bundled"`, and the version comes from package.json.
+2. **Override:** `Settings.engines.paths[id]`. If it's set but not executable, `found = false` with an error. It doesn't fall through, so the user sees their path is wrong.
+3. **Installed:** the newest `userData/engines/<id>/<version>/<binDir>` from a previous install ([CONTRACTS section 9](CONTRACTS.md#9-engines)).
+4. **PATH:** for each name in `bins[platform]`, look in each PATH dir. On win32, also try `PATHEXT` extensions.
+5. **Known paths:** `knownPaths[platform]`, with globs expanded (e.g. `/opt/libreoffice*/program/soffice`).
+6. **WSL guard:** if `/proc/version` contains "microsoft", skip any candidate under `/mnt/<letter>/`. A Windows `.exe` would get Linux-style paths it can't read.
+7. **Required bins:** when `requiredBins` is set (Poppler), every bin must exist in the **same** dir as the first hit. Otherwise `found = false`, with the error "incomplete install (missing pdfimages)".
+8. **Version probe:** `exec(path, versionArgs, timeout 5 s)`, then `versionPattern`. A failed probe means `found = true` with an error ("version check failed"). Only an unrunnable binary means `found = false`.
+
+The result is cached per session. It's refreshed on `engines.refresh`, after `engines.install`, or when `settings.apply` changes `engines.paths`.
+
+**Install assistant** ([FLOWS F16](FLOWS.md#f16-install-an-engine)):
+- Each `EngineSpec.install[platform]` gives one method.
+- **download** (Poppler on Windows): `engines/install.ts` streams the URL to `userData/engines/<id>/<version>.zip.part`, hashing as it goes.
+  - Then it compares against the pinned `sha256` (a mismatch gives `CHECKSUM_MISMATCH`), unpacks with `tar -xf` into `<version>/`, deletes the zip, and re-discovers.
+  - Any failure removes `<version>/` and gives `INSTALL_FAILED`.
+  - It uses only Node's built-in `https` and `crypto`, so no dependency.
+- **command** (macOS: Homebrew; Linux: apt or dnf): shown with Copy buttons and a Re-check button. The app never runs package managers or `sudo` itself.
+- Poppler pins (reviewed on bump):
+
+  | OS | Method | Value |
+  |---|---|---|
+  | win32 | download | `oschwartz10612/poppler-windows` **v26.09.0-0**, `Release-26.09.0-0.zip`, 43 709 956 bytes, sha256 `7a6f256a0ddf7536182246a5733331bf4677cbcc34f4663774947ad34556c8d0`, binDir `poppler-26.09.0/Library/bin` (verify the binDir at M1.1-4) |
+  | darwin | command | `brew install poppler` |
+  | linux | command | `sudo apt install poppler-utils` · `sudo dnf install poppler-utils` · `sudo pacman -S poppler` |
+
+## 12. Core host and supervision
+
+([FLOWS F1](FLOWS.md#f1-app-startup), [F12](FLOWS.md#f12-core-crash-and-recovery), [F13](FLOWS.md#f13-app-quit))
+
+- **Start:** `utilityProcess.fork(hostPath, [], { serviceName: "filecon-core", stdio: "pipe" })`. Its stdout and stderr go to the log.
+  - The supervisor sets status `starting`, sends `init({ settings })`, and waits for `ready` for up to 15 s. Then status is `ready`.
+- **RPC client** (`coreClient.ts`):
+  - Ids increase monotonically, with a pending map of `id → { resolve, reject, timer }`. The per-call timeout is 30 s, except for `submit`, `cancel` and `shutdown`, which wait without a limit.
+  - Events go out through an emitter.
+- **Crash** (`exit` with a non-zero code, or no `ready` in time):
+  1. Reject every pending call with `CORE_CRASHED`.
+  2. For each job last seen as `queued` or `running`, emit a synthesized `job:update` with `state: "failed"` and `error.code: "CORE_CRASHED"`.
+  3. If there were fewer than 3 restarts in the last 60 s, set status `restarting`, wait 1 s · 2^n and fork again.
+  4. Otherwise set status `unavailable`. Every IPC call then returns `CORE_UNAVAILABLE` until the app restarts.
+- **Quit:** `before-quit` runs `preventDefault`, then calls `shutdown` (which cancels everything and cleans up) and waits for it, for up to 5 s. If it doesn't finish, `kill()`. Then `app.quit()`.
+
+## 13. Renderer architecture
+
+([UI-DESIGN](UI-DESIGN.md))
+
+**One store** (`useReducer` with context):
+
+| Slice | Holds | Updated by |
+|---|---|---|
+| `files` | Ordered `DetectResult[]` | Add (after `expand` + `detect`), remove, reorder, clear |
+| `selection` | `target`, `mergeMode`, `options` | User. Reset if the target is no longer offered |
+| `targets` | `TargetsResult` or loading | `targets(formats)` call, 150 ms debounce after `files` changes |
+| `jobs` | `Map<jobId, Job>` in submit order | `job:update` events (replace by id) |
+| `engines` | `EngineInfo[]` | `ready` → `engines()`, `engines:changed` |
+| `settings` | `Settings` | `getSettings()` at load, `setSettings()` result |
+| `core` | `CoreStatus` | `core:status` |
+
+- `useCoreEvents()` is mounted once at the app root and subscribes to the three push channels.
+- Components never call `window.filecon` directly. They dispatch action creators in `store/actions.ts`, which do the IPC.
+- Derived values (`canConvert`, `visibleOptions`, `batchSummary`) are pure selectors in `store/selectors.ts`, tested without React.
+
+## 14. Extensibility
+
+To add a converter (checklist mirrored in CLAUDE.md):
+1. Add an `EngineSpec` to `engines/specs.ts`, unless the engine is already there.
+2. Create `converters/<id>.ts` exporting a `Converter` ([CONTRACTS section 1](CONTRACTS.md#1-domain-types)).
+   - `edges` use the cost scale ([section 8](#8-routing-algorithm)), with honest `lossy` notes, `fanOut` and `options`.
+   - `convert` writes only inside `req.outDir` and returns the produced paths. External engines go through `jobs/spawn.run`. In-process engines check `ctx.signal` and report `ctx.onProgress`.
+3. Add any new formats to `formats.ts` ([section 6](#6-format-registry)).
+4. Register it in `registry.ts`.
+5. Add fixtures and a golden test per edge family. Use `describe.skipIf` when the engine is missing ([TRD section 6](TRD.md#6-testing-strategy)).
+6. Add a license row in [TRD section 4](TRD.md#4-engine-matrix).
+
+A combiner or extractor is the same: implement `Combiner` or `Extractor` and register it.
+
+## 15. ADR log
+
+| # | Decision | Why | Rejected |
 |---|---|---|---|
-| ADR-1 | Electron + React/TS | Node-native engines (sharp), one language, fastest path to learn | Tauri: smaller, but needs Rust and has no sharp. It's the planned port target ([TRD section 8](TRD.md#8-tauri-port-path)) |
-| ADR-2 | A graph of edges with Dijkstra routing | One new engine unlocks many paths | A hard-coded pair table, which explodes combinatorially |
-| ADR-3 | Max 3 hops | Prevents absurd, quality-killing chains | Unbounded routing |
-| ADR-4 | Combiners kept separate from the graph | N-to-1 doesn't fit the edge model, and this reuses the graph per input | A special "merge" node in the graph |
-| ADR-5 | Golden tests check that output parses, not hashes | Engine upgrades change bytes but not validity | Byte hashes, which give flaky tests |
-| ADR-6 | Engines as optional packs, not bundled | Keeps the base installer small and avoids license problems | Bundle everything (over 1 GB, license risk) |
-| ADR-7 | Magic-byte detection first | Extensions lie | Extension only |
+| ADR-1 | Electron + React/TS | Node-native engines (sharp), one language, fastest to learn | Tauri now. It's the planned port ([TRD section 8](TRD.md#8-tauri-port-path)) |
+| ADR-2 | A graph of converter edges | One new engine unlocks many paths | A hard-coded pair table |
+| ADR-3 | Max 3 hops | Stops absurd, quality-killing chains | Unbounded |
+| ADR-4 | Combiners outside the graph | N-to-1 doesn't fit edges, and this reuses per-input routing | A merge node in the graph |
+| ADR-5 | Golden tests assert the output parses | Engine upgrades change bytes, not validity | Byte hashes |
+| ADR-6 | Engines as optional packs | Small installer, no license risk from bundling | Bundle everything |
+| ADR-7 | Content-first detection | Extensions lie | Extension only |
+| ADR-8 | Core in an Electron `utilityProcess` | A native crash or a long synchronous task can't freeze or kill the UI, and it's the same shape as a Tauri sidecar | Core in main |
+| ADR-9 | Hop-bounded Bellman-Ford | Exact shortest path under a hop cap. Dijkstra with a cap can discard a cheaper path that has more hops, and graphs are tiny | Capped Dijkstra |
+| ADR-10 | Exclusive commit via `fs.link` | `rename` overwrites on POSIX. `link` fails on EEXIST atomically, with a copy fallback for FAT and cross-device | `rename`, or an existence check followed by `rename` |
+| ADR-11 | Multi-output in a `<stem> (<ext>)` folder | A 300-page PDF doesn't flood the source folder | Sibling files |
+| ADR-12 | No worker-thread pool in v1 | sharp is already async on libuv threads, and pdf-lib blocks only the core host, never the UI | worker_threads pool |
+| ADR-13 | One JSON-RPC envelope set, with the transport chosen by host | parentPort now, stdio for Tauri, and identical server code | Electron IPC inside core |
+| ADR-14 | Poppler for PDF → image and extraction | One engine gives accurate rendering (`pdftoppm`), lossless extraction (`pdfimages`) and metadata (`pdfinfo`). GPL is fine as a separate process. Windows gets a one-click pinned download | pdfium (no official CLI), pdf.js + canvas (less exact, and no lossless extraction), Ghostscript (AGPL), MuPDF (AGPL) |
+| ADR-15 | Extraction as its own `Extractor` kind | 1 → many files of mixed, unknown formats doesn't fit a `from → to` edge, and it mirrors Combiner for N → 1 | A fake `images` format node in the graph |

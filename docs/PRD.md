@@ -19,7 +19,7 @@ fileCon doesn't implement formats itself. It **routes** each conversion through 
 |---|---|---|
 | **Everyday user** | Convert a few files with no setup | Drag, drop, pick a format, done in under 3 clicks |
 | **Power user** | Big batches, control over engines and quality | Engine paths, priorities and output folder are configurable, and failures explain themselves |
-| **Developer (you)** | Learn the architecture and extend it | Adding a converter is one file plus one test ([ARCH section 9](ARCHITECTURE.md#9-extensibility)) |
+| **Developer (you)** | Learn the architecture and extend it | Adding a converter is one file plus one test ([ARCH section 14](ARCHITECTURE.md#14-extensibility)) |
 
 ## 4. Goals and non-goals
 
@@ -43,22 +43,25 @@ Each feature lists its acceptance criteria (AC). A milestone ships only when eve
 ### M1 — Core MVP
 | ID | User story | Acceptance criteria |
 |---|---|---|
-| F1 | As a user I convert images between common formats | jpg, png, webp, avif, tiff and gif all convert to each other. Output opens in the OS default viewer, and dimensions are preserved |
+| F1 | As a user I convert images between common formats | jpg, png, webp, avif, tiff and gif all convert to each other. Output opens in the OS default viewer, and dimensions are preserved. A quality option (1–100) applies to lossy targets |
 | F2 | As a user I convert office docs to PDF | doc, docx, odt, rtf, xlsx, ods, pptx and odp convert to pdf through LibreOffice. The page count is greater than 0 |
-| F3 | As a user I combine many files into one PDF | Select N images and/or docs, reorder them, then get one PDF with the pages in that order |
-| F4 | As a user I batch convert | Select N files, pick one target, and get N outputs. One failure doesn't stop the others |
+| F3 | As a user I combine many files into one PDF | Select N images and/or docs, reorder them, then get one PDF with the pages in that order. Page size for images can be auto, A4 or Letter |
+| F4 | As a user I batch convert | Select N files or drop a folder (up to 1000 files), pick one target, and get N outputs. One failure doesn't stop the others |
 | F5 | As a user I see the real format of each file | Detection uses file content. A `.jpg` that's actually WebP shows a mismatch badge and still converts correctly |
 | F6 | As a user my originals are safe | Output never overwrites anything. Name conflicts become `name (1).ext` |
 | F7 | As a user I only see conversions that can actually run | The target list shows reachable formats only. Formats that need a missing pack are marked, with an install link |
 | F8 | As a user I can cancel | Cancelling stops the engine process within 2 s and leaves no temp files or partial output |
 
 ### M1.1
-- F9: pdf → png and jpg, one image per page (pdfium).
+- F9: pdf → png, jpg and tiff, one image per page (Poppler), with an optional page range (`2-3,7`) and DPI. Saved in a `<name> (png)/` folder as `page-002.png`… (named by real page).
+- F21: Extract embedded images from a PDF, losslessly in their original formats, into `<name> (images)/`. An optional page range applies. "No images found" is reported as info.
+- F22: One-click install of the PDF pack (Poppler) on Windows. macOS and Linux get copyable install commands and a Re-check button. This is F20's mechanism, pulled forward for this one engine.
 - F10: Audio and video through FFmpeg (mp4, mkv, webm, mov, mp3, wav, flac, ogg, m4a), including video → audio and video → gif.
 - F11: Engines page showing each pack as found or missing, with its path override.
 
 ### M1.2
-- F12: Markup and ebooks through Pandoc (md, html, docx, epub, odt, rst, latex).
+- F12: Markup and ebooks through Pandoc (md, html, docx, epub, odt, rst, latex, plus txt input). Chains with Office give md → doc and pdf, and doc → md.
+- F23: Office ↔ Office through LibreOffice: doc, docx, odt and rtf between each other and → txt · xls, xlsx and ods between each other plus csv ↔ · ppt, pptx and odp between each other.
 - F13: Output preview before saving (images and the PDF first page).
 - F14: Signed or unsigned installers for all three OSes, built by CI.
 
@@ -70,7 +73,7 @@ Each feature lists its acceptance criteria (AC). A milestone ships only when eve
 - F17: DWG ↔ DXF and DWG/DXF → pdf, svg and png (ODA File Converter, which the user installs).
 - F18: STEP and IGES → stl, obj and gltf (FreeCAD or OpenCASCADE), marked lossy.
 - F19: OCR turns scanned PDFs into searchable PDFs (OCRmyPDF).
-- F20: One-click engine pack download, with checksums verified.
+- F20: One-click engine pack download, with checksums verified, for every pack that has a redistributable build (the mechanism already exists from F22).
 
 ## 6. Success metrics
 
@@ -86,7 +89,7 @@ fileCon aims to go further than existing offline converters on:
 1. Cross-platform from day one.
 2. Content-based (magic-byte) format detection, not extension-based.
 3. A lossy note on every route, shown in the UI before converting.
-4. Engines isolated in workers or child processes, with timeouts, so a bad file can't crash the app.
+4. Engines isolated in a separate core process and child processes, with timeouts and auto-restart, so a bad file can't crash the app.
 5. 3D (obj, fbx, gltf, .blend) and broader CAD (STEP, IGES).
 6. A golden-file regression suite across engine upgrades.
 7. OCR.
@@ -98,5 +101,5 @@ fileCon aims to go further than existing offline converters on:
 | Proprietary formats (DWG, newer Adobe formats) have no open reader | Some conversions impossible | Use the ODA converter the user installs. List what's unsupported clearly |
 | Engine size (LibreOffice is about 300 MB, Blender is bigger) | Heavy installs | Optional packs, plus detection of existing installs |
 | Engine licenses (GPL, AGPL, restricted) | Distribution blocked | Call engines as separate processes, check licenses per engine ([TRD section 5](TRD.md#5-license-constraints)) |
-| Engines hang or crash on malformed files | Stuck jobs | Timeouts, process kill and isolation ([ARCH section 6](ARCHITECTURE.md#6-job-runner)) |
+| Engines hang or crash on malformed files | Stuck jobs | Timeouts, process kill and isolation ([ARCH section 9](ARCHITECTURE.md#9-job-runner)) |
 | Engine output varies by version | Flaky tests | Golden tests check that output parses, not byte hashes |
