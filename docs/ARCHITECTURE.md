@@ -143,9 +143,9 @@ The Test column names files under `<package>/test/`, at the same path as the mod
 | `graph/targets` | Options for a set of inputs | `targets({ available, full, formats })` | `graph/targets.test.ts` |
 | `jobs/scheduler` | Slots and semaphores | `createScheduler(slotCount)`, `acquire(convId, max)`, `setConcurrency(slotCount)` | `scheduler.test.ts` |
 | `jobs/runner` | Execute jobs | `createRunner(deps)`, `.submit(reqs)`, `.cancel(id)`, `.cancelAll()`, `on("update")` | `runner.test.ts` |
-| `jobs/output` | Never-overwrite commit | `commitFile(src, dir, stem, ext)`, `commitFolder(files, dir, stem, ext)` | `output.test.ts` |
+| `jobs/output` | Never-overwrite commit | `commitFile({ src, dir, stem, ext })`, `commitFolder({ files, dir, stem, ext })`, `safeStem(name)`; both commits take an optional `fsOps` so tests can simulate EXDEV and ENOSPC | `output.test.ts` |
 | `jobs/spawn` | Safe external process | `run(bin, args, { signal, timeoutMs, cwd, onStdout? })` | `spawn.test.ts` |
-| `jobs/tmp` | Temp lifecycle | `makeJobDir(id)`, `removeDir(dirPath)`, `sweep(olderThanMs)` | `tmp.test.ts` |
+| `jobs/tmp` | Temp lifecycle | `makeJobDir(id)`, `removeDir(dirPath)`, `sweep(olderThanMs)` (an optional `root` is only for tests) | `tmp.test.ts` |
 | `engines/discovery` | Find engines | `discover(spec, deps)`, `discoverAll(specs, overrides)` | `discovery.test.ts` |
 | `engines/install` | Install assistant (download kind) | `install(spec, deps, onProgress)` | `install.test.ts` (local fake HTTPS server) |
 | `rpc/server` | Dispatch and events | `createServer(transport, deps)` | `server.test.ts` (MessageChannel) |
@@ -343,21 +343,22 @@ This section is the "never overwrite" guarantee ([PRD G4](PRD.md#4-goals-and-non
 - Cut to 200 UTF-8 bytes without splitting a character, leaving room for ` (999)`, ` (<ext>)` and the extension.
 - An empty result becomes `file`.
 
-**Single file** (`commitFile(src, dir, stem, ext)`):
+**Single file** (`commitFile({ src, dir, stem, ext })`; it applies `safeStem` to `stem` itself, since names are untrusted):
 1. For attempt = 0..999, the candidate is `stem.ext` when attempt = 0, otherwise `stem (attempt).ext`.
    - Skip candidates that are in the in-memory **reservation set** (shared by all jobs in the host). Otherwise reserve the candidate.
 2. `fs.link(src, candidate)`. This is atomic and fails with `EEXIST` if the file exists.
    - On `EEXIST`, unreserve and try the next attempt.
-   - On success, `unlink(src)` and stop.
+   - On success, `unlink(src)` (a failure of that cleanup is ignored) and stop.
 3. On `EXDEV`, `EPERM` or `ENOTSUP` (cross-device, or FAT/exFAT without hard links), copy with `COPYFILE_EXCL` to `candidate + ".filecon-part"`.
    - Then `fs.link(part, candidate)` if supported. Otherwise `fs.stat(candidate)` must be ENOENT, then `rename(part, candidate)`.
    - Finally unlink the part file. That check-then-rename race only matters against other programs, because the reservation set guards fileCon's own jobs.
 4. Unreserve once the commit finishes. More than 999 attempts gives `OUTPUT_WRITE_FAILED`.
 
-**Multi-output** (`commitFolder(files, dir, stem, ext)`):
+**Multi-output** (`commitFolder({ files, dir, stem, ext })`):
 - `mkdir("<stem> (<ext>)")`, which fails if it exists. On conflict, try `"<stem> (<ext>) (<attempt>)"`.
 - Commit each file inside as `page-001.<ext>`, zero-padded to the width of the file count (minimum 3).
-- Files from a fan-out keep their `page-<page>` stem, re-padded to the width of the highest page number (minimum 3): `page-003.<ext>`. Extractor files keep the name and extension the extractor gave them. Otherwise they're named by position.
+- Files named `page-<digits>.<ext>` (a fan-out) are re-padded to the width of the highest page number (minimum 3): `page-003.<ext>`, `page-0001.<ext>` for a 1,800-page book. Every other file (extractor output) keeps the name and extension it was given. If two files would end up with the same name, all of them are named by position, `page-<index>.<ext>`.
+- **Rollback:** if any file fails (disk full, a name taken by another program), the files and the folder this call created are removed and the error is thrown. The temp files are only unlinked after every file is saved, so they are still there for cleanup.
 - The folder suffix is the target ext, or the extractor's `folder` for extract jobs: `report (png)/`, `report (images)/`, `report (pages)/`.
 - `outputs` = `[folder, ...files]`.
 

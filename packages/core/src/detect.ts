@@ -56,11 +56,13 @@ export const detect = async (path: string): Promise<DetectResult> => {
   const byExt = formatByExt(extname(path));
   const matched = await fileTypeFromBuffer(head);
   const byContent = matched === undefined ? null : canonical(matched.ext);
+
   const unsupported = (): DetectResult => ({
     ...failure(path, size, 'UNSUPPORTED_FORMAT'),
     byContent,
     byExt,
   });
+
   const supported = (fields: { format: Format; mismatch: boolean }): DetectResult => ({
     path,
     size,

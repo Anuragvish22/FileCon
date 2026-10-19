@@ -94,8 +94,7 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
     - a symlink to a file is followed
     - a no-ext binary
 
-### M0-6 Output commit ☐
-- **Parked to review first:** [P2 keep source dates](PARKED.md#2-items)
+### M0-6 Output commit ☑
 - **Depends on:** M0-2
 - **Files:** `core/src/jobs/output.ts`, `core/src/jobs/tmp.ts`
 - **Details:** [ARCHITECTURE section 10](ARCHITECTURE.md#10-output-commit). The `fs` functions used are injectable, so EXDEV and EPERM can be simulated.
@@ -113,6 +112,8 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
     - ENOSPC → `DISK_FULL`
     - `safeStem`: `a:b?` → `a_b_`, trailing dots and spaces trimmed, `CON`/`con.txt`/`COM1` get `_`, a 300-byte name (also multi-byte, e.g. Hindi or emoji) is cut to ≤ 200 bytes without breaking a character, empty → `file`
     - 999 limit → `OUTPUT_WRITE_FAILED`
+    - a 1,800-page folder: width 4, in order
+    - a failure midway removes what the commit created and keeps the temp files
     - `sweep` removes only old `filecon-*` dirs
 
 **M0 exit:** the core logic is covered by unit tests, and coverage of `graph`, `detect` and `output` is at least 90% of lines.
