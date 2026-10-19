@@ -5,7 +5,7 @@ import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  { ignores: ['**/dist/', '**/out/', '**/release/', 'docs/', '**/node_modules/'] },
+  { ignores: ['**/dist/', '**/out/', '**/release/', '**/coverage/', 'docs/', '**/node_modules/'] },
   js.configs.recommended,
   tseslint.configs.recommendedTypeChecked,
   // registers the plugin and makes it parse .ts files; without it no-cycle silently sees nothing
