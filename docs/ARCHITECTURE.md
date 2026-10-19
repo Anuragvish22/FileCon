@@ -117,7 +117,7 @@ flowchart TD
   extractors --> spawn
   converters --> spawn["jobs/spawn"] & discovery
   combiners --> spawn
-  discovery --> specs["engines/specs"]
+  discovery --> specs["engines/specs"] & spawn
 ```
 
 All modules may import `types/` and `errors.ts`.
@@ -146,7 +146,7 @@ The Test column names files under `<package>/test/`, at the same path as the mod
 | `jobs/output` | Never-overwrite commit | `commitFile({ src, dir, stem, ext })`, `commitFolder({ files, dir, stem, ext })`, `safeStem(name)`; both commits take an optional `fsOps` so tests can simulate EXDEV and ENOSPC | `output.test.ts` |
 | `jobs/spawn` | Safe external process | `run({ bin, args, signal, timeoutMs, cwd?, onStdout? })` → `{ code, stdoutTail, stderrTail }`, or throws `ENGINE_FAILED`, `TIMEOUT`, `CANCELLED`; `createRunner(deps)` lets tests fake the OS | `spawn.test.ts` |
 | `jobs/tmp` | Temp lifecycle | `makeJobDir(id)`, `removeDir(dirPath)`, `sweep(olderThanMs)` (an optional `root` is only for tests) | `tmp.test.ts` |
-| `engines/discovery` | Find engines | `discover(spec, deps)`, `discoverAll(specs, overrides)` | `discovery.test.ts` |
+| `engines/discovery` | Find engines | `discover({ spec, deps?, override? })`, `discoverAll({ specs, overrides, deps? })`; `deps` defaults to the real machine | `discovery.test.ts` |
 | `engines/install` | Install assistant (download kind) | `install(spec, deps, onProgress)` | `install.test.ts` (local fake HTTPS server) |
 | `rpc/server` | Dispatch and events | `createServer(transport, deps)` | `server.test.ts` (MessageChannel) |
 | `converters/*` | One engine each | `Converter` object | `converters/<id>.test.ts` (golden) |
@@ -368,7 +368,7 @@ This section is the "never overwrite" guarantee ([PRD G4](PRD.md#4-goals-and-non
 
 ([FLOWS F10](FLOWS.md#f10-missing-engine-then-set-path))
 
-`discover(spec, deps)`, where `deps = { platform, env, isExecutable, exec }` is injectable so tests need no real binaries:
+`discover({ spec, deps, override })`, where `deps = { platform, env, isExecutable, listDir, readText, exec, bundledVersion }` is injectable so tests need no real binaries. Step 3 (installed) lands with M1.1-4 and step 7 (required bins) with M1.1-2, so M1-3 skips both:
 1. **Bundled** (`spec.bundled`): `found = true`, `source = "bundled"`, and the version comes from package.json.
 2. **Override:** `Settings.engines.paths[id]`. If it's set but not executable, `found = false` with an error. It doesn't fall through, so the user sees their path is wrong.
 3. **Installed:** the newest `<dataDir>/engines/<id>/<version>/<binDir>` (`dataDir` comes with `init`) from a previous install ([CONTRACTS section 9](CONTRACTS.md#9-engines)).
@@ -376,7 +376,7 @@ This section is the "never overwrite" guarantee ([PRD G4](PRD.md#4-goals-and-non
 5. **Known paths:** `knownPaths[platform]`, with globs expanded (e.g. `/opt/libreoffice*/program/soffice`).
 6. **WSL guard:** if `/proc/version` contains "microsoft", skip any candidate under `/mnt/<letter>/`. A Windows `.exe` would get Linux-style paths it can't read.
 7. **Required bins:** when `requiredBins` is set (Poppler), every bin must exist in the **same** dir as the first hit. Otherwise `found = false`, with the error "incomplete install (missing pdfimages)".
-8. **Version probe:** `exec(path, versionArgs, timeout 5 s)`, then `versionPattern`. A failed probe means `found = true` with an error ("version check failed"). Only an unrunnable binary means `found = false`.
+8. **Version probe:** `exec(path, versionArgs, timeout 5 s)` (through `jobs/spawn`), then `versionPattern`. A failed probe means `found = true` with an error ("version check failed"). Only an unrunnable binary means `found = false`.
 
 The result is cached per session. It's refreshed on `engines.refresh`, after `engines.install`, or when `settings.apply` changes `engines.paths`.
 

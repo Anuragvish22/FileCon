@@ -164,7 +164,7 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
     - `ctx.note` ids end up in `Job.notes`, deduped and in order
     - `toCoreError`: one test per branch (CoreFailure, ENOSPC, a plain Error, a non-Error value)
 
-### M1-3 Engine discovery ☐
+### M1-3 Engine discovery ☑
 - **Depends on:** M0-2
 - **Files:** `core/src/engines/specs.ts` (sharp, pdf-lib, libreoffice), `core/src/engines/discovery.ts`
 - **Details:** [ARCHITECTURE section 11](ARCHITECTURE.md#11-engine-discovery).
@@ -269,6 +269,7 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
     - a JSX literal string in a component fails lint
 
 ### M1-8 CI matrix ☐
+- **Parked to review first:** [P19 find LibreOffice on any Windows drive](PARKED.md#2-items)
 - **Depends on:** M1-7
 - **Files:** `.github/workflows/ci.yml`
 - **Details:** ubuntu, windows and macos, with Node 22 and pnpm: lint, typecheck, test, `docs:check`. LibreOffice is installed on ubuntu only, so that its golden tests run there. Installers come in M1.2 ([TRD section 7](TRD.md#7-build-and-release)).
@@ -308,6 +309,7 @@ Goal: PRD F9, F21, F22, F34 and F35 work. You can render PDF pages to images, ex
 ### M1.1-2 Poppler engine and render edges ☐
 - **Depends on:** M1.1-1, M1-3, M1-4
 - **Files:** `engines/specs.ts` (poppler spec with `requiredBins`, `install` pins), `converters/poppler.ts`, `test/fixtures/pdf/{3-pages.pdf,encrypted.pdf}`
+- **Also here:** the `requiredBins` check in `engines/discovery.ts` ([ARCH section 11](ARCHITECTURE.md#11-engine-discovery) step 7: every bin in the same dir as the first hit, else "incomplete install (missing pdfimages)"), with its test. M1-3 left it out.
 - **Details:** `pdfinfo` parsing (`Pages:`, `Encrypted:`), one `pdftoppm` per range, `-progress` parsing, and renaming `p-<page>` → `page-<page>`.
 - **Tests:**
   - Happy path:
@@ -339,6 +341,7 @@ Goal: PRD F9, F21, F22, F34 and F35 work. You can render PDF pages to images, ex
 
 ### M1.1-4 Install assistant ☐
 - **Depends on:** M1.1-2, M1-5
+- **Also here:** the "installed" step in `engines/discovery.ts` ([ARCH section 11](ARCHITECTURE.md#11-engine-discovery) step 3: the newest `<dataDir>/engines/<id>/<version>/<binDir>`, source `installed`). M1-3 left it out.
 - **Files:** `engines/install.ts`, `rpc/server.ts` (`engines.install`, `engine.install.progress`), app `ipc.ts` (`engines:install` with confirm dialog), preload `installEngine`.
 - **Details:** [ARCH section 11](ARCHITECTURE.md#11-engine-discovery).
   - Download the pinned release zip once by hand and confirm the `binDir` inside it. Fix the pin table if it differs.
