@@ -19,3 +19,13 @@ export class CoreFailure extends Error {
     this.error = coreError(code, params, detail);
   }
 }
+
+/** What a Job carries after anything was thrown. A plain Error is an engine failure: nothing else can throw it. */
+export const toCoreError = (caught: unknown): CoreError => {
+  if (caught instanceof CoreFailure) return caught.error;
+  if (caught instanceof Error) {
+    if ((caught as NodeJS.ErrnoException).code === 'ENOSPC') return coreError('DISK_FULL');
+    return coreError('ENGINE_FAILED', {}, caught.stack ?? caught.message);
+  }
+  return coreError('ENGINE_FAILED', {}, String(caught));
+};

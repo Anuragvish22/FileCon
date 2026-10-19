@@ -141,8 +141,8 @@ The Test column names files under `<package>/test/`, at the same path as the mod
 | `graph/build` | Graph build | `buildGraph({ registry, availableIds, priority })` | `graph/route.test.ts` (same-pair dedupe) |
 | `graph/route` | Route search | `route(graph, from, to)`, `MAX_HOPS` | `graph/route.test.ts` |
 | `graph/targets` | Options for a set of inputs | `targets({ available, full, formats })` | `graph/targets.test.ts` |
-| `jobs/scheduler` | Slots and semaphores | `createScheduler(slotCount)`, `acquire(convId, max)`, `setConcurrency(slotCount)` | `scheduler.test.ts` |
-| `jobs/runner` | Execute jobs | `createRunner(deps)`, `.submit(reqs)`, `.cancel(id)`, `.cancelAll()`, `on("update")` | `runner.test.ts` |
+| `jobs/scheduler` | Slots and semaphores | `createScheduler(slotCount)`, `acquireSlot(signal)`, `acquireConverter({ converterId, max, signal })`, `setConcurrency(slotCount)`; a waiter that aborts leaves the queue with `CANCELLED` | `scheduler.test.ts` |
+| `jobs/runner` | Execute jobs | `createRunner({ registry, graphs, scheduler, resolveOutDir })`, `.submit(requests)`, `.cancel(id)`, `.cancelAll()`, `.on("update", listener)`. Convert and merge only until M1.1-3 adds extract | `runner.test.ts` |
 | `jobs/output` | Never-overwrite commit | `commitFile({ src, dir, stem, ext })`, `commitFolder({ files, dir, stem, ext })`, `safeStem(name)`; both commits take an optional `fsOps` so tests can simulate EXDEV and ENOSPC | `output.test.ts` |
 | `jobs/spawn` | Safe external process | `run({ bin, args, signal, timeoutMs, cwd?, onStdout? })` → `{ code, stdoutTail, stderrTail }`, or throws `ENGINE_FAILED`, `TIMEOUT`, `CANCELLED`; `createRunner(deps)` lets tests fake the OS | `spawn.test.ts` |
 | `jobs/tmp` | Temp lifecycle | `makeJobDir(id)`, `removeDir(dirPath)`, `sweep(olderThanMs)` (an optional `root` is only for tests) | `tmp.test.ts` |
@@ -280,8 +280,8 @@ There are two tables, not one: with a single best path per format, a cheap path 
 ([FLOWS F4 to F9](FLOWS.md#f4-single-convert))
 
 **Scheduling** (`scheduler.ts`):
-- A FIFO queue of jobs, with global slots = `concurrency`. A job holds one slot from `running` until it reaches a terminal state.
-- Before each step, the job also acquires the converter's semaphore (`maxConcurrent`, LibreOffice = 1) and releases it after the step.
+- A FIFO queue of jobs, with global slots = `concurrency` (`acquireSlot`). A job holds one slot from `running` until it reaches a terminal state. A queued job that is cancelled leaves the queue at once.
+- Before each step, the job also acquires the converter's semaphore (`acquireConverter`, from `maxConcurrent`, LibreOffice = 1) and releases it after the step.
 - shortcut: a job waiting on the LibreOffice semaphore still holds a global slot. Fine at ≤ 32 slots. Revisit if office batches starve image jobs.
 - `setConcurrency(slotCount)` takes effect as slots free up. Running jobs are never interrupted.
 
@@ -329,7 +329,7 @@ There are two tables, not one: with a single best path per format, a cheap path 
 
 **Temp hygiene:**
 - `sweep(24 h)` runs at `init` and removes `filecon-*` dirs whose mtime is older than 24 h.
-- `ENOSPC` anywhere becomes `DISK_FULL`.
+- `ENOSPC` anywhere becomes `DISK_FULL`. `toCoreError(caught)` in `errors.ts` does this for everything the runner catches: a `CoreFailure` gives its `.error`, `ENOSPC` gives `DISK_FULL`, and any other throw gives `ENGINE_FAILED` with the message and stack in `detail`.
 
 ## 10. Output commit
 

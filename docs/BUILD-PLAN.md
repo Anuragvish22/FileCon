@@ -141,7 +141,7 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
     - an argument with shell metacharacters (`; rm -rf x`, `$(id)`, `` `id` ``, `&&`) arrives as one literal string
     - a string command or `shell: true` does not type-check (a `@ts-expect-error` test)
 
-### M1-2 Scheduler and runner ☐
+### M1-2 Scheduler and runner ☑
 - **Depends on:** M0-4, M0-6, M1-1
 - **Files:** `core/src/jobs/scheduler.ts`, `core/src/jobs/runner.ts`, `core/src/errors.ts` (`toCoreError`)
 - **Details:** [ARCHITECTURE section 9](ARCHITECTURE.md#9-job-runner) and [FLOWS F4 to F9](FLOWS.md#f4-single-convert). Updates are throttled to 10/s, and state changes are emitted immediately. `toCoreError(caught: unknown): CoreError` turns anything caught into the plain error a `Job` carries: a `CoreFailure` gives its `.error`, `ENOSPC` gives `DISK_FULL`, and anything else keeps its message and stack in `detail` (pick its code in this task).

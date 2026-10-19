@@ -1,37 +1,66 @@
 import { buildGraph, type Graph } from '../src/graph/index.ts';
 import { createRegistry, type Registry } from '../src/registry.ts';
-import type { Combiner, Converter, Edge, Format, PackId, Route } from '../src/types/index.ts';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import type {
+  Combiner,
+  Converter,
+  Edge,
+  Format,
+  JobCtx,
+  PackId,
+  Route,
+  StepRequest,
+} from '../src/types/index.ts';
+
+/** What a well-behaved converter does: one file `<baseName>.<to>` inside outDir. */
+export const writeOutput = async (req: StepRequest, content = 'converted'): Promise<string[]> => {
+  await mkdir(req.outDir, { recursive: true });
+  const path = join(req.outDir, `${req.baseName}.${req.to}`);
+  await writeFile(path, content);
+  return [path];
+};
 
 export const fakeConverter = ({
   id,
   pack = 'builtin',
   edges,
+  convert = () => Promise.resolve([]),
+  maxConcurrent,
+  timeoutMs,
 }: {
   id: string;
   pack?: PackId;
   edges: Edge[];
+  convert?: (req: StepRequest, ctx: JobCtx) => Promise<string[]>;
+  maxConcurrent?: number;
+  timeoutMs?: number;
 }): Converter => ({
   id,
   engineId: id,
   pack,
   edges,
+  maxConcurrent,
+  timeoutMs,
   available: () => Promise.resolve(true),
-  convert: () => Promise.resolve([]),
+  convert,
 });
 
 export const fakeCombiner = ({
   id,
   accepts,
   output,
+  combine = () => Promise.resolve(''),
 }: {
   id: string;
   accepts: Format;
   output: Format;
+  combine?: Combiner['combine'];
 }): Combiner => ({
   id,
   accepts,
   output,
-  combine: () => Promise.resolve(''),
+  combine,
 });
 
 export const registryOf = (...items: (Converter | Combiner)[]): Registry => {
