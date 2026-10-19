@@ -438,6 +438,8 @@ type InstallMethod =
 | `extract.<extractorId>` | `Extractor.id` | `extract.pdfimages` → "Extract images" |
 | `error.<ErrorCode>` | `CoreError.code` + `params` | `error.EMPTY_FILE` → "{name} is empty" |
 | `invalid.<what>` | `params.what` of `INVALID_REQUEST` | `invalid.page-past-end` → "page {page} is past the end ({count} pages)" |
+| `invalid.<option>-range` | `what` for a number option out of range: `quality`, `dpi`, `width`, `height` | `invalid.quality-range` → "quality must be a whole number from 1 to 100" |
+| `invalid.<option>-value` | `what` for an option that isn't one of its allowed values: `page-size`, `tiff-compression` | `invalid.tiff-compression-value` → "unknown TIFF compression" |
 | anything else | UI-only text (buttons, labels, help) | `convert.button` → "Convert" |
 
 - Keys are flat strings. `{param}` is replaced by the param. Plurals use `<key>.one` / `<key>.other`, picked with `Intl.PluralRules`. Numbers and sizes are formatted with `Intl.NumberFormat` for the active locale.

@@ -183,31 +183,51 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
     - version probe failure → found with an error
 
 ### M1-4 Converters and combiner ☐
-- **Parked to review first:** [P9 fonts in office → pdf](PARKED.md#2-items)
+Split into three changes (a, b, c) at M1-4, because it was too much for one. Tick this heading when all three are ☑. Tasks that depend on M1-4 need all three.
 - **Depends on:** M1-1, M1-3
-- **Files:**
-  - `converters/sharp.ts`: jpg, png, webp, avif, tiff and gif between each other, with `quality`. Self-edges jpg → jpg, webp → webp and avif → avif (cost 3, `quality`, lossy `reencoded`). Scales down to the target's size limit with `ctx.note("downscaled")` ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm)). Every sharp edge also takes `width`, `height`, `grayscale` and `keepMetadata`, and → tiff edges take `tiffCompression` ([CONTRACTS section 2](CONTRACTS.md#2-options)). Self-edges png → png, tiff → tiff and gif → gif at cost 2, no `lossy` id (for resize and grayscale). Always `rotate()` from EXIF first
-  - `converters/pdflib.ts`: jpg and png → pdf at cost 1, with `pageSize`. Other images first route through sharp → png.
-  - `converters/libreoffice.ts`: office formats → pdf at cost 5, `maxConcurrent: 1`, timeout 180 s, with a persistent profile per slot in `<dataDir>/lo-profile-<slot>/`, deleted after a failed run ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm))
-  - `combiners/merge-pdf.ts`
-- **Dependencies to add (ask):** `sharp`, `pdf-lib`.
+- **Dependencies to add (approved):** `sharp` (with 4a), `pdf-lib` (with 4b).
+
+#### M1-4a Sharp converter and the contract helper ☑
+- **Files:** `core/src/converters/sharp.ts`, `core/src/options.ts` (`validateOptions`), `core/test/contract.ts` (`runConverterContract`), `core/test/harness.ts` (shared runner harness, moved out of `runner.test.ts`)
+- **Details:** jpg, png, webp, avif, tiff and gif between each other, with `quality`.
+  - Self-edges jpg → jpg, webp → webp and avif → avif (cost 3, `quality`, lossy `reencoded`). Self-edges png → png, tiff → tiff and gif → gif at cost 2, no `lossy` id (for resize and grayscale).
+  - Scales down to the target's size limit with `ctx.note("downscaled")` ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm)).
+  - Every sharp edge also takes `width`, `height`, `grayscale` and `keepMetadata`, and → tiff edges take `tiffCompression` ([CONTRACTS section 2](CONTRACTS.md#2-options)). Always turns the image upright from EXIF first.
 - **Tests:** golden tests, which assert parse results only:
-  - Happy path:
-    - sharp: output `file-type` and dimensions equal the input's
-    - pdflib: page count = 1, page size per option
-    - merge: page count = sum, order checked via distinct page sizes
-    - libreoffice: `skipIf(!available)`, `file-type` = pdf, pages ≥ 1
+  - Happy path: output `file-type` and dimensions equal the input's, for every pair.
   - Must also pass:
-    - each converter and the combiner call `runConverterContract` ([TRD section 6](TRD.md#6-testing-strategy))
+    - the converter calls `runConverterContract` ([TRD section 6](TRD.md#6-testing-strategy))
     - a corrupt fixture → `ENGINE_FAILED`, temp dir removed
     - sharp `quality` out of range → `INVALID_REQUEST`
-    - sharp: a 20,000 × 10 png → webp comes out ≤ 16,383 px wide with `Job.notes` = `["downscaled"]`; a normal one has no notes
-    - sharp: jpg → jpg at quality 40 gives a valid, smaller jpg named `<stem> (1).jpg`
-    - sharp: 400×200 at `width` 100 → 100×50; `width` 1000 on a 400 px image stays 400; `width` 0 → `INVALID_REQUEST`
-    - sharp: `grayscale` output has 1 channel (or is `b-w`)
-    - sharp: GPS survives only with `keepMetadata`; an EXIF-rotated fixture comes out upright with metadata stripped
-    - sharp: each `tiffCompression` value gives that compression
-    - libreoffice: two jobs in a row reuse the profile dir; after a failed run the dir is gone and the next job still succeeds
+    - a 20,000 × 10 png → webp comes out ≤ 16,383 px wide with `Job.notes` = `["downscaled"]`; a normal one has no notes
+    - jpg → jpg at quality 40 gives a valid, smaller jpg named `<stem> (1).jpg`
+    - 400×200 at `width` 100 → 100×50; `width` 1000 on a 400 px image stays 400; `width` 0 → `INVALID_REQUEST`
+    - `grayscale` output has 1 channel (or is `b-w`)
+    - GPS survives only with `keepMetadata`; an EXIF-rotated fixture comes out upright with metadata stripped
+    - each `tiffCompression` value gives that compression
+
+#### M1-4b Image to PDF and merge ☐
+- **Depends on:** M1-4a
+- **Files:** `converters/pdflib.ts`, `combiners/merge-pdf.ts`; adds `pdf-lib`
+- **Details:** `pdflib`: jpg and png → pdf at cost 1, with `pageSize`. Other images first route through sharp → png. `merge-pdf` combines PDFs in the user's order.
+- **Tests:** golden tests, which assert parse results only:
+  - Happy path:
+    - pdflib: page count = 1, page size per option
+    - merge: page count = sum, order checked via distinct page sizes
+  - Must also pass:
+    - the converter and the combiner call `runConverterContract` ([TRD section 6](TRD.md#6-testing-strategy)); extend the helper for combiners
+    - a corrupt fixture → `ENGINE_FAILED`, temp dir removed
+
+#### M1-4c LibreOffice converter ☐
+- **Depends on:** M1-4a
+- **Files:** `converters/libreoffice.ts`
+- **Details:** office formats → pdf at cost 5, `maxConcurrent: 1`, timeout 180 s, with a persistent profile per slot in `<dataDir>/lo-profile-<slot>/`, deleted after a failed run ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm)). Document the font limit decided at M1-4 (P9): a document in a script the machine has no font for renders as boxes; detection stays parked ([P9](PARKED.md#2-items)).
+- **Tests:**
+  - Happy path: `skipIf(!available)`, `file-type` = pdf, pages ≥ 1
+  - Must also pass:
+    - the converter calls `runConverterContract`
+    - a corrupt fixture → `ENGINE_FAILED`, temp dir removed
+    - two jobs in a row reuse the profile dir; after a failed run the dir is gone and the next job still succeeds
 
 ### M1-5 RPC server and core host ☐
 - **Parked to review first:** [P10 types vs CONTRACTS check](PARKED.md#2-items)
@@ -391,7 +411,7 @@ Goal: PRD F9, F21, F22, F34 and F35 work. You can render PDF pages to images, ex
 ### M1.1-7 One long image ☐
 - **Depends on:** M1.1-2, M1-4
 - **Files:** `combiners/stack-png.ts` (sharp: accepts png, output png, stacked top to bottom in input order, centred on the widest, white background; past sharp's pixel limit it scales down and calls `ctx.note("downscaled")`), `graph/targets.ts` (`targets().merge` for 1 file whose route fans out), `jobs/runner.ts` (a fanned-out merge input adds all its files in page order), renderer "One long image" toggle for target png.
-- **Details:** [ARCH section 9](ARCHITECTURE.md#9-job-runner) merge job, [FLOWS F7](FLOWS.md#f7-merge-to-pdf). shortcut: output is png only, because jpg stops at 65,535 px; route onward when asked.
+- **Details:** [ARCH section 9](ARCHITECTURE.md#9-job-runner) merge job, [FLOWS F7](FLOWS.md#f7-merge-to-pdf). shortcut: output is png only, because jpg stops at 65,500 px; route onward when asked.
 - **Tests:**
   - Happy path:
     - two 100×50 pngs → one 100×100

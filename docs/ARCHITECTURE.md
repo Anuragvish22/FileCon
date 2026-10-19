@@ -137,6 +137,7 @@ The Test column names files under `<package>/test/`, at the same path as the mod
 | `formats` | Canonical ids, aliases, ext lookup | `FORMATS`, `byExt(ext)`, `canonical(id)`, `info(id)` | `formats.test.ts` |
 | `detect` | Content-first detection | `detect(path): Promise<DetectResult>` | `detect.test.ts` + fixtures |
 | `registry` | Hold converters, combiners and extractors | `createRegistry()` → `register(item)`, `converters()`, `combiners()`, `get(id)`; `extractors()` from M1.1-3 | `registry.test.ts` |
+| `options` | Option ranges | `validateOptions(options)`: throws `INVALID_REQUEST` with `what: "<option>-range"` or `"<option>-value"` | `options.test.ts` |
 | `pages` | `pages` option | `parsePages(str)`, `boundPages(ranges, count)`, `toRanges(pages)` | `pages.test.ts` |
 | `graph/build` | Graph build | `buildGraph({ registry, availableIds, priority })` | `graph/route.test.ts` (same-pair dedupe) |
 | `graph/route` | Route search | `route(graph, from, to)`, `MAX_HOPS` | `graph/route.test.ts` |
@@ -242,7 +243,7 @@ There are two tables, not one: with a single best path per format, a cheap path 
 - The output keeps the source's name and ext, so the never-overwrite rule names it `photo (1).jpg` ([section 10](#10-output-commit)).
 - A self-edge must honour at least one option; one that changes nothing is a bug.
 
-**Image size limits (sharp).** Some formats cap the pixel size: JPEG and GIF at 65,535 px a side, WebP at 16,383. When the input is larger than the target allows, the converter scales it down to fit (aspect kept, never enlarged) and calls `ctx.note("downscaled")`, so the done row says so. AVIF and TIFF limits are checked against sharp in M1-4 and added here.
+**Image size limits (sharp).** Some formats cap the pixel size: JPEG at 65,500 px a side, GIF at 65,535, AVIF at 16,384 and WebP at 16,383 (measured against sharp 0.35). TIFF has no cap of its own, only 65,500 when it uses JPEG compression. When the input is larger than the target allows, the converter scales it down to fit (aspect kept, never enlarged) and calls `ctx.note("downscaled")`, so the done row says so.
 
 **Fan-out.**
 - A `fanOut` edge (pdf → png) returns N files.

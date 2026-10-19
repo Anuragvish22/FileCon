@@ -1,124 +1,26 @@
-import { readdirSync } from 'node:fs';
-import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildGraph } from '../../src/graph/index.ts';
-import { createRunner } from '../../src/jobs/runner.ts';
-import { createScheduler } from '../../src/jobs/scheduler.ts';
-import type {
-  Combiner,
-  Converter,
-  ConvertOptions,
-  Job,
-  JobRequest,
-} from '../../src/types/index.ts';
-import { fakeCombiner, fakeConverter, registryOf, writeOutput } from '../fakes.ts';
+import { describe, expect, it } from 'vitest';
+import type { Converter } from '../../src/types/index.ts';
+import { fakeCombiner, fakeConverter, writeOutput } from '../fakes.ts';
+import {
+  convertRequest,
+  edge,
+  expectNoTmp,
+  harness,
+  sleep,
+  source,
+  tmpDirsNow,
+  useWorkDir,
+  workDirPath,
+  NO_OPTIONS,
+} from '../harness.ts';
 
-const NO_OPTIONS: ConvertOptions = {};
 const SLOW_MS = 150; // longer than the 100 ms progress throttle
 const TIMEOUT_MS = 50;
 const BURST = 50;
 const POLL_MS = 10;
 const JOB_COUNT = 5;
-
-const fixture = (folder: string, name: string): string =>
-  fileURLToPath(new URL(`../../../../test/fixtures/${folder}/${name}`, import.meta.url));
-
-const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
-
-let workDir: string;
-let counter = 0;
-beforeAll(async () => {
-  workDir = await mkdtemp(join(tmpdir(), 'filecon-runner-'));
-});
-afterAll(async () => {
-  await rm(workDir, { recursive: true, force: true });
-});
-
-/** A private copy of a fixture, so "the source is untouched" can be checked per test. */
-const source = async (folder: string, name: string, as = name): Promise<string> => {
-  counter += 1;
-  const dir = join(workDir, `src-${counter}`);
-  await mkdir(dir);
-  const path = join(dir, as);
-  await copyFile(fixture(folder, name), path);
-  return path;
-};
-
-const convertRequest = (input: string, target: string): JobRequest => ({
-  kind: 'convert',
-  input,
-  target,
-  options: NO_OPTIONS,
-});
-
-const edge = (from: string, to: string, extra: { fanOut?: boolean } = {}) => ({
-  from,
-  to,
-  cost: 1,
-  ...extra,
-});
-
-interface HarnessOptions {
-  converters: Converter[];
-  combiners?: Combiner[];
-  slots?: number;
-  availableIds?: string[];
-  now?: () => number;
-}
-
-const harness = async (options: HarnessOptions) => {
-  const registry = registryOf(...options.converters, ...(options.combiners ?? []));
-  const everyId = registry.converters().map((converter) => converter.id);
-  const graphOf = (ids: string[]) =>
-    buildGraph({ registry, availableIds: new Set(ids), priority: [] });
-  const scheduler = createScheduler(options.slots ?? 4);
-  counter += 1;
-  const outDir = join(workDir, `out-${counter}`);
-  await mkdir(outDir);
-  const runner = createRunner({
-    registry,
-    graphs: () => ({ available: graphOf(options.availableIds ?? everyId), full: graphOf(everyId) }),
-    scheduler,
-    resolveOutDir: () => outDir,
-    ...(options.now === undefined ? {} : { now: options.now }),
-  });
-
-  const updates: Job[] = [];
-  const waiting = new Map<string, ((job: Job) => void)[]>();
-  const finalJobs = new Map<string, Job>();
-  const terminal = ['done', 'failed', 'cancelled'];
-  runner.on('update', (job) => {
-    updates.push(job);
-    if (!terminal.includes(job.state)) return;
-    finalJobs.set(job.id, job);
-    for (const resolve of waiting.get(job.id) ?? []) resolve(job);
-  });
-  const finished = (jobId: string): Promise<Job> => {
-    const known = finalJobs.get(jobId);
-    if (known !== undefined) return Promise.resolve(known);
-    return new Promise((resolve) => waiting.set(jobId, [...(waiting.get(jobId) ?? []), resolve]));
-  };
-  const submitOne = async (request: JobRequest): Promise<Job> => {
-    const { jobIds } = runner.submit([request]);
-    return finished(jobIds[0] ?? '');
-  };
-  return { runner, scheduler, outDir, updates, finished, submitOne };
-};
-
-/** The job's temp dir is `filecon-<jobId>-XXXX` under the OS temp dir. */
-const tmpDirsOf = async (job: Job): Promise<string[]> =>
-  (await readdir(tmpdir())).filter((name) => name.startsWith(`filecon-${job.id}-`));
-
-/** Synchronous, so a listener can check the temp dir at the moment an update is sent. */
-const tmpDirsNow = (job: Job): string[] =>
-  readdirSync(tmpdir()).filter((name) => name.startsWith(`filecon-${job.id}-`));
-
-const expectNoTmp = async (job: Job): Promise<void> => {
-  expect(await tmpDirsOf(job)).toEqual([]);
-};
 
 const jpgToPng = (extra: Partial<Parameters<typeof fakeConverter>[0]> = {}): Converter =>
   fakeConverter({
@@ -127,6 +29,8 @@ const jpgToPng = (extra: Partial<Parameters<typeof fakeConverter>[0]> = {}): Con
     convert: (req) => writeOutput(req),
     ...extra,
   });
+
+useWorkDir();
 
 describe('runner: happy path', () => {
   it('converts one file: queued, running, done, outputs committed, temp dir gone', async () => {
@@ -319,7 +223,7 @@ describe('runner: failures', () => {
     [
       'a file outside outDir',
       async (req: Parameters<Converter['convert']>[0]) => {
-        const outside = join(workDir, `outside-${req.baseName}.png`);
+        const outside = join(workDirPath(), `outside-${req.baseName}.png`);
         await writeFile(outside, 'data');
         return [outside];
       },
@@ -363,8 +267,11 @@ describe('runner: failures', () => {
 
   it('a missing input is INPUT_NOT_FOUND', async () => {
     const { submitOne } = await harness({ converters: [jpgToPng()] });
-    const job = await submitOne(convertRequest(join(workDir, 'gone.jpg'), 'png'));
-    expect(job.error).toMatchObject({ code: 'INPUT_NOT_FOUND', input: join(workDir, 'gone.jpg') });
+    const job = await submitOne(convertRequest(join(workDirPath(), 'gone.jpg'), 'png'));
+    expect(job.error).toMatchObject({
+      code: 'INPUT_NOT_FOUND',
+      input: join(workDirPath(), 'gone.jpg'),
+    });
     await expectNoTmp(job);
   });
 

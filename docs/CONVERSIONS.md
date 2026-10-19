@@ -58,21 +58,21 @@ Every conversion we do or plan to do, by phase. **If a conversion isn't on this 
 
 | From | To |
 |---|---|
-| ☐ jpg | png · webp · avif · tiff · gif |
-| ☐ png | jpg · webp · avif · tiff · gif |
-| ☐ webp | jpg · png · avif · tiff · gif |
-| ☐ avif | jpg · png · webp · tiff · gif |
-| ☐ tiff | jpg · png · webp · avif · gif (first page only) |
-| ☐ gif | jpg · png · webp · avif · tiff (first frame only) |
-| ☐ jpg, webp, avif | the same format again, at another quality (re-encode) |
-| ☐ png, tiff, gif | the same format again (resize, grayscale) |
+| ☑ jpg | png · webp · avif · tiff · gif |
+| ☑ png | jpg · webp · avif · tiff · gif |
+| ☑ webp | jpg · png · avif · tiff · gif |
+| ☑ avif | jpg · png · webp · tiff · gif |
+| ☑ tiff | jpg · png · webp · avif · gif (first page only) |
+| ☑ gif | jpg · png · webp · avif · tiff (first frame only) |
+| ☑ jpg, webp, avif | the same format again, at another quality (re-encode) |
+| ☑ png, tiff, gif | the same format again (resize, grayscale) |
 
-- ☐ Resize: width and/or height, aspect kept, never enlarged
-- ☐ Grayscale
-- ☐ Photo info (EXIF, GPS): stripped by default, kept on request. Photos always come out upright
-- ☐ TIFF compression: LZW, Deflate, JPEG or none
+- ☑ Resize: width and/or height, aspect kept, never enlarged
+- ☑ Grayscale
+- ☑ Photo info (EXIF, GPS): stripped by default, kept on request. Photos always come out upright
+- ☑ TIFF compression: LZW, Deflate, JPEG or none
 
-Images larger than the target format allows (JPEG 65,535 px, WebP 16,383 px a side) are scaled down to fit, and the result says so.
+Images larger than the target format allows (JPEG 65,500 px, GIF 65,535 px, AVIF 16,384 px, WebP 16,383 px a side) are scaled down to fit, and the result says so.
 
 **Image → PDF** (pdf-lib, built in)
 
