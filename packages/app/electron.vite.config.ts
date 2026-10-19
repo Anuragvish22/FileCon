@@ -19,5 +19,20 @@ export default defineConfig({
     // A sandboxed preload cannot be an ES module.
     build: { rollupOptions: { output: { format: 'cjs', entryFileNames: '[name].js' } } },
   },
-  renderer: { plugins: [react()] },
+  renderer: {
+    plugins: [
+      react(),
+      {
+        // The dev server injects CSS as inline <style> and talks to its socket, which the strict
+        // `default-src 'self'` of index.html blocks. Only `pnpm dev` relaxes it, the built page keeps it.
+        name: 'dev-csp',
+        apply: 'serve',
+        transformIndexHtml: (html) =>
+          html.replace(
+            "default-src 'self'",
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws:",
+          ),
+      },
+    ],
+  },
 });

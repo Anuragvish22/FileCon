@@ -17,6 +17,7 @@ const INVALID_WHAT = [
   'height-range',
   'page-size-value',
   'tiff-compression-value',
+  'background-value',
   'page-past-end',
 ];
 
@@ -60,7 +61,12 @@ describe('en.json covers every key core can emit (CONTRACTS section 10)', () => 
       ...lossyIds.map((id) => `lossy.${id}`),
     ];
     const unknown = [...keys].filter(
-      (key) => !known.includes(key) && !/^(pack|install|app|nav|banner|notice|drop)\./.test(key),
+      (key) =>
+        !known.includes(key) &&
+        key !== 'category.other' &&
+        !/^(pack|install|app|nav|banner|notice|drop|page|dropzone|files|file|target|merge|hint|option|output|convert)\./.test(
+          key,
+        ),
     );
     expect(unknown).toEqual([]);
   });

@@ -1,6 +1,12 @@
 import type { CoreError, JobRequest, OptionKey, Settings } from '@filecon/core/types';
 import type { FileconApi } from '../../preload/api.ts';
-import { convertibleFiles, inputFormats, mergeChoice, visibleOptions } from './selectors.ts';
+import {
+  convertibleFiles,
+  inputFormats,
+  mergeChoice,
+  mergeOnlyTarget,
+  visibleOptions,
+} from './selectors.ts';
 import type { Action } from './reducer.ts';
 import type { State } from './state.ts';
 
@@ -102,6 +108,8 @@ export const createActions = ({ api, dispatch, getState }: ActionDeps) => {
         } else if (getState().files.length > 0) refreshTargets();
       }),
     addPaths,
+    dropFiles: (dropped: File[]): Promise<void> =>
+      addPaths(dropped.map((file) => api.pathForFile(file)).filter((path) => path !== '')),
     chooseFiles: (): Promise<void> =>
       guarded(async () => {
         const paths = await api.openFiles();
@@ -120,6 +128,12 @@ export const createActions = ({ api, dispatch, getState }: ActionDeps) => {
     refreshTargets,
     pickTarget: (target: string | null): void => {
       dispatch({ type: 'selection/target', target });
+      // A target only a merge can make has no other meaning, so the merge starts ticked.
+      if (
+        target !== null &&
+        mergeOnlyTarget({ ...getState(), selection: { ...getState().selection, target } })
+      )
+        dispatch({ type: 'selection/merge', on: true });
     },
     setMerge: (on: boolean): void => {
       dispatch({ type: 'selection/merge', on });
@@ -150,6 +164,15 @@ export const createActions = ({ api, dispatch, getState }: ActionDeps) => {
                 },
               ];
         await api.submit(requests);
+      }),
+    chooseOutputDir: (): Promise<void> =>
+      guarded(async () => {
+        const dir = await api.chooseDir();
+        if (dir !== null)
+          dispatch({
+            type: 'settings/loaded',
+            settings: await api.setSettings({ output: { mode: 'custom', dir } }),
+          });
       }),
     cancel: (jobId: string): Promise<void> => guarded(() => api.cancel(jobId)),
     cancelAll: (): Promise<void> => guarded(() => api.cancelAll()),

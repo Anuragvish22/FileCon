@@ -12,7 +12,7 @@ const REENCODED = 'reencoded';
 const DOWNSCALED = 'downscaled';
 const DEFAULT_QUALITY = 90;
 const DEFAULT_TIFF_COMPRESSION = 'lzw';
-const WHITE = '#ffffff';
+const DEFAULT_BACKGROUND = '#ffffff';
 const GRAY_COLOURSPACE = 'b-w';
 const FIRST_FLIPPED_ORIENTATION = 5; // EXIF 5 to 8 turn the image a quarter, so width and height swap
 
@@ -32,6 +32,7 @@ const edgeOptions = (to: Format): OptionKey[] => [
   'keepMetadata',
   ...(QUALITY_TARGETS.includes(to) ? (['quality'] as const) : []),
   ...(to === 'tiff' ? (['tiffCompression'] as const) : []),
+  ...(to === 'jpg' ? (['background'] as const) : []),
 ];
 
 const edgeOf = (from: Format, to: Format): Edge => {
@@ -131,9 +132,10 @@ export const sharpConverter: Converter = {
       const quality = options.quality ?? DEFAULT_QUALITY;
       switch (req.to) {
         case 'jpg':
-          // jpeg has no transparency: flatten onto white rather than black. Only when there is some,
+          // jpeg has no transparency: flatten onto the chosen background (white by default). Only when there is some,
           // since flatten turns a grayscale image back into three channels.
-          if (meta.hasAlpha === true) pipeline = pipeline.flatten({ background: WHITE });
+          if (meta.hasAlpha === true)
+            pipeline = pipeline.flatten({ background: options.background ?? DEFAULT_BACKGROUND });
           pipeline = pipeline.jpeg({ quality });
           break;
         case 'png':

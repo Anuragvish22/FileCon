@@ -23,10 +23,37 @@ export const inputFormats = (state: State): Format[] => [
   ),
 ];
 
+/**
+ * Single-file targets plus outputs that only a merge makes (two pdfs to one pdf), which the picker lists
+ * as ordinary rows (UI-DESIGN section 3).
+ */
+export const offeredTargets = (state: State): TargetOption[] => {
+  if (state.targets.status !== 'ready') return [];
+  const { convert, merge } = state.targets.result;
+  const count = convertibleFiles(state).length;
+  const mergeOnly = merge
+    // A merge needs 2 files unless the route fans out, the same rule as the toggle (mergeChoice).
+    .filter((choice) => count >= MIN_FILES_TO_MERGE || choice.fanOut)
+    .filter((choice) => !convert.some((option) => option.format === choice.output))
+    .map((choice): TargetOption => ({
+      format: choice.output,
+      status: choice.status,
+      ...(choice.pack === undefined ? {} : { pack: choice.pack }),
+      lossy: [],
+      fanOut: choice.fanOut,
+      options: [],
+    }));
+  return [...convert, ...mergeOnly];
+};
+
+/** True when the chosen target has no single-file route, so only the merge toggle can produce it. */
+export const mergeOnlyTarget = (state: State): boolean =>
+  state.targets.status === 'ready' &&
+  state.selection.target !== null &&
+  !state.targets.result.convert.some((option) => option.format === state.selection.target);
+
 export const selectedTarget = (state: State): TargetOption | undefined =>
-  state.targets.status === 'ready'
-    ? state.targets.result.convert.find((option) => option.format === state.selection.target)
-    : undefined;
+  offeredTargets(state).find((option) => option.format === state.selection.target);
 
 /** The merge toggle shows for 2 or more files, or for one file whose route fans out (UI-DESIGN section 4). */
 export const mergeChoice = (state: State): MergeChoice | undefined => {
@@ -46,9 +73,10 @@ export const visibleOptions = (state: State): OptionKey[] => {
 /** A target that needs a pack cannot be submitted (UI-DESIGN section 5). */
 export const canConvert = (state: State): boolean => {
   if (state.core.status !== 'ready') return false;
+  if (!pagesValid(state.selection.options.pages ?? '')) return false;
   if (state.detecting.length > 0 || convertibleFiles(state).length === 0) return false;
   if (state.selection.mergeMode) return mergeChoice(state)?.status === 'ready';
-  return selectedTarget(state)?.status === 'ready';
+  return !mergeOnlyTarget(state) && selectedTarget(state)?.status === 'ready';
 };
 
 export interface BatchSummary {
@@ -68,4 +96,20 @@ export const batchSummary = (state: State): BatchSummary => {
   };
   for (const job of state.jobs.values()) counts[job.state] += 1;
   return { total: state.jobs.size, counts, active: counts.queued + counts.running > 0 };
+};
+
+// UI-DESIGN section 2 and CONTRACTS section 2: N, N-M, N- or -M, comma separated, spaces ignored.
+const PAGES_SYNTAX = /^(\d+(-\d*)?|-\d+)(,(\d+(-\d*)?|-\d+))*$/;
+
+export const pagesValid = (text: string): boolean => {
+  const compact = text.replaceAll(' ', '');
+  if (compact === '') return true;
+  if (!PAGES_SYNTAX.test(compact)) return false;
+  return compact.split(',').every((part) => {
+    const [from, to] = part.split('-');
+    return (
+      (from === '' || Number(from) >= 1) &&
+      (to === undefined || to === '' || Number(to) >= Math.max(1, Number(from)))
+    );
+  });
 };

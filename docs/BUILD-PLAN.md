@@ -317,11 +317,12 @@ Split into three changes (a, b, c). Tick this heading when all three are ☑. De
 - **Tests:** `store.test.ts` (reducer and selectors, add files → pick target → job done), `actions.test.ts` (P35 queueing), `tokens.test.ts` (4.5:1 for every accent × mode, `<html>` attributes), `test/tooling/jsx-literals.test.ts` (a JSX literal fails lint).
 - **Parked:** [P39 renderer has no format categories](PARKED.md#2-items), [P40 renderer shares main's tsconfig](PARKED.md#2-items), [P37](PARKED.md#2-items) (CSP only checked in the built app)
 
-#### M1-7b Convert page ☐
-- **Parked to review first:** [P9 fonts in office → pdf](PARKED.md#2-items) (build the fixed note only), [P20 page placement for image → pdf](PARKED.md#2-items), [P25 two sharp choices](PARKED.md#2-items), [P30 serial detect](PARKED.md#2-items), [P39](PARKED.md#2-items)
+#### M1-7b Convert page ☑
+- **Parked to review first:** [P9](PARKED.md#2-items) (fixed note only), [P20](PARKED.md#2-items), [P25](PARKED.md#2-items) (jpg background built, concurrency stays parked), [P30](PARKED.md#2-items), [P39](PARKED.md#2-items) (adopted: `@filecon/core/formats`)
 - **Depends on:** M1-7a
-- **Files:** `DropZone`, `FileList`/`FileRow`, `TargetPicker`, `RouteHint`, `OptionsBar`, `OutputChooser`, `ConvertButton`, the Convert page.
-- **Tests:** TargetPicker keyboard navigation; empty state; a 🔒 target can't be submitted; merge toggle rules; drop zone Enter/Space.
+- **Files:** `renderer/components/{DropZone,FileList,TargetPicker,RouteHint,OptionsBar,OutputChooser,MergeToggle,ConvertButton}.tsx`, `renderer/pages/ConvertPage.tsx`, `renderer/format.ts`; in core `options.ts` and `converters/sharp.ts` for the new `background` option (CONTRACTS section 2).
+- **Tests:** `convert.test.tsx` (empty state, TargetPicker arrows, Enter and typeahead, locked target can't be submitted, merge toggle rule, one request per file, Alt+Arrow reorder), `store.test.ts` (`pagesValid`), sharp golden for `background`.
+- **Parked:** [P41 drag reorder, busy Convert button, step 2 of mismatch tooltip](PARKED.md#2-items)
 
 #### M1-7c Jobs, Engines and Settings ☐
 - **Parked to review first:** [P26 very large documents and the 180 s timeout](PARKED.md#2-items) (build the setting), [P35](PARKED.md#2-items) recheck

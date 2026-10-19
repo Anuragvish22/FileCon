@@ -6,6 +6,7 @@ import {
   canConvert,
   inputFormats,
   mergeChoice,
+  pagesValid,
   visibleOptions,
 } from '../../src/renderer/store/selectors.ts';
 import { initialState, type State } from '../../src/renderer/store/state.ts';
@@ -141,5 +142,25 @@ describe('selectors', () => {
   it('files with an error or no format are not sent', () => {
     const state = run([{ type: 'files/added', results: [detected('/x.bin', null)] }], ready());
     expect(inputFormats(state)).toEqual(['png']);
+  });
+});
+
+describe('pagesValid', () => {
+  it.each(['', '1', '2-3,7', '10-', '-4', ' 1 - 3 , 7 '])('accepts %j', (text) => {
+    expect(pagesValid(text)).toBe(true);
+  });
+  it.each(['0', 'a', '3-1', '1,,2', '1-2-3', ','])('rejects %j', (text) => {
+    expect(pagesValid(text)).toBe(false);
+  });
+});
+
+describe('a target only a merge can make', () => {
+  it('cannot be submitted as single-file conversions, only with the merge on', () => {
+    const state = run([{ type: 'selection/target', target: 'pdf' }], {
+      ...ready(),
+      targets: { status: 'ready', result: { ...TARGETS, convert: [] } },
+    });
+    expect(canConvert(state)).toBe(false);
+    expect(canConvert(run([{ type: 'selection/merge', on: true }], state))).toBe(true);
   });
 });

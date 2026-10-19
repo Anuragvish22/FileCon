@@ -10,4 +10,5 @@ export interface ConvertOptions {
   grayscale?: boolean; // images. Default false
   keepMetadata?: boolean; // images. Default false: EXIF, GPS and XMP are stripped. The ICC profile is always kept
   tiffCompression?: 'lzw' | 'deflate' | 'jpeg' | 'none'; // tiff output only. Default "lzw"
+  background?: string; // jpg output only: "#rrggbb" that transparent pixels are flattened onto. Default "#ffffff"
 }

@@ -41,3 +41,79 @@ button:focus-visible {
 .banner[data-status='unavailable'] {
   color: var(--danger);
 }
+.dropzone {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  margin: 16px;
+  padding: 32px;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+}
+.dropzone[data-drag='over'] {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.file-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 16px;
+}
+.file-row[data-unsupported='true'] {
+  color: var(--danger);
+}
+.file-name {
+  flex: 1;
+}
+[role='option'] {
+  display: flex;
+  gap: 8px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+[role='option'][aria-selected='true'] {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+[role='option'][data-active='true'] {
+  outline: 2px solid var(--accent);
+}
+[role='option'][data-locked='true'] {
+  color: var(--muted);
+}
+.group-title {
+  padding-inline-start: 12px;
+  color: var(--muted);
+}
+.convert-page {
+  display: grid;
+  gap: 12px;
+  padding-block-end: 16px;
+}
+.convert-page > :not(.dropzone) {
+  margin-inline: 16px;
+}
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+button.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 0;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  justify-self: end;
+}
+button.primary:disabled {
+  background: var(--surface);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+[aria-invalid='true'] {
+  outline: 2px solid var(--danger);
+}

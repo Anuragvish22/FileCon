@@ -265,6 +265,27 @@ describe.skipIf(!(await sharpConverter.available()))('sharp converter', () => {
       expect(data[0]).toBeGreaterThan(240);
     });
 
+    it('flattens transparent pixels onto the chosen background', async () => {
+      const input = await writeSource(
+        'clear2.png',
+        await sharp({
+          create: { width: 8, height: 8, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+        })
+          .png()
+          .toBuffer(),
+      );
+      const output = await convertTo(input, 'png', 'jpg', { background: '#ff0000' });
+      const { data } = await sharp(output).raw().toBuffer({ resolveWithObject: true });
+      expect(data[0]).toBeGreaterThan(200);
+      expect(data[1]).toBeLessThan(60);
+    });
+
+    it('a malformed background is INVALID_REQUEST', async () => {
+      await expect(
+        convertTo(await makeInput('png'), 'png', 'jpg', { background: 'red' }),
+      ).rejects.toMatchObject({ error: { params: { what: 'background-value' } } });
+    });
+
     it('a source name is only used for the output stem', async () => {
       const output = await convertTo(await makeInput('png'), 'png', 'jpg');
       expect(basename(output)).toBe('out.jpg');

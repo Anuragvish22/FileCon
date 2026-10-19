@@ -14,6 +14,8 @@ const ENUMS = {
   tiffCompression: { what: 'tiff-compression-value', allowed: ['lzw', 'deflate', 'jpeg', 'none'] },
 } as const;
 
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
 /** Throws INVALID_REQUEST with `what: "<option>-range"` or `"<option>-value"` (text: `invalid.<what>`). */
 export const validateOptions = (options: ConvertOptions): void => {
   for (const [key, { min, max }] of Object.entries(RANGES)) {
@@ -27,4 +29,6 @@ export const validateOptions = (options: ConvertOptions): void => {
     if (value !== undefined && !(allowed as readonly unknown[]).includes(value))
       throw new CoreFailure('INVALID_REQUEST', { what });
   }
+  if (options.background !== undefined && !HEX_COLOR.test(options.background))
+    throw new CoreFailure('INVALID_REQUEST', { what: 'background-value' });
 };

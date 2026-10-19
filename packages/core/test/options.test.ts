@@ -41,6 +41,10 @@ describe('validateOptions', () => {
   });
 
   it('an unknown pageSize or tiffCompression is INVALID_REQUEST', () => {
+    expect(whatOf({ background: '#12345' })).toMatchObject({
+      params: { what: 'background-value' },
+    });
+    expect(() => validateOptions({ background: '#A0b1C2' })).not.toThrow();
     // @ts-expect-error: not one of the allowed values
     expect(whatOf({ pageSize: 'a3' })).toMatchObject({ params: { what: 'page-size-value' } });
     // @ts-expect-error: not one of the allowed values
