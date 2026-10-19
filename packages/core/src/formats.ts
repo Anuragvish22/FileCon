@@ -20,8 +20,10 @@ export const FORMATS: readonly FormatInfo[] = [
 ];
 
 const ALIASES: Record<string, Format> = { jpeg: 'jpg', tif: 'tiff' };
-const byId = new Map(FORMATS.map((f) => [f.id, f]));
-const extMap = new Map(FORMATS.flatMap((f) => f.exts.map((e) => [e, f.id] as const)));
+const byId = new Map(FORMATS.map((format) => [format.id, format]));
+const extMap = new Map(
+  FORMATS.flatMap((format) => format.exts.map((ext) => [ext, format.id] as const)),
+);
 
 export const info = (id: Format): FormatInfo | undefined => byId.get(id);
 

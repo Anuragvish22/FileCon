@@ -127,7 +127,7 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
 | File row | detecting (spinner) · ready · mismatch ⚠ · unsupported (no targets) ✗ |
 | Target picker | disabled (no files) · options · no common target ("These files share no output format") |
 | Convert button | disabled (no target) · enabled · busy while submitting |
-| Job row | queued · running (step i/n + %, or an indeterminate bar with "working…" when `fraction` is null) · done ✓ ("Show in folder", or "Open folder" for multi-output) · failed ✗ (`t("error.<code>", params)` from [CONTRACTS section 5](CONTRACTS.md#5-errors), Details = `detail`, Retry only if retryable) · cancelled ⊘ |
+| Job row | queued · running (step <current>/<total> + %, or an indeterminate bar with "working…" when `fraction` is null) · done ✓ ("Show in folder", or "Open folder" for multi-output) · failed ✗ (`t("error.<code>", params)` from [CONTRACTS section 5](CONTRACTS.md#5-errors), Details = `detail`, Retry only if retryable) · cancelled ⊘ |
 | OptionsBar | hidden (route has no options) · shows only the keys in `TargetOption.options`: Quality slider 1–100, Page size auto/A4/Letter, DPI, Pages text field (`2-3,7`, invalid = red outline + "Use numbers and ranges like 1-3,7"), Width and Height fields (px), Grayscale toggle, "Keep photo info" toggle (off), TIFF compression select |
 | Extract action | hidden (not all rows are PDF) · ready · 🔒 needs PDF pack. "Split into pages" sits next to "Extract images" and never needs a pack |
 | Install assistant | download: confirm → downloading (bytes) → verifying → unpacking → done / failed (message + Retry) · command: list with Copy → Re-check → found / still missing |

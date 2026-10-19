@@ -12,7 +12,7 @@ const contracts = readFileSync(
 // Codes in the first column of the CONTRACTS section 5 table
 const tableCodes = () => {
   const section = contracts.split(/^## 5\. /m)[1]?.split(/^## /m)[0] ?? '';
-  return [...section.matchAll(/^\| `([A-Z_]+)` \|/gm)].map((m) => m[1]);
+  return [...section.matchAll(/^\| `([A-Z_]+)` \|/gm)].map((match) => match[1]);
 };
 
 describe('errors', () => {
@@ -36,12 +36,12 @@ describe('errors', () => {
   });
 
   it('survives a JSON round trip unchanged', () => {
-    for (const e of [
+    for (const error of [
       coreError('INVALID_REQUEST', { what: 'page-past-end', page: 9, count: 5 }),
       coreError('TIMEOUT', { engine: 'libreoffice', name: 'a.docx' }, 'killed'),
       coreError('CANCELLED'),
     ]) {
-      expect(JSON.parse(JSON.stringify(e))).toEqual(e);
+      expect(JSON.parse(JSON.stringify(error))).toEqual(error);
     }
   });
 
@@ -51,14 +51,14 @@ describe('errors', () => {
   });
 
   it('CoreFailure is a real Error whose .error is the plain CoreError', () => {
-    const f = new CoreFailure('ENGINE_FAILED', { engine: 'ffmpeg', name: 'a.mp4' }, 'exit 1');
-    expect(f).toBeInstanceOf(Error);
-    expect(f.name).toBe('CoreFailure');
-    expect(f.stack).toContain('CoreFailure');
-    expect(f.error).toEqual(
+    const failure = new CoreFailure('ENGINE_FAILED', { engine: 'ffmpeg', name: 'a.mp4' }, 'exit 1');
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure.name).toBe('CoreFailure');
+    expect(failure.stack).toContain('CoreFailure');
+    expect(failure.error).toEqual(
       coreError('ENGINE_FAILED', { engine: 'ffmpeg', name: 'a.mp4' }, 'exit 1'),
     );
-    expect(structuredClone(f.error)).toEqual(f.error);
-    expect(JSON.parse(JSON.stringify(f.error))).toEqual(f.error);
+    expect(structuredClone(failure.error)).toEqual(failure.error);
+    expect(JSON.parse(JSON.stringify(failure.error))).toEqual(failure.error);
   });
 });

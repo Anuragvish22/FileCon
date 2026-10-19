@@ -54,7 +54,11 @@ fileCon/
 │   │   ├── formats.ts            FormatInfo table, aliases, ext → format lookup
 │   │   ├── detect.ts             content + extension detection
 │   │   ├── registry.ts           register / list converters and combiners
-│   │   ├── graph.ts              build graph, route search, targets
+│   │   ├── graph/
+│   │   │   ├── build.ts          nodes and edges, same-pair dedupe
+│   │   │   ├── route.ts          route search and its per-source cache
+│   │   │   ├── targets.ts        convert, merge and extract options for a set of inputs
+│   │   │   └── index.ts          public API
 │   │   ├── jobs/
 │   │   │   ├── runner.ts         job lifecycle, step execution, progress, cleanup
 │   │   │   ├── scheduler.ts      FIFO queue, global slots, per-converter semaphores
@@ -132,20 +136,22 @@ The Test column names files under `<package>/test/`, at the same path as the mod
 |---|---|---|---|
 | `formats` | Canonical ids, aliases, ext lookup | `FORMATS`, `byExt(ext)`, `canonical(id)`, `info(id)` | `formats.test.ts` |
 | `detect` | Content-first detection | `detect(path): Promise<DetectResult>` | `detect.test.ts` + fixtures |
-| `registry` | Hold converters, combiners and extractors | `createRegistry()` → `register(x)`, `converters()`, `combiners()`, `get(id)`; `extractors()` from M1.1-3 | `registry.test.ts` |
+| `registry` | Hold converters, combiners and extractors | `createRegistry()` → `register(item)`, `converters()`, `combiners()`, `get(id)`; `extractors()` from M1.1-3 | `registry.test.ts` |
 | `pages` | `pages` option | `parsePages(str)`, `boundPages(ranges, count)`, `toRanges(pages)` | `pages.test.ts` |
-| `graph` | Graph build and route search | `buildGraph(convs, availableIds, priority)`, `route(g, from, to)`, `targets(g, full, formats)` | `graph.test.ts` |
-| `jobs/scheduler` | Slots and semaphores | `createScheduler(n)`, `acquire(convId, max)`, `setConcurrency(n)` | `scheduler.test.ts` |
+| `graph/build` | Graph build | `buildGraph({ registry, availableIds, priority })` | `graph/route.test.ts` (same-pair dedupe) |
+| `graph/route` | Route search | `route(graph, from, to)`, `MAX_HOPS` | `graph/route.test.ts` |
+| `graph/targets` | Options for a set of inputs | `targets({ available, full, formats })` | `graph/targets.test.ts` |
+| `jobs/scheduler` | Slots and semaphores | `createScheduler(slotCount)`, `acquire(convId, max)`, `setConcurrency(slotCount)` | `scheduler.test.ts` |
 | `jobs/runner` | Execute jobs | `createRunner(deps)`, `.submit(reqs)`, `.cancel(id)`, `.cancelAll()`, `on("update")` | `runner.test.ts` |
 | `jobs/output` | Never-overwrite commit | `commitFile(src, dir, stem, ext)`, `commitFolder(files, dir, stem, ext)` | `output.test.ts` |
 | `jobs/spawn` | Safe external process | `run(bin, args, { signal, timeoutMs, cwd, onStdout? })` | `spawn.test.ts` |
-| `jobs/tmp` | Temp lifecycle | `makeJobDir(id)`, `removeDir(p)`, `sweep(olderThanMs)` | `tmp.test.ts` |
+| `jobs/tmp` | Temp lifecycle | `makeJobDir(id)`, `removeDir(dirPath)`, `sweep(olderThanMs)` | `tmp.test.ts` |
 | `engines/discovery` | Find engines | `discover(spec, deps)`, `discoverAll(specs, overrides)` | `discovery.test.ts` |
 | `engines/install` | Install assistant (download kind) | `install(spec, deps, onProgress)` | `install.test.ts` (local fake HTTPS server) |
 | `rpc/server` | Dispatch and events | `createServer(transport, deps)` | `server.test.ts` (MessageChannel) |
 | `converters/*` | One engine each | `Converter` object | `converters/<id>.test.ts` (golden) |
 | `main/supervisor` | Core host lifecycle | `startCore()`, `status`, `on("status")` | `supervisor.test.ts` (fake fork) |
-| `main/paths` | Trust boundary | `validateFile(p)`, `validateDir(p)`, `expand(paths)` | `paths.test.ts` |
+| `main/paths` | Trust boundary | `validateFile(filePath)`, `validateDir(dirPath)`, `expand(paths)` | `paths.test.ts` |
 | `main/settings` | Persisted settings | `load()`, `save(patch)` | `settings.test.ts` |
 
 ## 6. Format registry
@@ -198,7 +204,7 @@ The format core uses is always `format`, so a mislabeled file converts correctly
 - When several converters offer the same (from, to), keep the lowest cost. On a tie, keep the converter earlier in `Settings.engines.priority`, and after that the one registered first.
 - Two graphs are kept: **available** (installed engines only) and **full** (every registered converter). The full graph is used only to label targets `needs-pack`.
 
-**Cost scale.** Every edge must use these levels:
+**Cost scale.** Every edge must use these levels, by name from `COST` in `core/src/costs.ts` (`cost: COST.render`, never `cost: 5`):
 
 | Cost | Meaning | Example |
 |---|---|---|
@@ -212,20 +218,24 @@ The format core uses is always `format`, so a mislabeled file converts correctly
 **Route search** uses hop-bounded Bellman-Ford. It's exact under the hop cap ([ADR-9](#15-adr-log)).
 
 ```text
-best[0][from] = (cost 0, hops 0, path [])
-for k in 1..3:
-  best[k] = copy(best[k-1])
-  for each edge (u → v) with best[k-1][u] defined:
-    if path(u) already has a fanOut edge and edge.fanOut: skip      # max one fan-out
-    if v already on path(u): skip                                   # no cycles
-    cand = best[k-1][u] + edge
-    if better(cand, best[k][v]): best[k][v] = cand
-better = lower cost, then fewer hops, then higher priority (sum of priority ranks)
-answer = best[3][to] or null
+two tables of best paths per format: single (no fan-out yet) and fannedOut (used its one)
+single[from] = (cost 0, path [])
+repeat MAX_HOPS (3) times, extending the previous round's paths:
+  for each path in single, and each edge leaving its last format:
+    edge.fanOut ? keep the better in fannedOut : keep the better in single
+  for each path in fannedOut, and each edge leaving its last format:
+    edge.fanOut ? skip                                              # max one fan-out
+                : keep the better in fannedOut
+  an edge to a format already on the path is skipped                 # no cycles
+better = lower cost, then fewer hops, then higher priority (lower sum of priority ranks)
+answer for each format = the better of single[format] and fannedOut[format]
+`from` itself is left out (its only entry is the empty start); it reaches itself only by self-edge
 ```
 
+There are two tables, not one: with a single best path per format, a cheap path that already fanned out would hide a dearer one that still may, and a route needing that fan-out would be missed. One search gives the best route from a source to every format, which is what `targets` needs.
+
 **Self-edges.**
-- `route(g, f, f)` returns the self-edge as a 1-step route, or null when `f` has none. A self-edge is never part of a multi-hop route, so the search below never sees it.
+- `route(graph, format, format)` returns the self-edge as a 1-step route, or null when `format` has none. A self-edge is never part of a multi-hop route, so the search never sees it.
 - The output keeps the source's name and ext, so the never-overwrite rule names it `photo (1).jpg` ([section 10](#10-output-commit)).
 - A self-edge must honour at least one option; one that changes nothing is a bug.
 
@@ -235,32 +245,32 @@ answer = best[3][to] or null
 - A `fanOut` edge (pdf → png) returns N files.
 - The runner runs every later step once per file, preserving order. pdf → png → webp gives N webp files.
 - The final outputs go into one folder ([section 10](#10-output-commit)).
-- Fan-out converters **name their files `page-<n>.<ext>`**, where n is the real 1-based page. Later steps use that stem as `baseName`, so the names stay `page-003` and `page-007` even after pdf → png → webp. `commitFolder` re-pads n to the folder's width.
+- Fan-out converters **name their files `page-<page>.<ext>`**, where page is the real 1-based page number. Later steps use that stem as `baseName`, so the names stay `page-003` and `page-007` even after pdf → png → webp. `commitFolder` re-pads the page number to the folder's width.
 
 **PDF edges (Poppler, M1.1)**, in `converters/poppler.ts`:
 
-| Edge | Cost | fanOut | options | Command (per contiguous range a–b) |
+| Edge | Cost | fanOut | options | Command (per contiguous range first–last) |
 |---|---|---|---|---|
-| pdf → png | 5 | yes | dpi, pages | `pdftoppm -r <dpi> -png -f a -l b -progress <in> <outDir>/p` |
-| pdf → jpg | 5 | yes | dpi, pages, quality | `pdftoppm -r <dpi> -jpeg -jpegopt quality=<q> -f a -l b -progress <in> <outDir>/p` |
-| pdf → tiff | 5 | yes | dpi, pages | `pdftoppm -r <dpi> -tiff -f a -l b -progress <in> <outDir>/p` |
+| pdf → png | 5 | yes | dpi, pages | `pdftoppm -r <dpi> -png -f <first> -l <last> -progress <in> <outDir>/p` |
+| pdf → jpg | 5 | yes | dpi, pages, quality | `pdftoppm -r <dpi> -jpeg -jpegopt quality=<quality> -f <first> -l <last> -progress <in> <outDir>/p` |
+| pdf → tiff | 5 | yes | dpi, pages | `pdftoppm -r <dpi> -tiff -f <first> -l <last> -progress <in> <outDir>/p` |
 
 1. First run `pdfinfo <in>`. Parse `Pages:` for the count and `Encrypted:` for encryption. Encryption that blocks reading gives `INPUT_ENCRYPTED`.
 2. `boundPages(parsePages(options.pages), count)`. Out-of-range pages give `INVALID_REQUEST`.
 3. Run `pdftoppm` once per range. Progress is pages done / total, parsed from `-progress` stderr lines.
-4. pdftoppm names files `p-<n>.<ext>`, zero-padded by document length. Rename each to `page-<n>.<ext>` by parsing n, never by sort order.
+4. pdftoppm names files `p-<page>.<ext>`, zero-padded by document length. Rename each to `page-<page>.<ext>` by parsing the page number, never by sort order.
 
-**Targets** (`targets(available, full, formats)`):
+**Targets** (`targets({ available, full, formats })`):
 1. For each distinct input format, compute every node reachable within 3 hops in the **available** graph, and also in the **full** graph.
 2. `convert` = formats reachable from every input in the full graph. An input's own format counts as reachable only through its self-edge, so `jpg` is offered for jpg inputs only when a jpg self-edge exists.
    - `status = "ready"` if they're reachable in the available graph for every input. Otherwise `"needs-pack"`, with the first missing pack on the cheapest full-graph route.
-3. `merge` = combiners whose `accepts` is reachable (available or full) from every input. Offered only when there are 2 or more files, or 1 file whose route to `accepts` fans out (one pdf → one long image).
+3. `merge` = combiners whose `accepts` is reachable (available or full) from every input; an input already in `accepts` needs no route. Each entry's `fanOut` says whether some input's route to `accepts` fans out. Core gets distinct formats, not files, so the renderer applies the count rule: merge shows for 2 or more files, or for 1 file when `fanOut` is true (one pdf → one long image).
 4. `lossy`, `fanOut` and `options` are unioned across the inputs' routes.
 5. `extract` = extractors whose `accepts` equals the format of **every** input. There's no routing, so in M1.1 only PDFs offer "Extract images". `status` comes from the extractor's engine.
 
 **LibreOffice profile.** soffice needs a profile dir, and two runs sharing one fail silently, while creating one costs seconds per run. So the converter keeps one persistent profile per LibreOffice slot, `<dataDir>/lo-profile-<slot>/` (`-env:UserInstallation=file://…`). With `maxConcurrent: 1` that's one dir. When soffice fails, its profile dir is deleted so the next run starts clean.
 
-**Caching:** routes are memoized per (from, to) per graph. The cache is cleared when the graph is rebuilt, which happens on `init`, `engines.refresh` and `settings.apply` when engine paths or priority change.
+**Caching:** one search from a source format gives the best route to every target, so results are memoized per source format per graph. The cache is cleared when the graph is rebuilt, which happens on `init`, `engines.refresh` and `settings.apply` when engine paths or priority change.
 
 ## 9. Job runner
 
@@ -270,14 +280,14 @@ answer = best[3][to] or null
 - A FIFO queue of jobs, with global slots = `concurrency`. A job holds one slot from `running` until it reaches a terminal state.
 - Before each step, the job also acquires the converter's semaphore (`maxConcurrent`, LibreOffice = 1) and releases it after the step.
 - shortcut: a job waiting on the LibreOffice semaphore still holds a global slot. Fine at ≤ 32 slots. Revisit if office batches starve image jobs.
-- `setConcurrency(n)` takes effect as slots free up. Running jobs are never interrupted.
+- `setConcurrency(slotCount)` takes effect as slots free up. Running jobs are never interrupted.
 
 **Executing a convert job:**
 1. `tmp = makeJobDir(jobId)`, which is `os.tmpdir()/filecon-<jobId>-XXXX/`.
 2. Re-check that the input exists. Route = `route(available, format, target)`. If there's no route, fail with `NO_ROUTE` or `ENGINE_MISSING`.
 3. `files = [input]`. For each step i:
-   - `outDir = tmp/s<i>/`.
-   - For each file in `files`, call `converter.convert({ input: file, from, to, outDir: outDir/<n>/, baseName, options }, ctx)`. When there's one file, use `outDir` directly.
+   - `outDir = tmp/step-<index>/`.
+   - For each file in `files`, call `converter.convert({ input: file, from, to, outDir: outDir/<fileIndex>/, baseName, options }, ctx)`. When there's one file, use `outDir` directly.
    - **Postcondition:** each returned path is inside `outDir` and exists with size > 0. Otherwise `ENGINE_OUTPUT_MISSING`.
    - `files` = every returned path, in order.
 4. Commit: one file uses `commitFile`. Otherwise `commitFolder` ([section 10](#10-output-commit)).
@@ -285,13 +295,13 @@ answer = best[3][to] or null
 
 **Executing an extract job** ([FLOWS F15](FLOWS.md#f15-extract-embedded-images)):
 1. `tmp = makeJobDir`. Re-check the input. Acquire the extractor's semaphore if it has one.
-2. `files = extractor.extract(input, tmp/x/, options, ctx)`. `[]` gives `NOTHING_TO_EXTRACT`.
-3. Postcondition: each file is inside `tmp/x/` and has size > 0.
+2. `files = extractor.extract(input, tmp/extract/, options, ctx)`. `[]` gives `NOTHING_TO_EXTRACT`.
+3. Postcondition: each file is inside `tmp/extract/` and has size > 0.
 4. `commitFolder(files, dir, stem, "images")`, keeping each file's **own** extension and the extractor's name (`page-003-01.jpg`).
 
 **pdfimages extractor** (`extractors/pdfimages.ts`):
 - `pdfinfo` → bound pages (as for the PDF edges).
-- Then `pdfimages -all -p -f a -l b <in> <outDir>/img` per range. `-all` writes the original streams (jpg stays jpg, jp2 stays jp2, and anything that can't be written natively becomes png), with no re-encode. `-p` adds the page number.
+- Then `pdfimages -all -p -f <first> -l <last> <in> <outDir>/img` per range. `-all` writes the original streams (jpg stays jpg, jp2 stays jp2, and anything that can't be written natively becomes png), with no re-encode. `-p` adds the page number.
 - Rename `img-<page>-<idx>.<ext>` to `page-<page>-<nn>.<ext>`, where `nn` is the 1-based index on that page.
 - Inline images, and some soft masks, are written as separate files. That's expected and documented in the UI tooltip.
 
@@ -331,10 +341,10 @@ This section is the "never overwrite" guarantee ([PRD G4](PRD.md#4-goals-and-non
 - An empty result becomes `file`.
 
 **Single file** (`commitFile(src, dir, stem, ext)`):
-1. For n = 0..999, the candidate is `stem.ext` when n = 0, otherwise `stem (n).ext`.
+1. For attempt = 0..999, the candidate is `stem.ext` when attempt = 0, otherwise `stem (attempt).ext`.
    - Skip candidates that are in the in-memory **reservation set** (shared by all jobs in the host). Otherwise reserve the candidate.
 2. `fs.link(src, candidate)`. This is atomic and fails with `EEXIST` if the file exists.
-   - On `EEXIST`, unreserve and try the next n.
+   - On `EEXIST`, unreserve and try the next attempt.
    - On success, `unlink(src)` and stop.
 3. On `EXDEV`, `EPERM` or `ENOTSUP` (cross-device, or FAT/exFAT without hard links), copy with `COPYFILE_EXCL` to `candidate + ".filecon-part"`.
    - Then `fs.link(part, candidate)` if supported. Otherwise `fs.stat(candidate)` must be ENOENT, then `rename(part, candidate)`.
@@ -342,9 +352,9 @@ This section is the "never overwrite" guarantee ([PRD G4](PRD.md#4-goals-and-non
 4. Unreserve once the commit finishes. More than 999 attempts gives `OUTPUT_WRITE_FAILED`.
 
 **Multi-output** (`commitFolder(files, dir, stem, ext)`):
-- `mkdir("<stem> (<ext>)")`, which fails if it exists. On conflict, try `"<stem> (<ext>) (n)"`.
+- `mkdir("<stem> (<ext>)")`, which fails if it exists. On conflict, try `"<stem> (<ext>) (<attempt>)"`.
 - Commit each file inside as `page-001.<ext>`, zero-padded to the width of the file count (minimum 3).
-- Files from a fan-out keep their `page-<n>` stem, re-padded to the width of the highest page number (minimum 3): `page-003.<ext>`. Extractor files keep the name and extension the extractor gave them. Otherwise they're named by position.
+- Files from a fan-out keep their `page-<page>` stem, re-padded to the width of the highest page number (minimum 3): `page-003.<ext>`. Extractor files keep the name and extension the extractor gave them. Otherwise they're named by position.
 - The folder suffix is the target ext, or the extractor's `folder` for extract jobs: `report (png)/`, `report (images)/`, `report (pages)/`.
 - `outputs` = `[folder, ...files]`.
 
@@ -393,7 +403,7 @@ The result is cached per session. It's refreshed on `engines.refresh`, after `en
 - **Crash** (`exit` with a non-zero code, or no `ready` in time):
   1. Reject every pending call with `CORE_CRASHED`.
   2. For each job last seen as `queued` or `running`, emit a synthesized `job:update` with `state: "failed"` and `error.code: "CORE_CRASHED"`.
-  3. If there were fewer than 3 restarts in the last 60 s, set status `restarting`, wait 1 s · 2^n and fork again.
+  3. If there were fewer than 3 restarts in the last 60 s, set status `restarting`, wait 1 s · 2^restarts and fork again.
   4. Otherwise set status `unavailable`. Every IPC call then returns `CORE_UNAVAILABLE` until the app restarts.
 - **Quit:** `before-quit` runs `preventDefault`, then calls `shutdown` (which cancels everything and cleans up) and waits for it, for up to 5 s. If it doesn't finish, `kill()`. Then `app.quit()`.
 

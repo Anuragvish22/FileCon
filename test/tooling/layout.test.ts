@@ -15,7 +15,9 @@ describe('layout', () => {
       } catch {
         // a package without src/ has nothing to check
       }
-      return files.filter((f) => /\.test\.tsx?$/.test(f)).map((f) => join(pkg, 'src', f));
+      return files
+        .filter((file) => /\.test\.tsx?$/.test(file))
+        .map((file) => join(pkg, 'src', file));
     });
     expect(misplaced).toEqual([]);
   });

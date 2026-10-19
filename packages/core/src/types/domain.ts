@@ -79,7 +79,7 @@ export interface Converter {
   timeoutMs?: number; // per step, default 120_000
   maxConcurrent?: number; // default unlimited; libreoffice = 1
   available(): Promise<boolean>;
-  /** Writes only inside req.outDir. Returns produced files (≥1). fanOut edges name files `page-<n>.<ext>` (n = real 1-based page) and return them in page order. */
+  /** Writes only inside req.outDir. Returns produced files (≥1). fanOut edges name files `page-<page>.<ext>` (page = the real 1-based page number) and return them in page order. */
   convert(req: StepRequest, ctx: JobCtx): Promise<string[]>;
 }
 

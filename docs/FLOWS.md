@@ -137,12 +137,12 @@ sequenceDiagram
 **Steps**
 1. Unsupported rows are excluded from `formats`. If every row is unsupported, there's no call and the picker is disabled.
 2. If the current `selection.target` isn't in the new result, it's cleared.
-3. The Merge toggle shows when there are 2 or more ready rows and `merge` has an entry ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm)).
+3. The Merge toggle shows when `merge` has an entry and there are 2 or more ready rows, or 1 ready row and the entry's `fanOut` is true ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm)).
 4. The OptionsBar shows only the keys in the chosen `TargetOption.options`.
 
 **Errors:** an empty `convert` shows "These files share no output format".
 **Invariants:** a `ready` target always has a route in the available graph for every input.
-**Tests:** `graph.test.ts` (intersection, needs-pack labelling, merge eligibility), `selectors.test.ts`.
+**Tests:** `graph/targets.test.ts` (intersection, needs-pack labelling, merge eligibility), `selectors.test.ts`.
 
 ## F4. Single convert
 
@@ -162,7 +162,7 @@ sequenceDiagram
   Core-->>Main: evt job.update queued
   Core->>Core: scheduler grants slot, makeJobDir
   Core-->>Main: evt job.update running
-  Core->>Core: sharp.convert(step) writes tmp/s0/photo.png
+  Core->>Core: sharp.convert(step) writes tmp/step-0/photo.png
   Core->>Core: postcondition: file exists, size > 0
   Core->>Core: commitFile: reserve, link photo.png (or photo (1).png), unlink tmp
   Core-->>Main: evt job.update done { outputs }
@@ -189,10 +189,10 @@ sequenceDiagram
   participant Poppler as pdftoppm (Poppler)
   Core->>Core: route(docx, png) = 2 steps, fanOut
   Core->>Core: acquire libreoffice semaphore (max 1)
-  Core->>Soffice: soffice --headless --norestore -env:UserInstallation=file://dataDir/lo-profile-0 --convert-to pdf --outdir tmp/s0 report.docx
+  Core->>Soffice: soffice --headless --norestore -env:UserInstallation=file://dataDir/lo-profile-0 --convert-to pdf --outdir tmp/step-0 report.docx
   Soffice-->>Core: exit 0
-  Core->>Core: release semaphore, check tmp/s0/report.pdf
-  Core->>Poppler: pdftoppm -r dpi -png tmp/s0/report.pdf tmp/s1/p
+  Core->>Core: release semaphore, check tmp/step-0/report.pdf
+  Core->>Poppler: pdftoppm -r dpi -png tmp/step-0/report.pdf tmp/step-1/p
   Poppler-->>Core: p-1.png … p-N.png, renamed to page-1 … page-N
   Core->>Core: check every page file
   Core->>Core: commitFolder: mkdir "report (png)", page-001.png … page-N.png
@@ -201,15 +201,15 @@ sequenceDiagram
 
 **Steps**
 1. Progress: `total = 2` steps. During soffice `fraction = null` (indeterminate). During pdftoppm it's pages done / N.
-2. A later step after a fan-out (e.g. png → webp) runs once per page, in order, into `tmp/s2/<n>/`.
+2. A later step after a fan-out (e.g. png → webp) runs once per page, in order, into `tmp/step-2/<fileIndex>/`.
 
 **Errors:**
 - soffice exits 0 without writing a pdf: `ENGINE_OUTPUT_MISSING`.
 - soffice hangs: `TIMEOUT` (it's killed with its whole process tree).
-- `mkdir` conflicts: the folder gets a `(n)` suffix.
+- `mkdir` conflicts: the folder gets a `(<attempt>)` suffix.
 
 **Invariants:** at most one fan-out per route, and the page order is preserved.
-**Tests:** `graph.test.ts` (fan-out rule), `runner.test.ts` (fake fan-out converter feeding a mapped step), `libreoffice.test.ts` (golden, engine-gated).
+**Tests:** `graph/route.test.ts` (fan-out rule), `runner.test.ts` (fake fan-out converter feeding a mapped step), `libreoffice.test.ts` (golden, engine-gated).
 
 ## F6. Batch
 
@@ -222,7 +222,7 @@ sequenceDiagram
   participant Core as Core host
   Renderer->>Main: submit(N convert requests)
   Main->>Core: submit { requests }
-  Core-->>Main: SubmitResult { batchId, jobIds[N] }
+  Core-->>Main: SubmitResult { batchId, jobIds (one per request) }
   par up to concurrency slots
     Core->>Core: job 1 runs
   and
@@ -259,9 +259,9 @@ sequenceDiagram
     alt already pdf
       Core->>Core: use as-is
     else
-      Core->>Core: route(fmt, pdf) and run steps into tmp/p<i>/
+      Core->>Core: route(format, pdf) and run steps into tmp/part-<index>/
     end
-    Core-->>Main: job.update unit i of N+1
+    Core-->>Main: job.update unit <index> of N+1
   end
   Core->>Core: merge-pdf.combine(parts, tmp/combine, options)
   Core->>Core: commitFile → "<first input stem> merged.pdf"
@@ -410,7 +410,7 @@ sequenceDiagram
   Main-->>Renderer: job:update failed CORE_CRASHED, for each queued or running job
   alt fewer than 3 restarts in 60 s
     Main-->>Renderer: core:status restarting
-    Main->>Main: wait 1 s · 2^n
+    Main->>Main: wait 1 s · 2^restarts
     Main->>Core: fork + init (as F1)
     Core-->>Main: ready
     Main-->>Renderer: core:status ready
@@ -470,7 +470,7 @@ sequenceDiagram
   Core-->>Main: job.update failed INVALID_REQUEST
   Note over Renderer,Core: with valid pages "2-3,5" instead:
   loop each contiguous range
-    Core->>Render: pdftoppm -r 150 -png -f a -l b -progress report.pdf tmp/s0/p
+    Core->>Render: pdftoppm -r 150 -png -f <first> -l <last> -progress report.pdf tmp/step-0/p
     Render-->>Core: stderr progress lines, p-2.png p-3.png … 
     Core-->>Main: job.update fraction = pages done / 3
   end
@@ -506,7 +506,7 @@ sequenceDiagram
   Core->>Info: pdfinfo report.pdf
   Info-->>Core: page count, encryption
   loop each contiguous range
-    Core->>Extract: pdfimages -all -p -f a -l b report.pdf tmp/x/img
+    Core->>Extract: pdfimages -all -p -f <first> -l <last> report.pdf tmp/extract/img
     Extract-->>Core: img-003-000.jpg, img-003-001.png, …
   end
   alt no files
@@ -523,7 +523,7 @@ sequenceDiagram
 1. Extraction is **lossless**: each image is written in its stored format with no re-encode. Formats that can't be stored natively are written as png.
 2. Progress is indeterminate (`fraction = null`), with `unit` advancing per range.
 3. A PDF with many inputs selected shows "Extract images" only when **every** selected file is a PDF. That runs one extract job per file.
-4. "Split into pages" (`split-pdf`, pdf-lib, M1.1-6) is a second extractor and runs the same flow, writing `page-<n>.pdf` into `report (pages)/`.
+4. "Split into pages" (`split-pdf`, pdf-lib, M1.1-6) is a second extractor and runs the same flow, writing `page-<page>.pdf` into `report (pages)/`.
 
 **Errors:** `NOTHING_TO_EXTRACT` (not retryable, shown as info rather than an error style), `INPUT_ENCRYPTED`, `INVALID_REQUEST` (pages), `ENGINE_FAILED`, `ENGINE_MISSING`.
 **Invariants:** extracted bytes equal the embedded stream for natively stored formats.

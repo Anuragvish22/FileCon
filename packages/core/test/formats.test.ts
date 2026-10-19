@@ -28,9 +28,10 @@ describe('formats', () => {
   });
 
   it('has unique ids and exts, all lowercase', () => {
-    const exts = FORMATS.flatMap((f) => f.exts);
-    expect(new Set(FORMATS.map((f) => f.id)).size).toBe(FORMATS.length);
+    const exts = FORMATS.flatMap((format) => format.exts);
+    expect(new Set(FORMATS.map((format) => format.id)).size).toBe(FORMATS.length);
     expect(new Set(exts).size).toBe(exts.length);
-    for (const s of [...FORMATS.map((f) => f.id), ...exts]) expect(s).toBe(s.toLowerCase());
+    for (const name of [...FORMATS.map((format) => format.id), ...exts])
+      expect(name).toBe(name.toLowerCase());
   });
 });

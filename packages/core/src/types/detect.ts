@@ -25,7 +25,13 @@ export interface TargetOption {
 
 export interface TargetsResult {
   convert: TargetOption[]; // formats reachable from every input
-  merge: { combinerId: string; output: Format; status: 'ready' | 'needs-pack'; pack?: PackId }[];
+  merge: {
+    combinerId: string;
+    output: Format;
+    status: 'ready' | 'needs-pack';
+    pack?: PackId;
+    fanOut: boolean; // some input's route to `accepts` fans out, so 1 file can merge (renderer applies the count rule)
+  }[];
   extract: {
     extractorId: string;
     status: 'ready' | 'needs-pack';

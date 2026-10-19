@@ -49,7 +49,7 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
   - Must also pass:
     - ext lookup is case-insensitive, unknown → null
     - `ERROR_CODES` matches the [CONTRACTS section 5](CONTRACTS.md#5-errors) table exactly, both ways (test parses the table)
-    - a `CoreError` survives `JSON.parse(JSON.stringify(e))` unchanged, and `params` keys are only the allowed names
+    - a `CoreError` survives `JSON.parse(JSON.stringify(error))` unchanged, and `params` keys are only the allowed names
     - `CoreFailure` is an `Error` with a stack, and its `.error` survives `structuredClone` unchanged
 
 ### M0-3 Registry ☑
@@ -61,11 +61,11 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
     - duplicate id throws
     - an unknown id lookup returns undefined
 
-### M0-4 Graph and routing ☐
+### M0-4 Graph and routing ☑
 - **Depends on:** M0-3
-- **Files:** `core/src/graph.ts`, `core/test/fakes.ts` (fake converters with configurable edges)
+- **Files:** `core/src/graph/{build,route,targets,index}.ts`, `core/src/costs.ts`, `core/test/fakes.ts` (fake converters and combiners, `fullGraphOf`), `core/test/graph/{route,targets}.test.ts`
 - **Details:** [ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm).
-- **Tests** in `graph.test.ts`:
+- **Tests** in `graph/route.test.ts` and `graph/targets.test.ts`:
   - Happy path:
     - direct route
     - a 2-hop route beating an expensive 1-hop one
@@ -74,8 +74,8 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
     - a 4-hop route returning null
     - a cheaper route with more hops being found (the case capped Dijkstra gets wrong)
     - tie → fewer hops → priority
-    - a self-edge is offered only as the 1-step route `route(f, f)`, never inside a multi-hop route; `route(f, f)` without one is null
-    - at most one fan-out
+    - a self-edge is offered only as the 1-step route `route(graph, format, format)`, never inside a multi-hop route; without one it is null
+    - at most one fan-out, and a dearer route that saves its one fan-out is still found
     - no cycles
     - `targets` offers the input's own format only when it has a self-edge (mixed inputs: only if every input reaches it), and `needs-pack` comes from the full graph
     - the cache being cleared on rebuild
@@ -143,7 +143,7 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
 ### M1-2 Scheduler and runner ☐
 - **Depends on:** M0-4, M0-6, M1-1
 - **Files:** `core/src/jobs/scheduler.ts`, `core/src/jobs/runner.ts`, `core/src/errors.ts` (`toCoreError`)
-- **Details:** [ARCHITECTURE section 9](ARCHITECTURE.md#9-job-runner) and [FLOWS F4 to F9](FLOWS.md#f4-single-convert). Updates are throttled to 10/s, and state changes are emitted immediately. `toCoreError(e: unknown): CoreError` turns anything caught into the plain error a `Job` carries: a `CoreFailure` gives its `.error`, `ENOSPC` gives `DISK_FULL`, and anything else keeps its message and stack in `detail` (pick its code in this task).
+- **Details:** [ARCHITECTURE section 9](ARCHITECTURE.md#9-job-runner) and [FLOWS F4 to F9](FLOWS.md#f4-single-convert). Updates are throttled to 10/s, and state changes are emitted immediately. `toCoreError(caught: unknown): CoreError` turns anything caught into the plain error a `Job` carries: a `CoreFailure` gives its `.error`, `ENOSPC` gives `DISK_FULL`, and anything else keeps its message and stack in `detail` (pick its code in this task).
 - **Tests:** with fakes:
   - Happy path:
     - update sequence for one job
@@ -307,7 +307,7 @@ Goal: PRD F9, F21, F22, F34 and F35 work. You can render PDF pages to images, ex
 ### M1.1-2 Poppler engine and render edges ☐
 - **Depends on:** M1.1-1, M1-3, M1-4
 - **Files:** `engines/specs.ts` (poppler spec with `requiredBins`, `install` pins), `converters/poppler.ts`, `test/fixtures/pdf/{3-pages.pdf,encrypted.pdf}`
-- **Details:** `pdfinfo` parsing (`Pages:`, `Encrypted:`), one `pdftoppm` per range, `-progress` parsing, and renaming `p-<n>` → `page-<n>`.
+- **Details:** `pdfinfo` parsing (`Pages:`, `Encrypted:`), one `pdftoppm` per range, `-progress` parsing, and renaming `p-<page>` → `page-<page>`.
 - **Tests:**
   - Happy path:
     - `pdfinfo` output parser, with sample text, run without the engine
@@ -323,7 +323,7 @@ Goal: PRD F9, F21, F22, F34 and F35 work. You can render PDF pages to images, ex
 
 ### M1.1-3 Extractor kind and pdfimages ☐
 - **Depends on:** M1.1-2, M1-2
-- **Files:** `registry.ts` (extractors), `graph.ts` (`targets().extract`), `jobs/runner.ts` (extract kind), `extractors/pdfimages.ts`, `test/fixtures/pdf/{two-jpegs.pdf,text-only.pdf}`. The source JPEGs are kept next to the fixture for comparison.
+- **Files:** `registry.ts` (extractors), `graph/targets.ts` (`targets().extract`), `jobs/runner.ts` (extract kind), `extractors/pdfimages.ts`, `test/fixtures/pdf/{two-jpegs.pdf,text-only.pdf}`. The source JPEGs are kept next to the fixture for comparison.
 - **Tests:**
   - Happy path:
     - runner with a fake extractor produces its files
@@ -374,7 +374,7 @@ Goal: PRD F9, F21, F22, F34 and F35 work. You can render PDF pages to images, ex
 
 ### M1.1-6 PDF page selection and split ☐
 - **Depends on:** M1.1-1, M1.1-3, M1-4
-- **Files:** `converters/pdflib.ts` (self-edge pdf → pdf, cost 1, `pages`: keeps only those pages in one pdf), `extractors/split-pdf.ts` (accepts pdf, `folder: "pages"`, `pages`: one `page-<n>.pdf` per page), renderer "Split into pages" next to "Extract images". Engine is pdf-lib, built in.
+- **Files:** `converters/pdflib.ts` (self-edge pdf → pdf, cost 1, `pages`: keeps only those pages in one pdf), `extractors/split-pdf.ts` (accepts pdf, `folder: "pages"`, `pages`: one `page-<page>.pdf` per page), renderer "Split into pages" next to "Extract images". Engine is pdf-lib, built in.
 - **Tests:**
   - Happy path:
     - `pages "2-3"` on a 5-page pdf → a 2-page pdf
@@ -386,7 +386,7 @@ Goal: PRD F9, F21, F22, F34 and F35 work. You can render PDF pages to images, ex
 
 ### M1.1-7 One long image ☐
 - **Depends on:** M1.1-2, M1-4
-- **Files:** `combiners/stack-png.ts` (sharp: accepts png, output png, stacked top to bottom in input order, centred on the widest, white background; past sharp's pixel limit it scales down and calls `ctx.note("downscaled")`), `graph.ts` (`targets().merge` for 1 file whose route fans out), `jobs/runner.ts` (a fanned-out merge input adds all its files in page order), renderer "One long image" toggle for target png.
+- **Files:** `combiners/stack-png.ts` (sharp: accepts png, output png, stacked top to bottom in input order, centred on the widest, white background; past sharp's pixel limit it scales down and calls `ctx.note("downscaled")`), `graph/targets.ts` (`targets().merge` for 1 file whose route fans out), `jobs/runner.ts` (a fanned-out merge input adds all its files in page order), renderer "One long image" toggle for target png.
 - **Details:** [ARCH section 9](ARCHITECTURE.md#9-job-runner) merge job, [FLOWS F7](FLOWS.md#f7-merge-to-pdf). shortcut: output is png only, because jpg stops at 65,535 px; route onward when asked.
 - **Tests:**
   - Happy path:
@@ -395,7 +395,7 @@ Goal: PRD F9, F21, F22, F34 and F35 work. You can render PDF pages to images, ex
   - Must also pass:
     - mixed widths are centred
     - over the pixel limit → downscaled, `Job.notes` = `["downscaled"]`
-    - `targets` offers it for a single pdf, not for a single png
+    - `targets` marks it `fanOut` for pdf input, not for png; the selector shows it for a single pdf, not a single png (`selectors.test.ts`)
     - `runConverterContract`
 
 ## 5. After M1

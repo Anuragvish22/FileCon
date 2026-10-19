@@ -65,7 +65,7 @@ interface Converter {
   timeoutMs?: number;                 // per step, default 120_000
   maxConcurrent?: number;             // default unlimited; libreoffice = 1
   available(): Promise<boolean>;
-  /** Writes only inside req.outDir. Returns produced files (≥1). fanOut edges name files `page-<n>.<ext>` (n = real 1-based page) and return them in page order. */
+  /** Writes only inside req.outDir. Returns produced files (≥1). fanOut edges name files `page-<page>.<ext>` (page = the real 1-based page number) and return them in page order. */
   convert(req: StepRequest, ctx: JobCtx): Promise<string[]>;
 }
 
@@ -154,7 +154,10 @@ interface TargetOption {
 
 interface TargetsResult {
   convert: TargetOption[];            // formats reachable from every input
-  merge: { combinerId: string; output: Format; status: "ready" | "needs-pack"; pack?: PackId }[];
+  merge: {
+    combinerId: string; output: Format; status: "ready" | "needs-pack"; pack?: PackId;
+    fanOut: boolean;                  // some input's route to `accepts` fans out, so 1 file can merge (renderer applies the count rule)
+  }[];
   extract: { extractorId: string; status: "ready" | "needs-pack"; pack?: PackId; options: OptionKey[] }[];
   // extract: extractors whose `accepts` equals every input's format (no routing)
 }
@@ -258,10 +261,10 @@ Main ⇄ Core host. The transport is the utilityProcess `parentPort` (structured
 
 ```ts
 type RpcMessage =
-  | { t: "req"; id: number; method: RpcMethod; params: unknown }
-  | { t: "res"; id: number; ok: true; result: unknown }
-  | { t: "res"; id: number; ok: false; error: CoreError }
-  | { t: "evt"; name: RpcEvent; data: unknown };
+  | { kind: "req"; id: number; method: RpcMethod; params: unknown }
+  | { kind: "res"; id: number; ok: true; result: unknown }
+  | { kind: "res"; id: number; ok: false; error: CoreError }
+  | { kind: "evt"; name: RpcEvent; data: unknown };
 
 // The names in the tables below
 type RpcMethod =

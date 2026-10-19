@@ -26,7 +26,7 @@ This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) 
 | FR-4 | Every route reports the lossy notes of all its edges | Graph unit tests |
 | FR-5 | For multiple inputs, offer only targets reachable from **every** input | Unit test |
 | FR-6 | Merge: route every input to the combiner's input format, then run the combiner (for example `merge-pdf`) | Golden test |
-| FR-7 | Output naming: `<dir>/<stem>.<ext>`, adding ` (n)` on conflict. Multi-output goes in a `<stem> (<ext>)/` folder. Never overwrite, using an exclusive commit ([ARCH section 10](ARCHITECTURE.md#10-output-commit)) | Unit test, including a concurrent race |
+| FR-7 | Output naming: `<dir>/<stem>.<ext>`, adding ` (<attempt>)` on conflict. Multi-output goes in a `<stem> (<ext>)/` folder. Never overwrite, using an exclusive commit ([ARCH section 10](ARCHITECTURE.md#10-output-commit)) | Unit test, including a concurrent race |
 | FR-8 | Jobs run concurrently with per-job progress (indeterminate allowed), cancellation and a `CoreError` failure reason | Integration test |
 | FR-9 | Engine discovery checks the user override, then PATH, then known install dirs per OS | Unit test with fake FS |
 | FR-10 | One job failing in a batch doesn't affect the others | Integration test |

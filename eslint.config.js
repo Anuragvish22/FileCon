@@ -22,6 +22,8 @@ export default defineConfig(
       '@typescript-eslint/no-non-null-assertion': 'error',
       'import-x/no-cycle': 'error',
       'import-x/no-default-export': 'error',
+      // Naming rule (CLAUDE.md Code style): no one-letter names, `_` included. Object keys are exempt.
+      'id-length': ['error', { min: 2, properties: 'never' }],
       // shortcut: layering zones (ARCHITECTURE section 4) are not enforced yet, add import-x/no-restricted-paths as the modules land in M0-2+
     },
   },
@@ -42,6 +44,34 @@ export default defineConfig(
           ],
         },
       ],
+    },
+  },
+  {
+    // No magic values at call sites (CLAUDE.md Code style). Tests are exempt: expect(value).toBe(true) and pixel sizes read fine there.
+    files: ['packages/*/src/**', 'scripts/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            ':matches(CallExpression, NewExpression) > Literal.arguments[raw=/^(true|false)$/]',
+          message: 'Pass a boolean as a named field ({ usedFanOut: false }), never bare',
+        },
+      ],
+      '@typescript-eslint/no-magic-numbers': [
+        'error',
+        {
+          ignore: [0, 1, -1],
+          ignoreArrayIndexes: true,
+          ignoreDefaultValues: true,
+          ignoreEnums: true,
+          ignoreNumericLiteralTypes: true,
+          ignoreReadonlyClassProperties: true,
+          ignoreTypeIndexes: true,
+        },
+      ],
+      // 4+ positional params means an object param was due
+      'max-params': ['error', 3],
     },
   },
   {
