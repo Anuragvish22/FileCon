@@ -229,11 +229,13 @@ Split into three changes (a, b, c) at M1-4, because it was too much for one. Tic
     - a corrupt fixture → `ENGINE_FAILED`, temp dir removed
     - two jobs in a row reuse the profile dir; after a failed run the dir is gone and the next job still succeeds
 
-### M1-5 RPC server and core host ☐
+### M1-5 RPC server and core host ☑
 - **Parked to review first:** [P10 types vs CONTRACTS check](PARKED.md#2-items)
 - **Depends on:** M1-2, M1-3, M1-4
 - **Files:** `core/src/rpc/protocol.ts`, `core/src/rpc/server.ts`, `core/src/host.ts`
 - **Details:** [CONTRACTS section 6](CONTRACTS.md#6-core-rpc-protocol).
+  - `host.ts` exports `startHost({ port, exit })` and `createProductionRegistry`; it has no side effects on import, so M1-6's entry file calls it with `process.parentPort`.
+  - shortcut: `engines.install` always gives `INVALID_REQUEST` (no engine has a download install yet) and `extract` requests are refused, until M1.1-3 and M1.1-4.
 - **Tests:** a server over a `MessageChannel`, using the real modules with fake converters:
   - Happy path:
     - every method's happy path
@@ -246,6 +248,7 @@ Split into three changes (a, b, c) at M1-4, because it was too much for one. Tic
     - `shutdown` cancels running jobs and cleans up
 
 ### M1-6 App main and preload ☐
+- **Parked to review first:** [P28 core log lines](PARKED.md#2-items), [P29 settings validated twice](PARKED.md#2-items)
 - **Depends on:** M1-5
 - **Files:** `app/src/main/{index,supervisor,coreClient,ipc,paths,settings,log}.ts`, `app/src/preload/index.ts`, electron-vite config
 - **Details:** [ARCHITECTURE section 12](ARCHITECTURE.md#12-core-host-and-supervision) and [CONTRACTS section 7 and section 8](CONTRACTS.md#7-ipc-renderer--main).
@@ -272,7 +275,7 @@ Split into three changes (a, b, c) at M1-4, because it was too much for one. Tic
     - preload exposes only `window.filecon`; `webPreferences` has `contextIsolation`, `sandbox` and no `nodeIntegration`
 
 ### M1-7 Renderer ☐
-- **Parked to review first:** [P9 fonts in office → pdf](PARKED.md#2-items), [P20 page placement for image → pdf](PARKED.md#2-items), [P25 two sharp choices](PARKED.md#2-items), [P26 very large documents and the 180 s timeout](PARKED.md#2-items)
+- **Parked to review first:** [P9 fonts in office → pdf](PARKED.md#2-items), [P30 serial detect](PARKED.md#2-items), [P20 page placement for image → pdf](PARKED.md#2-items), [P25 two sharp choices](PARKED.md#2-items), [P26 very large documents and the 180 s timeout](PARKED.md#2-items)
 - **Depends on:** M1-6
 - **Files:** `app/src/renderer/{store,components,pages}/…`
 - **Details:** [ARCHITECTURE section 13](ARCHITECTURE.md#13-renderer-architecture) and [UI-DESIGN](UI-DESIGN.md). Build order: theme tokens → store and selectors → DropZone and FileList → TargetPicker and OptionsBar → JobsPanel → EnginesPage → SettingsPage (with theme, accent, language).
