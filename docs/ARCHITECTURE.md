@@ -327,7 +327,7 @@ Fonts: soffice uses the system's fonts, so a document in a script the machine ha
 **Notes:** `ctx.note(id)` from any step adds `id` to `Job.notes` (deduped, in order). The done row shows them like route lossy notes.
 
 **Timeouts and cancel:**
-- Each step gets its own `AbortController`, linked to the job's controller. A timer of `converter.timeoutMs` aborts it with the reason `TIMEOUT`.
+- Each step gets its own `AbortController`, linked to the job's controller. A timer of `converter.timeoutMs` plus 4 s per MB of the step's input (at most 30 minutes, `jobs/timeout.ts`) aborts it with the reason `TIMEOUT`.
 - `cancel` on a queued job removes it from the queue and marks it `cancelled` immediately.
 - `cancel` on a running job aborts. `spawn.ts` kills the process tree, the converter promise rejects, the runner cleans up and then marks the job `cancelled`.
 - In-process engines check `ctx.signal.aborted` between pages or chunks. sharp operations aren't interruptible, so cancel takes effect when the current operation ends.

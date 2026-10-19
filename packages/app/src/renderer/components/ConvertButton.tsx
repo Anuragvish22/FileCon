@@ -7,10 +7,10 @@ export const ConvertButton = () => {
     <button
       type="button"
       className="primary"
-      disabled={!canConvert(state)}
+      disabled={!canConvert(state) || state.submit === 'busy'}
       onClick={() => void actions.submit()}
     >
-      {translate('convert.button')}
+      {translate(state.submit === 'busy' ? 'convert.busy' : 'convert.button')}
     </button>
   );
 };

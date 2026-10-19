@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { COST } from '../costs.ts';
 import { CoreFailure } from '../errors.ts';
 import { run as spawnRun, type RunRequest, type RunResult } from '../jobs/spawn.ts';
+import { scaledTimeout } from '../jobs/timeout.ts';
 import type { Converter, Format } from '../types/index.ts';
 
 // ARCHITECTURE section 8 ("LibreOffice profile"). CONVERSIONS lists these formats for M1; xls and ppt come with M1.2.
@@ -57,8 +58,8 @@ export const createLibreOffice = ({
     if (ctx.signal.aborted) throw new CoreFailure('CANCELLED');
     const input = resolve(req.input); // always absolute, so soffice can't read it as an option
     // soffice turns an empty file into an empty document and exits 0, which would look like a success.
-    if ((await stat(input)).size === 0)
-      throw new CoreFailure('EMPTY_FILE', { name: basename(input) });
+    const inputBytes = (await stat(input)).size;
+    if (inputBytes === 0) throw new CoreFailure('EMPTY_FILE', { name: basename(input) });
 
     // A persistent profile saves seconds per run, but a failed run can leave it locked or half-written.
     const profileDir = join(dataDir, `lo-profile-${PROFILE_SLOT}`);
@@ -78,7 +79,7 @@ export const createLibreOffice = ({
           input,
         ],
         signal: ctx.signal,
-        timeoutMs,
+        timeoutMs: scaledTimeout(timeoutMs, inputBytes),
       });
       // soffice names its output after the input, and exits 0 when it could not load the file.
       const produced = join(req.outDir, `${parse(input).name}.pdf`);

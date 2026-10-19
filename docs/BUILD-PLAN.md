@@ -302,7 +302,7 @@ Split into three changes (a, b, c) because it was too much for one. Tick this he
   - Manual: `pnpm dev` opens a window under WSLg and the log shows `core status: ready`.
 - **Parked:** [P36 one bad input rejects the whole submit](PARKED.md#2-items), [P37 Electron glue in `index.ts` is only run by hand](PARKED.md#2-items), [P38 main text ignores the language setting](PARKED.md#2-items), [P33](PARKED.md#2-items) (also `expand.ts`)
 
-### M1-7 Renderer ☐
+### M1-7 Renderer ☑
 Split into three changes (a, b, c). Tick this heading when all three are ☑. Decisions: state is `useReducer` + context with no state library; React, not Next.js; P34, P35, P26 and P9 are built here (P30, P20, P25 stay parked).
 - **Depends on:** M1-6
 - **Details:** [ARCHITECTURE section 13](ARCHITECTURE.md#13-renderer-architecture) and [UI-DESIGN](UI-DESIGN.md). All text through `translate()`, all colors through theme tokens, CSS logical properties only ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)).
@@ -324,11 +324,16 @@ Split into three changes (a, b, c). Tick this heading when all three are ☑. De
 - **Tests:** `convert.test.tsx` (empty state, TargetPicker arrows, Enter and typeahead, locked target can't be submitted, merge toggle rule, one request per file, Alt+Arrow reorder), `store.test.ts` (`pagesValid`), sharp golden for `background`.
 - **Parked:** [P41 drag reorder, busy Convert button, step 2 of mismatch tooltip](PARKED.md#2-items)
 
-#### M1-7c Jobs, Engines and Settings ☐
-- **Parked to review first:** [P26 very large documents and the 180 s timeout](PARKED.md#2-items) (build the setting), [P35](PARKED.md#2-items) recheck
+#### M1-7c Jobs, Engines and Settings ☑
+- **Parked to review first:** [P26](PARKED.md#2-items) (decided: no setting, a size-scaled timeout), [P41](PARKED.md#2-items) (busy button, locked merge link and drag handle built)
 - **Depends on:** M1-7b
-- **Files:** `JobsPanel`, `EnginesPage`, `SettingsPage`; P26 adds a timeout setting (CONTRACTS section 8, `types/settings.ts`, main `parseSettings`, core `settingsOf`, `settings-agree` cases, the runner).
-- **Tests:** JobsPanel live-region text; failed-job state render; changing theme, accent or language updates `<html>` (`data-theme`, `data-accent`, `lang`, `dir`) and the visible text without a reload.
+- **Files:** `renderer/components/{JobsPanel,useThrottled}`, `renderer/pages/{EnginesPage,SettingsPage}.tsx`, store (`submit`, `requests`, retry, reveal, engine actions); in core `jobs/timeout.ts`, `jobs/runner.ts`, `converters/libreoffice.ts`.
+- **Details:**
+  - A step's time limit is `timeoutMs` plus 4 s per MB of input, at most 30 minutes. Cancel is always available and a running row shows elapsed time.
+  - Jobs panel: live region throttled to once a second, Show in folder, Details, Retry (same request), Cancel all, Clear finished.
+  - Settings applies theme, accent, language, output folder and concurrency at once. Accent swatches carry text names, and their colors come from `--swatch-<accent>` tokens.
+- **Tests:** `panels.test.tsx` (JobsPanel live region, failed row, Details, done row; Engines set path and guide; Settings theme and accent update `<html>`), `actions.test.ts` (busy submit, retry), `timeout.test.ts`, runner and LibreOffice tests for the scaled limit, `no-raw-colors.test.ts`.
+- **Parked:** [P44](PARKED.md#2-items), [P45](PARKED.md#2-items), [P46](PARKED.md#2-items), [P47](PARKED.md#2-items)
 
 ### M1-8 CI matrix ☐
 - **Parked to review first:** [P33 app modules on Windows and macOS](PARKED.md#2-items), [P37 packaging: `sharp` unpacked, Electron glue untested](PARKED.md#2-items), [P19 find LibreOffice on any Windows drive](PARKED.md#2-items), [P22 pdf-lib is unmaintained](PARKED.md#2-items), [P23 field-level metadata check](PARKED.md#2-items), [P24 sharp on Windows and macOS](PARKED.md#2-items), [P27 LibreOffice converter on Windows and macOS](PARKED.md#2-items)

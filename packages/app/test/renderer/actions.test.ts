@@ -13,6 +13,7 @@ const setup = (status: State['core']['status']) => {
     detect: vi.fn(() => Promise.resolve([{ path: '/a.png', format: 'png' }] as DetectResult[])),
     getSettings: vi.fn(() => Promise.resolve(DEFAULT_SETTINGS)),
     engines: vi.fn(() => Promise.resolve([])),
+    submit: vi.fn(() => Promise.resolve({ batchId: 'b', jobIds: ['9'] })),
     targets: vi.fn(() => Promise.resolve({ convert: [], merge: [], extract: [] })),
   };
   const actions = createActions({
@@ -45,5 +46,65 @@ describe('P35: nothing is sent before core is ready', () => {
     harness.api.expand.mockRejectedValue({ code: 'CORE_TIMEOUT', params: {} });
     await harness.actions.addPaths(['/a.png']);
     expect(harness.state().notice).toEqual({ key: 'error.CORE_TIMEOUT', params: {} });
+  });
+});
+
+describe('submit and retry', () => {
+  const request = { kind: 'convert', input: '/a.png', target: 'jpg', options: {} } as const;
+
+  it('is busy while the call is in flight, and remembers the request for Retry', async () => {
+    const harness = setup('ready');
+    let finish: (value: { batchId: string; jobIds: string[] }) => void = () => undefined;
+    harness.api.submit.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    harness.setState({
+      ...harness.state(),
+      files: [
+        { path: '/a.png', size: 1, format: 'png', byContent: 'png', byExt: 'png', mismatch: false },
+      ],
+      selection: { target: 'jpg', mergeMode: false, options: {} },
+      targets: {
+        status: 'ready',
+        result: {
+          convert: [{ format: 'jpg', status: 'ready', lossy: [], fanOut: false, options: [] }],
+          merge: [],
+          extract: [],
+        },
+      },
+    });
+    const pending = harness.actions.submit();
+    expect(harness.state().submit).toBe('busy');
+    finish({ batchId: 'b', jobIds: ['9'] });
+    await pending;
+    expect(harness.state().submit).toBe('idle');
+    expect(harness.state().requests.get('9')).toEqual(request);
+
+    await harness.actions.retry('9');
+    expect(harness.api.submit).toHaveBeenLastCalledWith([request]);
+  });
+
+  it('goes back to idle when the submit fails', async () => {
+    const harness = setup('ready');
+    harness.api.submit.mockRejectedValue({
+      code: 'OUTPUT_DIR_NOT_WRITABLE',
+      params: { dir: '/x' },
+    });
+    harness.setState({
+      ...harness.state(),
+      files: [
+        { path: '/a.png', size: 1, format: 'png', byContent: 'png', byExt: 'png', mismatch: false },
+      ],
+      selection: { target: 'jpg', mergeMode: false, options: {} },
+      targets: {
+        status: 'ready',
+        result: {
+          convert: [{ format: 'jpg', status: 'ready', lossy: [], fanOut: false, options: [] }],
+          merge: [],
+          extract: [],
+        },
+      },
+    });
+    await harness.actions.submit();
+    expect(harness.state().submit).toBe('idle');
+    expect(harness.state().notice?.key).toBe('error.OUTPUT_DIR_NOT_WRITABLE');
   });
 });

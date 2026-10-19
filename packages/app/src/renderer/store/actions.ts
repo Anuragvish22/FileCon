@@ -71,6 +71,7 @@ export const createActions = ({ api, dispatch, getState }: ActionDeps) => {
   };
 
   const addPaths = (paths: string[]): Promise<void> => {
+    if (paths.length === 0) return Promise.resolve(); // a row dragged inside the list carries no files
     if (getState().core.status !== 'ready') {
       dispatch({ type: 'paths/queued', paths });
       return Promise.resolve();
@@ -163,7 +164,47 @@ export const createActions = ({ api, dispatch, getState }: ActionDeps) => {
                   options,
                 },
               ];
-        await api.submit(requests);
+        dispatch({ type: 'submit/started' });
+        try {
+          const { jobIds } = await api.submit(requests);
+          dispatch({ type: 'submit/finished', jobIds, requests });
+        } catch (caught) {
+          dispatch({ type: 'submit/failed' });
+          throw caught;
+        }
+      }),
+    retry: (jobId: string): Promise<void> =>
+      guarded(async () => {
+        const request = getState().requests.get(jobId);
+        if (request === undefined) return;
+        const { jobIds } = await api.submit([request]);
+        dispatch({ type: 'submit/finished', jobIds, requests: [request] });
+      }),
+    clearFinished: (): void => {
+      dispatch({ type: 'jobs/cleared' });
+    },
+    reveal: (path: string): Promise<void> => guarded(() => api.reveal(path)),
+    refreshEngines: (): Promise<void> =>
+      guarded(async () => {
+        dispatch({ type: 'engines/loaded', engines: await api.refreshEngines() });
+      }),
+    chooseEnginePath: (engineId: string): Promise<void> =>
+      guarded(async () => {
+        const path = await api.chooseEngine(engineId);
+        const current = getState().settings;
+        if (path === null || current === null) return;
+        dispatch({
+          type: 'settings/loaded',
+          settings: await api.setSettings({
+            engines: { ...current.engines, paths: { ...current.engines.paths, [engineId]: path } },
+          }),
+        });
+      }),
+    openExternal: (url: string): Promise<void> => guarded(() => api.openExternal(url)),
+    installEngine: (engineId: string): Promise<void> =>
+      guarded(async () => {
+        await api.installEngine(engineId);
+        dispatch({ type: 'engines/loaded', engines: await api.engines() });
       }),
     chooseOutputDir: (): Promise<void> =>
       guarded(async () => {

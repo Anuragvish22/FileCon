@@ -19,6 +19,9 @@ export const applyTheme = ({ root, theme, accent, locale, prefersDark }: ThemeIn
   const mode = resolveMode(theme, prefersDark);
   const tokens = { ...BASE_TOKENS[mode], ...ACCENT_TOKENS[mode][accent] };
   for (const [name, value] of Object.entries(tokens)) root.style.setProperty(name, value);
+  // Every accent, so Settings can show each swatch in its own color without raw values in CSS.
+  for (const [name, set] of Object.entries(ACCENT_TOKENS[mode]))
+    root.style.setProperty(`--swatch-${name}`, set['--accent']);
   root.dataset.theme = mode;
   root.dataset.accent = accent;
   root.lang = locale;

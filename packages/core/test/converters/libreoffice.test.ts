@@ -252,6 +252,20 @@ describe('libreoffice converter: failures of the engine process', () => {
     expect(await isDir(fakeProfile)).toBe(false);
   });
 
+  it('gives soffice a longer limit for a bigger input', async () => {
+    const seen: number[] = [];
+    const recording = withFake((request) => {
+      seen.push(request.timeoutMs);
+      return Promise.resolve({ code: 0, stdoutTail: '', stderrTail: '' });
+    });
+    const small = await writeSource('small.docx', Buffer.alloc(10));
+    const big = await writeSource('big.docx', Buffer.alloc(5_000_000));
+    for (const input of [small, big])
+      await convert(input, 'docx', { using: recording }).catch(() => undefined);
+    expect(seen[0]).toBe(180_000);
+    expect(seen[1]).toBe(180_000 + 5 * 4000);
+  });
+
   it('without LibreOffice the converter is not available and says ENGINE_MISSING', async () => {
     const missing = createLibreOffice({
       binPath: () => Promise.resolve(undefined),

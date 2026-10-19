@@ -2,6 +2,8 @@ import type { DetectResult } from '@filecon/core/types';
 import type { KeyboardEvent } from 'react';
 import { useStore } from '../store/context.tsx';
 
+const ROW_TYPE = 'application/x-filecon-row';
+
 const baseName = (path: string): string => path.split(/[\\/]/).pop() ?? path;
 
 const FileRow = ({ file, index, last }: { file: DetectResult; index: number; last: number }) => {
@@ -17,7 +19,29 @@ const FileRow = ({ file, index, last }: { file: DetectResult; index: number; las
     actions.moveFile({ from: index, to: target });
   };
   return (
-    <li className="file-row" tabIndex={0} onKeyDown={onKeyDown} data-unsupported={unsupported}>
+    <li
+      className="file-row"
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      data-unsupported={unsupported}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => {
+        const from = Number(event.dataTransfer.getData(ROW_TYPE));
+        if (event.dataTransfer.types.includes(ROW_TYPE) && from !== index) {
+          event.preventDefault();
+          actions.moveFile({ from, to: index });
+        }
+      }}
+    >
+      {/* Mouse reorder; the keyboard path is Alt+Up and Alt+Down on the row (UI-DESIGN section 7). */}
+      <span
+        className="drag-handle"
+        draggable
+        aria-hidden="true"
+        onDragStart={(event) => event.dataTransfer.setData(ROW_TYPE, String(index))}
+      >
+        {translate('file.handle')}
+      </span>
       <span className="file-name">{baseName(file.path)}</span>
       {file.format !== null && <span>{translate(`format.${file.format}`)}</span>}
       <span>{new Intl.NumberFormat().format(file.size)}</span>

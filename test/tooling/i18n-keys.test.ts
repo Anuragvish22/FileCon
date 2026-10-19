@@ -64,7 +64,7 @@ describe('en.json covers every key core can emit (CONTRACTS section 10)', () => 
       (key) =>
         !known.includes(key) &&
         key !== 'category.other' &&
-        !/^(pack|install|app|nav|banner|notice|drop|page|dropzone|files|file|target|merge|hint|option|output|convert)\./.test(
+        !/^(pack|install|app|nav|banner|notice|drop|page|dropzone|files|file|target|merge|hint|option|output|convert|jobs|job|engines|engine|settings)\./.test(
           key,
         ),
     );

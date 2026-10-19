@@ -117,3 +117,69 @@ button.primary:disabled {
 [aria-invalid='true'] {
   outline: 2px solid var(--danger);
 }
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.drag-handle {
+  cursor: grab;
+  color: var(--muted);
+}
+.jobs {
+  border-block-start: 1px solid var(--border);
+  padding: 8px 16px;
+}
+.job-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 4px 0;
+}
+.job-row[data-state='failed'] {
+  color: var(--danger);
+}
+.job-name {
+  flex: 1;
+}
+.job-details {
+  inline-size: 100%;
+  background: var(--surface);
+  padding: 8px;
+  overflow: auto;
+}
+.engines,
+.settings {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.engines table {
+  border-collapse: collapse;
+}
+.engines th,
+.engines td {
+  text-align: start;
+  padding: 6px 12px;
+  border-block-end: 1px solid var(--border);
+}
+.swatch[data-accent='blue'] span {
+  border-inline-start: 12px solid var(--swatch-blue);
+  padding-inline-start: 6px;
+}
+.swatch[data-accent='green'] span {
+  border-inline-start: 12px solid var(--swatch-green);
+  padding-inline-start: 6px;
+}
+.swatch[data-accent='purple'] span {
+  border-inline-start: 12px solid var(--swatch-purple);
+  padding-inline-start: 6px;
+}
+.swatch[data-accent='orange'] span {
+  border-inline-start: 12px solid var(--swatch-orange);
+  padding-inline-start: 6px;
+}

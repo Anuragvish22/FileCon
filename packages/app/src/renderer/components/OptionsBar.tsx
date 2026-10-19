@@ -10,7 +10,7 @@ const NUMBER_OPTIONS = {
 } as const;
 const PAGE_SIZES = ['auto', 'a4', 'letter'] as const;
 const TIFF_COMPRESSIONS = ['lzw', 'deflate', 'jpeg', 'none'] as const;
-const DEFAULT_BACKGROUND = '#ffffff';
+const DEFAULT_BACKGROUND = '#ffffff'; // content color, the jpg default of CONTRACTS section 2, not a theme color
 
 const numberOrUndefined = (text: string): number | undefined =>
   text === '' ? undefined : Number(text);

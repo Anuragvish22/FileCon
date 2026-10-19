@@ -1,5 +1,6 @@
 import type {
   ConvertOptions,
+  JobRequest,
   CoreError,
   CoreStatus,
   DetectResult,
@@ -36,6 +37,10 @@ export interface State {
   targets: TargetsState;
   /** In submit order. */
   jobs: Map<string, Job>;
+  /** What each job was made from, so Retry can send it again. */
+  requests: Map<string, JobRequest>;
+  /** `busy` while a submit call is in flight, so Convert can't be clicked twice. */
+  submit: 'idle' | 'busy';
   engines: EngineInfo[];
   settings: Settings | null;
   notice: Notice | null;
@@ -50,6 +55,8 @@ export const initialState: State = {
   selection: { target: null, mergeMode: false, options: {} },
   targets: { status: 'idle' },
   jobs: new Map(),
+  requests: new Map(),
+  submit: 'idle',
   engines: [],
   settings: null,
   notice: null,

@@ -5,6 +5,7 @@ import type {
   EngineInfo,
   Format,
   Job,
+  JobRequest,
   OptionKey,
   Settings,
   TargetsResult,
@@ -27,6 +28,9 @@ export type Action =
   | { type: 'selection/target'; target: Format | null }
   | { type: 'selection/merge'; on: boolean }
   | { type: 'selection/option'; key: OptionKey; value: unknown }
+  | { type: 'submit/started' }
+  | { type: 'submit/finished'; jobIds: string[]; requests: JobRequest[] }
+  | { type: 'submit/failed' }
   | { type: 'jobs/updated'; job: Job }
   | { type: 'jobs/cleared' }
   | { type: 'engines/loaded'; engines: EngineInfo[] }
@@ -106,6 +110,18 @@ export const reducer = (state: State, action: Action): State => {
       if (action.value === undefined) delete options[action.key];
       else Object.assign(options, { [action.key]: action.value });
       return { ...state, selection: { ...state.selection, options } };
+    }
+    case 'submit/started':
+      return { ...state, submit: 'busy' };
+    case 'submit/failed':
+      return { ...state, submit: 'idle' };
+    case 'submit/finished': {
+      const requests = new Map(state.requests);
+      action.jobIds.forEach((id, index) => {
+        const request = action.requests[index];
+        if (request !== undefined) requests.set(id, request);
+      });
+      return { ...state, submit: 'idle', requests };
     }
     case 'jobs/updated':
       // Map.set keeps the original position of an existing id, so rows stay in submit order.

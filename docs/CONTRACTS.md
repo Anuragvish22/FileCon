@@ -62,7 +62,7 @@ interface Converter {
   engineId: string;                   // EngineSpec id used for discovery ("builtin" engines: same as id)
   pack: PackId;
   edges: Edge[];
-  timeoutMs?: number;                 // per step, default 120_000
+  timeoutMs?: number;                 // per step, default 120_000. The runner adds 4 s per MB of the step's input (max 30 min), so big files are not cut off while working
   maxConcurrent?: number;             // default unlimited; libreoffice = 1
   available(): Promise<boolean>;
   /** Writes only inside req.outDir. Returns produced files (≥1). fanOut edges name files `page-<page>.<ext>` (page = the real 1-based page number) and return them in page order. */

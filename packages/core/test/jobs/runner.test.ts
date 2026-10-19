@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Converter } from '../../src/types/index.ts';
@@ -263,6 +263,22 @@ describe('runner: failures', () => {
       params: { engine: 'sharp', name: 'slow.jpg' },
     });
     await expectNoTmp(job);
+  });
+
+  it('a big input gets a longer limit, so a slow step that would have timed out still finishes', async () => {
+    const SLOW_MS = TIMEOUT_MS * 4;
+    const converter = jpgToPng({
+      timeoutMs: TIMEOUT_MS,
+      convert: async (req) => {
+        await new Promise((done) => setTimeout(done, SLOW_MS));
+        return writeOutput(req);
+      },
+    });
+    const { submitOne } = await harness({ converters: [converter] });
+    const input = await source('jpg', 'sample.jpg', 'big.jpg');
+    await appendFile(input, Buffer.alloc(1_000_000)); // 1 MB more allows 4 s more
+    const job = await submitOne(convertRequest(input, 'png'));
+    expect(job.state).toBe('done');
   });
 
   it('a missing input is INPUT_NOT_FOUND', async () => {

@@ -19,6 +19,7 @@ import type {
 } from '../types/index.ts';
 import { commitFile, commitFolder, safeStem } from './output.ts';
 import type { Release, Scheduler } from './scheduler.ts';
+import { scaledTimeout } from './timeout.ts';
 import { makeJobDir, removeDir } from './tmp.ts';
 
 // ARCHITECTURE section 9, FLOWS F4 to F9.
@@ -207,10 +208,14 @@ export const createRunner = (deps: RunnerDeps): Runner => {
     const relayAbort = (): void => stepController.abort();
     jobSignal.addEventListener('abort', relayAbort, { once: true });
     let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      stepController.abort();
-    }, converter.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    const sourceBytes = (await stat(source).catch(() => undefined))?.size ?? 0;
+    const timer = setTimeout(
+      () => {
+        timedOut = true;
+        stepController.abort();
+      },
+      scaledTimeout(converter.timeoutMs ?? DEFAULT_TIMEOUT_MS, sourceBytes),
+    );
     const ctx: JobCtx = {
       signal: stepController.signal,
       tmpDir,
