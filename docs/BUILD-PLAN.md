@@ -182,7 +182,7 @@ Goal: PRD F1–F8 work end to end in the app on all three OSes.
     - WSL `/mnt/c` skipped
     - version probe failure → found with an error
 
-### M1-4 Converters and combiner ☐
+### M1-4 Converters and combiner ☑
 Split into three changes (a, b, c) at M1-4, because it was too much for one. Tick this heading when all three are ☑. Tasks that depend on M1-4 need all three.
 - **Depends on:** M1-1, M1-3
 - **Dependencies to add (approved):** `sharp` (with 4a), `pdf-lib` (with 4b).
@@ -218,7 +218,7 @@ Split into three changes (a, b, c) at M1-4, because it was too much for one. Tic
     - the converter and the combiner call `runConverterContract` ([TRD section 6](TRD.md#6-testing-strategy)); extend the helper for combiners
     - a corrupt fixture → `ENGINE_FAILED`, temp dir removed
 
-#### M1-4c LibreOffice converter ☐
+#### M1-4c LibreOffice converter ☑
 - **Depends on:** M1-4a
 - **Files:** `converters/libreoffice.ts`
 - **Details:** office formats → pdf at cost 5, `maxConcurrent: 1`, timeout 180 s, with a persistent profile per slot in `<dataDir>/lo-profile-<slot>/`, deleted after a failed run ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm)). Document the font limit decided at M1-4 (P9): a document in a script the machine has no font for renders as boxes; detection stays parked ([P9](PARKED.md#2-items)).
@@ -272,7 +272,7 @@ Split into three changes (a, b, c) at M1-4, because it was too much for one. Tic
     - preload exposes only `window.filecon`; `webPreferences` has `contextIsolation`, `sandbox` and no `nodeIntegration`
 
 ### M1-7 Renderer ☐
-- **Parked to review first:** [P9 fonts in office → pdf](PARKED.md#2-items), [P20 page placement for image → pdf](PARKED.md#2-items)
+- **Parked to review first:** [P9 fonts in office → pdf](PARKED.md#2-items), [P20 page placement for image → pdf](PARKED.md#2-items), [P25 two sharp choices](PARKED.md#2-items), [P26 very large documents and the 180 s timeout](PARKED.md#2-items)
 - **Depends on:** M1-6
 - **Files:** `app/src/renderer/{store,components,pages}/…`
 - **Details:** [ARCHITECTURE section 13](ARCHITECTURE.md#13-renderer-architecture) and [UI-DESIGN](UI-DESIGN.md). Build order: theme tokens → store and selectors → DropZone and FileList → TargetPicker and OptionsBar → JobsPanel → EnginesPage → SettingsPage (with theme, accent, language).
@@ -290,7 +290,7 @@ Split into three changes (a, b, c) at M1-4, because it was too much for one. Tic
     - a JSX literal string in a component fails lint
 
 ### M1-8 CI matrix ☐
-- **Parked to review first:** [P19 find LibreOffice on any Windows drive](PARKED.md#2-items), [P22 pdf-lib is unmaintained](PARKED.md#2-items)
+- **Parked to review first:** [P19 find LibreOffice on any Windows drive](PARKED.md#2-items), [P22 pdf-lib is unmaintained](PARKED.md#2-items), [P23 field-level metadata check](PARKED.md#2-items), [P24 sharp on Windows and macOS](PARKED.md#2-items), [P27 LibreOffice converter on Windows and macOS](PARKED.md#2-items)
 - **Depends on:** M1-7
 - **Files:** `.github/workflows/ci.yml`
 - **Details:** ubuntu, windows and macos, with Node 22 and pnpm: lint, typecheck, test, `docs:check`. LibreOffice is installed on ubuntu only, so that its golden tests run there. Installers come in M1.2 ([TRD section 7](TRD.md#7-build-and-release)).

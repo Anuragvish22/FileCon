@@ -26,6 +26,7 @@ export interface ContractCase {
   from: Format;
   to: Format;
   fixture: string; // absolute path to a valid input in the `from` format
+  truncateAt?: number; // bytes kept for the "truncated file" case, when the default still opens (LibreOffice reads a short zip as text)
 }
 
 let contractCounter = 0;
@@ -44,7 +45,13 @@ const outDirFor = async (): Promise<string> => {
   return dir;
 };
 
-export const runConverterContract = ({ converter, from, to, fixture }: ContractCase): void => {
+export const runConverterContract = ({
+  converter,
+  from,
+  to,
+  fixture,
+  truncateAt = TRUNCATED_BYTES,
+}: ContractCase): void => {
   const fixtureName = `input.${from}`;
 
   describe(`contract: ${converter.id} ${from} → ${to}`, () => {
@@ -107,7 +114,7 @@ export const runConverterContract = ({ converter, from, to, fixture }: ContractC
 
     it.each([
       ['a zero-byte file', () => Promise.resolve(new Uint8Array())],
-      ['a truncated file', async () => (await readFile(fixture)).subarray(0, TRUNCATED_BYTES)],
+      ['a truncated file', async () => (await readFile(fixture)).subarray(0, truncateAt)],
     ])('%s is a CoreError, not a raw throw, and leaves no temp dir', async (_label, makeBytes) => {
       const bytes = await makeBytes();
       const input = await writeSource(fixtureName, bytes);

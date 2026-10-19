@@ -84,9 +84,11 @@ Images larger than the target format allows (JPEG 65,500 px, GIF 65,535 px, AVIF
 
 **Office → PDF** (LibreOffice, Office pack)
 
-- ☐ doc, docx, odt, rtf → pdf
-- ☐ xlsx, ods → pdf
-- ☐ pptx, odp → pdf
+- ☑ doc, docx, odt, rtf → pdf
+- ☑ xlsx, ods → pdf
+- ☑ pptx, odp → pdf
+
+Fonts: a document in a script the machine has no font for (Hindi, Chinese, Arabic) renders as boxes in the pdf. LibreOffice picks fonts from the system, and core doesn't check for them. Detecting this and warning is parked ([PARKED P9](PARKED.md#2-items)).
 
 **Merge into one PDF** (merge-pdf)
 

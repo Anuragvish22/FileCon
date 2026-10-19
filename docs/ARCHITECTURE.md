@@ -274,7 +274,9 @@ There are two tables, not one: with a single best path per format, a cheap path 
 4. `lossy`, `fanOut` and `options` are unioned across the inputs' routes.
 5. `extract` = extractors whose `accepts` equals the format of **every** input. There's no routing, so in M1.1 only PDFs offer "Extract images". `status` comes from the extractor's engine.
 
-**LibreOffice profile.** soffice needs a profile dir, and two runs sharing one fail silently, while creating one costs seconds per run. So the converter keeps one persistent profile per LibreOffice slot, `<dataDir>/lo-profile-<slot>/` (`-env:UserInstallation=file://…`). With `maxConcurrent: 1` that's one dir. When soffice fails, its profile dir is deleted so the next run starts clean.
+**LibreOffice profile.** soffice needs a profile dir, and two runs sharing one fail silently, while creating one costs seconds per run. So the converter keeps one persistent profile per LibreOffice slot, `<dataDir>/lo-profile-<slot>/` (`-env:UserInstallation=file://…`). With `maxConcurrent: 1` that's one dir. When a run fails for any reason (non-zero exit, timeout, cancel, or exit 0 with no output, which is how soffice reports a file it could not load), its profile dir is deleted so the next run starts clean. The converter is built with `createLibreOffice({ binPath, dataDir })`: the host passes the discovered `soffice` path and the app's data folder, so the converter knows nothing about discovery or Electron. An empty input is rejected up front (`EMPTY_FILE`), because soffice turns it into an empty document and exits 0.
+
+Fonts: soffice uses the system's fonts, so a document in a script the machine has no font for renders as boxes. Core doesn't detect this yet ([P9](PARKED.md#2-items)).
 
 **Caching:** one search from a source format gives the best route to every target, so results are memoized per source format per graph. The cache is cleared when the graph is rebuilt, which happens on `init`, `engines.refresh` and `settings.apply` when engine paths or priority change.
 
