@@ -245,6 +245,8 @@ There are two tables, not one: with a single best path per format, a cheap path 
 
 **Image size limits (sharp).** Some formats cap the pixel size: JPEG at 65,500 px a side, GIF at 65,535, AVIF at 16,384 and WebP at 16,383 (measured against sharp 0.35). TIFF has no cap of its own, only 65,500 when it uses JPEG compression. When the input is larger than the target allows, the converter scales it down to fit (aspect kept, never enlarged) and calls `ctx.note("downscaled")`, so the done row says so.
 
+**Image → PDF (`pdflib`, `pageSize`).** One page per image, and jpg and png go in as they are (cost 1). `auto`: the page is the image's size, 1 px = 1 pt. `a4` and `letter`: the image is fitted inside the page, centred, with no margin (small images are enlarged), and the page turns landscape for a wide image. The upright rule still holds: a jpg with an EXIF orientation other than 1 is re-encoded upright by sharp (quality 100) before it is embedded, and every other image is embedded untouched. webp, avif, tiff and gif reach pdf through sharp → png (2 hops).
+
 **Fan-out.**
 - A `fanOut` edge (pdf → png) returns N files.
 - The runner runs every later step once per file, preserving order. pdf → png → webp gives N webp files.
@@ -299,7 +301,7 @@ There are two tables, not one: with a single best path per format, a cheap path 
 
 **Executing an extract job** ([FLOWS F15](FLOWS.md#f15-extract-embedded-images)):
 1. `tmp = makeJobDir`. Re-check the input. Acquire the extractor's semaphore if it has one.
-2. `files = extractor.extract(input, tmp/extract/, options, ctx)`. `[]` gives `NOTHING_TO_EXTRACT`.
+2. `files = extractor.extract({ input, outDir: tmp/extract/, options }, ctx)`. `[]` gives `NOTHING_TO_EXTRACT`.
 3. Postcondition: each file is inside `tmp/extract/` and has size > 0.
 4. `commitFolder(files, dir, stem, "images")`, keeping each file's **own** extension and the extractor's name (`page-003-01.jpg`).
 
@@ -311,7 +313,7 @@ There are two tables, not one: with a single best path per format, a cheap path 
 
 **Executing a merge job:**
 1. For each input in user order, route it to `combiner.accepts` (as in steps 2 and 3 above) and collect `part-i`. An input whose route fans out adds all its files, in page order. Inputs that are already in `accepts` format are used directly. In v1 this runs sequentially. shortcut: parallel parts once merges of 50+ office docs feel slow.
-2. `combiner.combine(parts, tmp/combine/, options, ctx)` → `commitFile`.
+2. `combiner.combine({ inputs: parts, outDir: tmp/combine/, options }, ctx)` → `commitFile`.
 3. If any input fails, the whole job fails with that input's error and `error.input` set. No partial PDF is written.
 
 **Progress:**

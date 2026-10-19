@@ -263,7 +263,7 @@ sequenceDiagram
     end
     Core-->>Main: job.update unit <index> of N+1
   end
-  Core->>Core: merge-pdf.combine(parts, tmp/combine, options)
+  Core->>Core: merge-pdf.combine({ inputs: parts, outDir: tmp/combine, options })
   Core->>Core: commitFile → "<first input stem> merged.pdf"
   Core-->>Main: job.update done
 ```

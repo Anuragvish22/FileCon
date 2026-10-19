@@ -206,7 +206,7 @@ Split into three changes (a, b, c) at M1-4, because it was too much for one. Tic
     - GPS survives only with `keepMetadata`; an EXIF-rotated fixture comes out upright with metadata stripped
     - each `tiffCompression` value gives that compression
 
-#### M1-4b Image to PDF and merge ☐
+#### M1-4b Image to PDF and merge ☑
 - **Depends on:** M1-4a
 - **Files:** `converters/pdflib.ts`, `combiners/merge-pdf.ts`; adds `pdf-lib`
 - **Details:** `pdflib`: jpg and png → pdf at cost 1, with `pageSize`. Other images first route through sharp → png. `merge-pdf` combines PDFs in the user's order.
@@ -272,6 +272,7 @@ Split into three changes (a, b, c) at M1-4, because it was too much for one. Tic
     - preload exposes only `window.filecon`; `webPreferences` has `contextIsolation`, `sandbox` and no `nodeIntegration`
 
 ### M1-7 Renderer ☐
+- **Parked to review first:** [P9 fonts in office → pdf](PARKED.md#2-items), [P20 page placement for image → pdf](PARKED.md#2-items)
 - **Depends on:** M1-6
 - **Files:** `app/src/renderer/{store,components,pages}/…`
 - **Details:** [ARCHITECTURE section 13](ARCHITECTURE.md#13-renderer-architecture) and [UI-DESIGN](UI-DESIGN.md). Build order: theme tokens → store and selectors → DropZone and FileList → TargetPicker and OptionsBar → JobsPanel → EnginesPage → SettingsPage (with theme, accent, language).
@@ -289,7 +290,7 @@ Split into three changes (a, b, c) at M1-4, because it was too much for one. Tic
     - a JSX literal string in a component fails lint
 
 ### M1-8 CI matrix ☐
-- **Parked to review first:** [P19 find LibreOffice on any Windows drive](PARKED.md#2-items)
+- **Parked to review first:** [P19 find LibreOffice on any Windows drive](PARKED.md#2-items), [P22 pdf-lib is unmaintained](PARKED.md#2-items)
 - **Depends on:** M1-7
 - **Files:** `.github/workflows/ci.yml`
 - **Details:** ubuntu, windows and macos, with Node 22 and pnpm: lint, typecheck, test, `docs:check`. LibreOffice is installed on ubuntu only, so that its golden tests run there. Installers come in M1.2 ([TRD section 7](TRD.md#7-build-and-release)).
@@ -327,6 +328,7 @@ Goal: PRD F9, F21, F22, F34 and F35 work. You can render PDF pages to images, ex
     - an open end (`5-`) bounded to the count
 
 ### M1.1-2 Poppler engine and render edges ☐
+- **Parked to review first:** [P21 real encrypted-PDF detection](PARKED.md#2-items)
 - **Depends on:** M1.1-1, M1-3, M1-4
 - **Files:** `engines/specs.ts` (poppler spec with `requiredBins`, `install` pins), `converters/poppler.ts`, `test/fixtures/pdf/{3-pages.pdf,encrypted.pdf}`
 - **Also here:** the `requiredBins` check in `engines/discovery.ts` ([ARCH section 11](ARCHITECTURE.md#11-engine-discovery) step 7: every bin in the same dir as the first hit, else "incomplete install (missing pdfimages)"), with its test. M1-3 left it out.

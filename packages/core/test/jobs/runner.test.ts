@@ -108,7 +108,7 @@ describe('runner: happy path', () => {
       id: 'merge-pdf',
       accepts: 'pdf',
       output: 'pdf',
-      combine: async (parts, outDir) => {
+      combine: async ({ inputs: parts, outDir }) => {
         received = parts;
         const path = join(outDir, 'merged.pdf');
         await writeFile(path, 'merged');

@@ -70,12 +70,26 @@ interface Converter {
 }
 
 // (in-process only)
+interface CombineRequest {
+  inputs: string[];                   // user order
+  outDir: string;                     // empty, job-private dir
+  options: ConvertOptions;
+}
+
+// (in-process only)
+interface ExtractRequest {
+  input: string;
+  outDir: string;                     // empty, job-private dir
+  options: ConvertOptions;
+}
+
+// (in-process only)
 interface Combiner {
   id: string;                         // "merge-pdf"
   accepts: Format;                    // every input is routed to this first
   output: Format;
   /** inputs are in user order. Writes one file inside outDir and returns its path. */
-  combine(inputs: string[], outDir: string, options: ConvertOptions, ctx: JobCtx): Promise<string>;
+  combine(req: CombineRequest, ctx: JobCtx): Promise<string>;
 }
 
 // (in-process only) 1 → many files of mixed formats. Lives outside the graph, like Combiner.
@@ -89,7 +103,7 @@ interface Extractor {
   timeoutMs?: number;
   available(): Promise<boolean>;
   /** Writes only inside outDir. Returns files in page order. An empty array means nothing found (the runner maps it to NOTHING_TO_EXTRACT). */
-  extract(input: string, outDir: string, options: ConvertOptions, ctx: JobCtx): Promise<string[]>;
+  extract(req: ExtractRequest, ctx: JobCtx): Promise<string[]>;
 }
 
 interface Step { converterId: string; from: Format; to: Format }

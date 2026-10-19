@@ -369,16 +369,19 @@ export const createRunner = (deps: RunnerDeps): Runner => {
     await mkdir(combineDir, { recursive: true });
     // shortcut: no timeout on a combiner, since they run in-process (pdf-lib, sharp); add one if an external engine ever combines.
     entry.currentSource = undefined; // the failure now concerns the whole merge, not one input
-    const merged = await combiner.combine(parts, combineDir, request.options, {
-      signal: entry.controller.signal,
-      tmpDir,
-      onProgress: (fraction) =>
-        setProgress(entry, {
-          unit: inputCount,
-          fraction: fraction === null ? null : (inputCount + fraction) / (inputCount + 1),
-        }),
-      note: (id) => addNote(entry, id),
-    });
+    const merged = await combiner.combine(
+      { inputs: parts, outDir: combineDir, options: request.options },
+      {
+        signal: entry.controller.signal,
+        tmpDir,
+        onProgress: (fraction) =>
+          setProgress(entry, {
+            unit: inputCount,
+            fraction: fraction === null ? null : (inputCount + fraction) / (inputCount + 1),
+          }),
+        note: (id) => addNote(entry, id),
+      },
+    );
     await verifyOutputs([merged], combineDir);
     const firstStem = parse(request.inputs[0] ?? 'file').name;
     return [

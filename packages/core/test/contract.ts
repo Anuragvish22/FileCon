@@ -3,8 +3,15 @@ import { basename, join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { COST } from '../src/costs.ts';
 import { CoreFailure } from '../src/errors.ts';
-import type { Converter, Format, JobCtx } from '../src/types/index.ts';
-import { convertRequest, expectNoTmp, harness, workDirPath, writeSource } from './harness.ts';
+import type { Combiner, Converter, Format, JobCtx } from '../src/types/index.ts';
+import {
+  convertRequest,
+  expectNoTmp,
+  harness,
+  NO_OPTIONS,
+  workDirPath,
+  writeSource,
+} from './harness.ts';
 
 // TRD section 6, "Converter must-pass set". Engine-gated by the caller:
 // describe.skipIf(!(await converter.available()))(…, () => runConverterContract(…)).
@@ -137,6 +144,103 @@ export const runConverterContract = ({ converter, from, to, fixture }: ContractC
         if (LOSSY_COSTS.includes(edge.cost))
           expect(edge.lossy, `${edge.from} → ${edge.to}`).toBeDefined();
       }
+    });
+  });
+};
+
+export interface CombinerContractCase {
+  combiner: Combiner;
+  fixtures: string[]; // absolute paths to valid inputs in the `accepts` format, at least two
+}
+
+/** The same must-pass set for a combiner (TRD section 6), over a merge of the given inputs. */
+export const runCombinerContract = ({ combiner, fixtures }: CombinerContractCase): void => {
+  const extension = combiner.accepts;
+
+  const copiesOf = async (): Promise<string[]> =>
+    Promise.all(
+      fixtures.map(async (fixture, index) =>
+        writeSource(`part-${index + 1}.${extension}`, await readFile(fixture)),
+      ),
+    );
+
+  describe(`contract: ${combiner.id}`, () => {
+    it('writes only inside outDir, one non-empty file, and leaves the sources untouched', async () => {
+      const inputs = await copiesOf();
+      const before = await Promise.all(inputs.map(async (input) => stat(input)));
+      const outDir = await outDirFor();
+      const output = await combiner.combine(
+        { inputs, outDir, options: NO_OPTIONS },
+        makeCtx(new AbortController().signal),
+      );
+      expect(relative(outDir, output).startsWith('..')).toBe(false);
+      expect((await stat(output)).size).toBeGreaterThan(0);
+      expect(await readdir(outDir)).toHaveLength(1);
+      const after = await Promise.all(inputs.map(async (input) => stat(input)));
+      expect(after.map((item) => [item.size, item.mtimeMs])).toEqual(
+        before.map((item) => [item.size, item.mtimeMs]),
+      );
+    });
+
+    it('an aborted signal gives CANCELLED and no output', async () => {
+      const outDir = await outDirFor();
+      await expect(
+        combiner.combine(
+          { inputs: await copiesOf(), outDir, options: NO_OPTIONS },
+          makeCtx(AbortSignal.abort()),
+        ),
+      ).rejects.toMatchObject({ error: { code: 'CANCELLED' } });
+      expect(await readdir(outDir)).toEqual([]);
+    });
+
+    it.each([
+      ['a zero-byte input', () => Promise.resolve(new Uint8Array())],
+      [
+        'a truncated input',
+        async () => (await readFile(fixtures[0] ?? '')).subarray(0, TRUNCATED_BYTES),
+      ],
+    ])('%s is a CoreError, not a raw throw', async (_label, makeBytes) => {
+      const [good] = await copiesOf();
+      const bad = await writeSource(`bad.${extension}`, await makeBytes());
+      const failure = await combiner
+        .combine(
+          { inputs: [good ?? '', bad], outDir: await outDirFor(), options: NO_OPTIONS },
+          makeCtx(new AbortController().signal),
+        )
+        .then(
+          () => undefined,
+          (caught: unknown) => caught,
+        );
+      expect(failure).toBeInstanceOf(CoreFailure);
+    });
+
+    it('merges inputs whose names have spaces, unicode and shell metacharacters', async () => {
+      const { submitOne, outDir } = await harness({ converters: [], combiners: [combiner] });
+      const inputs = await Promise.all(
+        fixtures.map(async (fixture, index) =>
+          writeSource(`${WEIRD_STEM} ${index}.${extension}`, await readFile(fixture)),
+        ),
+      );
+      const job = await submitOne({
+        kind: 'merge',
+        inputs,
+        combinerId: combiner.id,
+        options: NO_OPTIONS,
+      });
+      expect(job.state).toBe('done');
+      expect(await readdir(outDir)).toEqual([`${WEIRD_STEM} 0 merged.${combiner.output}`]);
+    });
+
+    it('cancelling a merge job leaves no output and no temp dir', async () => {
+      const { runner, finished, outDir } = await harness({ converters: [], combiners: [combiner] });
+      const { jobIds } = runner.submit([
+        { kind: 'merge', inputs: await copiesOf(), combinerId: combiner.id, options: NO_OPTIONS },
+      ]);
+      runner.cancel(jobIds[0] ?? '');
+      const job = await finished(jobIds[0] ?? '');
+      expect(job.state).toBe('cancelled');
+      expect(await readdir(outDir)).toEqual([]);
+      await expectNoTmp(job);
     });
   });
 };

@@ -76,10 +76,10 @@ Images larger than the target format allows (JPEG 65,500 px, GIF 65,535 px, AVIF
 
 **Image → PDF** (pdf-lib, built in)
 
-- ☐ Single jpg → pdf
-- ☐ Single png → pdf
-- ☐ Single webp, avif, tiff or gif → pdf (via png automatically)
-- ☐ Multiple images → one pdf (merge, in your order)
+- ☑ Single jpg → pdf
+- ☑ Single png → pdf
+- ☑ Single webp, avif, tiff or gif → pdf (via png automatically)
+- ☑ Multiple images → one pdf (merge, in your order)
 - ☐ Page size option: auto, A4 or Letter
 
 **Office → PDF** (LibreOffice, Office pack)
