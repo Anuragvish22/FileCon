@@ -12,7 +12,7 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
 4. **Originals are sacred.** The UI never offers an "overwrite" option.
 5. **Keyboard-first and accessible.** Everything can be reached with Tab, Enter, Space and the arrow keys ([section 7](#7-accessibility)).
 6. **Follows the OS by default.** Theme follows `prefers-color-scheme`, language follows the OS locale, and system fonts are used. Theme (system, light, dark), accent color and language can each be overridden in Settings.
-7. **No hard-coded text or colors.** Every string comes from `t()` and the locale file, and every color from a theme token ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)). Layout uses CSS logical properties so right-to-left languages work later without a redesign.
+7. **No hard-coded text or colors.** Every string comes from `translate()` and the locale file, and every color from a theme token ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)). Layout uses CSS logical properties so right-to-left languages work later without a redesign.
 
 ## 2. Screens
 
@@ -62,7 +62,7 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
  │   PNG   WEBP   AVIF  TIFF │
  │ Documents                 │
  │   PDF                     │
- │   DOCX  ⚠ lossy           │   ← tooltip: t("lossy.layout-approx")
+ │   DOCX  ⚠ lossy           │   ← tooltip: translate("lossy.layout-approx")
  │ Unavailable               │
  │   ODT   🔒 needs Office   │   ← click → Engines page
  └───────────────────────────┘
@@ -127,7 +127,7 @@ The UI talks to the system only through `window.filecon` ([CONTRACTS section 7](
 | File row | detecting (spinner) · ready · mismatch ⚠ · unsupported (no targets) ✗ |
 | Target picker | disabled (no files) · options · no common target ("These files share no output format") |
 | Convert button | disabled (no target) · enabled · busy while submitting |
-| Job row | queued · running (step <current>/<total> + %, or an indeterminate bar with "working…" when `fraction` is null) · done ✓ ("Show in folder", or "Open folder" for multi-output) · failed ✗ (`t("error.<code>", params)` from [CONTRACTS section 5](CONTRACTS.md#5-errors), Details = `detail`, Retry only if retryable) · cancelled ⊘ |
+| Job row | queued · running (step <current>/<total> + %, or an indeterminate bar with "working…" when `fraction` is null) · done ✓ ("Show in folder", or "Open folder" for multi-output) · failed ✗ (`translate("error.<code>", params)` from [CONTRACTS section 5](CONTRACTS.md#5-errors), Details = `detail`, Retry only if retryable) · cancelled ⊘ |
 | OptionsBar | hidden (route has no options) · shows only the keys in `TargetOption.options`: Quality slider 1–100, Page size auto/A4/Letter, DPI, Pages text field (`2-3,7`, invalid = red outline + "Use numbers and ranges like 1-3,7"), Width and Height fields (px), Grayscale toggle, "Keep photo info" toggle (off), TIFF compression select |
 | Extract action | hidden (not all rows are PDF) · ready · 🔒 needs PDF pack. "Split into pages" sits next to "Extract images" and never needs a pack |
 | Install assistant | download: confirm → downloading (bytes) → verifying → unpacking → done / failed (message + Retry) · command: list with Copy → Re-check → found / still missing |

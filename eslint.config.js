@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 import importX from 'eslint-plugin-import-x';
+import react from 'eslint-plugin-react';
 import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
@@ -75,7 +76,13 @@ export default defineConfig(
     },
   },
   {
-    files: ['*.config.{js,ts}', 'eslint.config.js'],
+    // Every visible string comes from translate() (CLAUDE.md Code style)
+    files: ['packages/app/src/renderer/**/*.tsx'],
+    plugins: { react },
+    rules: { 'react/jsx-no-literals': ['error', { noStrings: true, ignoreProps: true }] },
+  },
+  {
+    files: ['**/*.config.{js,ts}'],
     rules: { 'import-x/no-default-export': 'off' },
   },
 );

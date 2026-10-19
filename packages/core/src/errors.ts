@@ -5,7 +5,7 @@ export type ErrorParam =
   'name' | 'engine' | 'pack' | 'from' | 'to' | 'dir' | 'what' | 'page' | 'count';
 export type ErrorParams = Partial<Record<ErrorParam, string | number>>;
 
-/** No prose here: the app renders t("error.<code>", params) (CONTRACTS section 10). */
+/** No prose here: the app renders translate("error.<code>", params) (CONTRACTS section 10). */
 export const coreError = (code: ErrorCode, params: ErrorParams = {}, detail?: string): CoreError =>
   detail === undefined ? { code, params } : { code, params, detail };
 

@@ -1,4 +1,5 @@
-import { stat } from 'node:fs/promises';
+import { stat, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { MessageChannel } from 'node:worker_threads';
 import { fileTypeFromFile } from 'file-type';
 import { describe, expect, it } from 'vitest';
@@ -213,6 +214,30 @@ describe('rpc server', () => {
       const refreshed = await host.result<EngineInfo[]>('engines.refresh');
       expect(refreshed.map((engine) => engine.id)).toEqual(listed.map((engine) => engine.id));
       expect(host.eventsNamed('engines.changed')).toHaveLength(1);
+      host.stop();
+    });
+
+    it('logs a re-probe and a failed job as codes, with the job id (P28)', async () => {
+      const host = start();
+      await host.init();
+      await host.result('engines.refresh');
+      const empty = join(workDirPath(), 'empty.png');
+      await writeFile(empty, '');
+      const { jobIds } = await host.result<SubmitResult>('submit', {
+        requests: [{ kind: 'convert', input: empty, target: 'jpg', options: NO_OPTIONS }],
+      });
+      const job = await host.finished(jobIds[0] ?? '');
+      expect(job.state).toBe('failed');
+      const logs = host.eventsNamed('log').map((event) => event.data);
+      expect(logs).toContainEqual({
+        level: 'info',
+        msg: expect.stringContaining('re-probed') as string,
+      });
+      expect(logs).toContainEqual({
+        level: 'warn',
+        msg: 'job failed: EMPTY_FILE {"name":"empty.png"}',
+        jobId: job.id,
+      });
       host.stop();
     });
 

@@ -86,7 +86,7 @@ fileCon/
 │   │   │   ├── paths.ts          path validation, folder expansion
 │   │   │   ├── settings.ts       load / validate / atomic save
 │   │   │   └── log.ts            rotating log file in userData/logs
-│   │   ├── shared/i18n.ts        t(key, params) for main and renderer (CONTRACTS section 10)
+│   │   ├── shared/i18n.ts        translate(key, params) for main and renderer (CONTRACTS section 10)
 │   │   ├── locales/en.json       every user-facing English string, flat keys
 │   │   ├── preload/index.ts      contextBridge → window.filecon
 │   │   └── renderer/
@@ -180,7 +180,7 @@ M1 formats are listed below. The first extension is the one used for outputs.
 | pptx | presentation | pptx | — | |
 | odp | presentation | odp | — | |
 
-Display names aren't in this table or in core: the UI shows `t("format.<id>")` ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)).
+Display names aren't in this table or in core: the UI shows `translate("format.<id>")` ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)).
 
 In v1, multi-page tiff and gif are read as their first frame only. shortcut: per-frame fan-out comes when an animated gif/tiff edge is added.
 
@@ -409,7 +409,7 @@ The result is cached per session. It's refreshed on `engines.refresh`, after `en
 - **RPC client** (`coreClient.ts`):
   - Ids increase monotonically, with a pending map of `id → { resolve, reject, timer }`. The per-call timeout is 30 s, except for `submit`, `cancel` and `shutdown`, which wait without a limit.
   - Events go out through an emitter.
-- **Crash** (`exit` with a non-zero code, or no `ready` in time):
+- **Crash** (`exit` with any code while the app isn't quitting, or no `ready` in time):
   1. Reject every pending call with `CORE_CRASHED`.
   2. For each job last seen as `queued` or `running`, emit a synthesized `job:update` with `state: "failed"` and `error.code: "CORE_CRASHED"`.
   3. If there were fewer than 3 restarts in the last 60 s, set status `restarting`, wait 1 s · 2^restarts and fork again.
@@ -437,9 +437,9 @@ The result is cached per session. It's refreshed on `engines.refresh`, after `en
 - Derived values (`canConvert`, `visibleOptions`, `batchSummary`) are pure selectors in `store/selectors.ts`, tested without React.
 
 **Text** ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)):
-- Every visible string comes from `t(key, params)` in `shared/i18n.ts`, which reads `locales/<locale>.json`. Components never contain literal text. ESLint `react/jsx-no-literals` enforces this from M1-7.
+- Every visible string comes from `translate(key, params)` in `shared/i18n.ts`, which reads `locales/<locale>.json`. Components never contain literal text. ESLint `react/jsx-no-literals` enforces this from M1-7.
 - Core results carry ids and codes (`format`, `lossy`, `error.code` + `params`). Components translate them at render time, so a language change re-renders without asking core again.
-- Main uses the same `t()` for native dialogs (the install confirm) and the app menu, with the locale from settings.
+- Main uses the same `translate()` for native dialogs (the install confirm) and the app menu, with the locale from settings.
 - CSS uses logical properties (`margin-inline-start`, `inset-inline-end`, `text-align: start`) so a right-to-left locale only needs `dir="rtl"`.
 
 **Theme:**
@@ -481,4 +481,4 @@ A combiner or extractor is the same: implement `Combiner` or `Extractor` and reg
 | ADR-14 | Poppler for PDF → image and extraction | One engine gives accurate rendering (`pdftoppm`), lossless extraction (`pdfimages`) and metadata (`pdfinfo`). GPL is fine as a separate process. Windows gets a one-click pinned download | pdfium (no official CLI), pdf.js + canvas (less exact, and no lossless extraction), Ghostscript (AGPL), MuPDF (AGPL) |
 | ADR-15 | Extraction as its own `Extractor` kind | 1 → many files of mixed, unknown formats doesn't fit a `from → to` edge, and it mirrors Combiner for N → 1 | A fake `images` format node in the graph |
 | ADR-16 | Core sends codes, ids and params, the app owns all text | Core stays language-free and JSON-only. A new language is one locale file, with no change to core, RPC or converters. Logs stay stable across languages | English messages from core, translated in the UI by string matching |
-| ADR-17 | Own `t()` and a token file, no i18n or theme library | Flat keys, `{param}` and `Intl.PluralRules` cover the need in a few lines. CSS variables already do theming | i18next / react-intl, a CSS-in-JS theme library |
+| ADR-17 | Own `translate()` and a token file, no i18n or theme library | Flat keys, `{param}` and `Intl.PluralRules` cover the need in a few lines. CSS variables already do theming | i18next / react-intl, a CSS-in-JS theme library |

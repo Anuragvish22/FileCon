@@ -35,14 +35,14 @@ export type FormatCategory =
   | 'email';
 
 export interface FormatInfo {
-  id: Format; // display name: t("format.<id>") (section 10)
+  id: Format; // display name: translate("format.<id>") (section 10)
   category: FormatCategory;
   exts: string[]; // without dot, first = preferred output ext
   multiPage?: boolean; // pdf, tiff, gif: may hold many pages/frames
 }
 
 export type OptionKey = keyof ConvertOptions;
-export type LossyId = string; // kebab-case, e.g. "layout-approx". Text: t("lossy.<id>")
+export type LossyId = string; // kebab-case, e.g. "layout-approx". Text: translate("lossy.<id>")
 
 export interface Edge {
   from: Format;
@@ -111,7 +111,7 @@ export interface Extractor {
   id: string; // "pdfimages"
   engineId: string; // "poppler"
   pack: PackId;
-  accepts: Format; // "pdf". UI action text: t("extract.<id>")
+  accepts: Format; // "pdf". UI action text: translate("extract.<id>")
   folder: string; // output folder suffix: "images" → "report (images)/"
   options?: OptionKey[]; // e.g. ["pages"]
   timeoutMs?: number;

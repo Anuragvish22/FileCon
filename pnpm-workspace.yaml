@@ -1,6 +1,8 @@
 packages:
   - packages/*
 
-# its postinstall only downloads a fallback binary; the prebuilt optional dep is enough
 allowBuilds:
+  # its postinstall only downloads a fallback binary; the prebuilt optional dep is enough
   unrs-resolver: false
+  # downloads the Electron binary (dev tooling, not an app runtime call)
+  electron: true

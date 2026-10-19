@@ -21,14 +21,14 @@ type FormatCategory =
   | "vector" | "font" | "data" | "subtitle" | "email";
 
 interface FormatInfo {
-  id: Format;                         // display name: t("format.<id>") (section 10)
+  id: Format;                         // display name: translate("format.<id>") (section 10)
   category: FormatCategory;
   exts: string[];                     // without dot, first = preferred output ext
   multiPage?: boolean;                // pdf, tiff, gif: may hold many pages/frames
 }
 
 type OptionKey = keyof ConvertOptions;
-type LossyId = string;                // kebab-case, e.g. "layout-approx". Text: t("lossy.<id>")
+type LossyId = string;                // kebab-case, e.g. "layout-approx". Text: translate("lossy.<id>")
 
 interface Edge {
   from: Format;
@@ -97,7 +97,7 @@ interface Extractor {
   id: string;                         // "pdfimages"
   engineId: string;                   // "poppler"
   pack: PackId;
-  accepts: Format;                    // "pdf". UI action text: t("extract.<id>")
+  accepts: Format;                    // "pdf". UI action text: translate("extract.<id>")
   folder: string;                     // output folder suffix: "images" → "report (images)/"
   options?: OptionKey[];              // e.g. ["pages"]
   timeoutMs?: number;
@@ -227,7 +227,7 @@ interface Job {
 ```ts
 interface CoreError {
   code: ErrorCode;
-  params: Record<string, string | number>;  // fills the text t("error.<code>", params). No prose (section 10)
+  params: Record<string, string | number>;  // fills the text translate("error.<code>", params). No prose (section 10)
   detail?: string;                    // engine stderr tail ≤ 2 KB, or technical cause. Shown raw, never translated
   input?: string;                     // which input path this concerns
 }
@@ -237,18 +237,18 @@ const ERROR_CODES = [
   "INVALID_REQUEST", "INPUT_NOT_FOUND", "INPUT_UNREADABLE", "EMPTY_FILE", "UNSUPPORTED_FORMAT",
   "INPUT_ENCRYPTED", "NO_ROUTE", "ENGINE_MISSING", "ENGINE_FAILED", "ENGINE_OUTPUT_MISSING",
   "TIMEOUT", "CANCELLED", "OUTPUT_DIR_NOT_WRITABLE", "OUTPUT_WRITE_FAILED", "DISK_FULL",
-  "CORE_CRASHED", "CORE_UNAVAILABLE", "NOTHING_TO_EXTRACT", "INSTALL_FAILED", "CHECKSUM_MISMATCH",
+  "CORE_CRASHED", "CORE_UNAVAILABLE", "CORE_TIMEOUT", "NOTHING_TO_EXTRACT", "INSTALL_FAILED", "CHECKSUM_MISMATCH",
 ] as const;
 type ErrorCode = (typeof ERROR_CODES)[number];
 ```
 
-- Params use these names only: `name` (file name, no directories), `engine`, `pack`, `from`, `to`, `dir`, `what`. `what` is an id, not prose: its text is `t("invalid.<what>")`, plus any extra numeric params it needs (`page-past-end` adds `page` and `count`).
+- Params use these names only: `name` (file name, no directories), `engine`, `pack`, `from`, `to`, `dir`, `what`. `what` is an id, not prose: its text is `translate("invalid.<what>")`, plus any extra numeric params it needs (`page-past-end` adds `page` and `count`).
 - Logs write `code` and `params`, never translated text.
 - The English column below is the source for `en.json` key `error.<CODE>`. The app owns that text, core never sends it.
 
 | Code | Raised when | English text (`en.json` `error.<CODE>`) | Retryable |
 |---|---|---|---|
-| `INVALID_REQUEST` | Malformed params, bad option range, unknown combiner | "Invalid request". When `what` is set the UI shows `t("invalid.<what>", params)` instead | no |
+| `INVALID_REQUEST` | Malformed params, bad option range, unknown combiner | "Invalid request". When `what` is set the UI shows `translate("invalid.<what>", params)` instead | no |
 | `INPUT_NOT_FOUND` | Path missing at detect or job start | "{name} no longer exists" | no |
 | `INPUT_UNREADABLE` | EACCES, EPERM, or the path is a directory or special file | "Can't read {name}" | no |
 | `EMPTY_FILE` | size = 0 | "{name} is empty" | no |
@@ -265,6 +265,7 @@ type ErrorCode = (typeof ERROR_CODES)[number];
 | `DISK_FULL` | ENOSPC anywhere | "Disk full" | after fix |
 | `CORE_CRASHED` | Core host exited while the job was running (set by main) | "Converter process crashed" | yes |
 | `CORE_UNAVAILABLE` | Restart budget exhausted. Every call fails fast | "Converter unavailable, restart the app" | no |
+| `CORE_TIMEOUT` | A call (other than `init`, `submit`, `cancel`, `shutdown`) got no answer from the core host in 30 s (set by main). The host is not restarted | "The converter didn't answer, try again" | yes |
 | `NOTHING_TO_EXTRACT` | Extractor found nothing (e.g. a PDF with no embedded images in the chosen pages) | "No embedded images found in {name}" | no |
 | `INSTALL_FAILED` | Engine download, network or unzip failed, or the binaries weren't found afterwards | "Couldn't install {engine}" | yes |
 | `CHECKSUM_MISMATCH` | Downloaded archive's SHA-256 differs from the pinned value. The file is deleted | "Download of {engine} was corrupted or tampered with" | yes |
@@ -318,7 +319,7 @@ Rules:
 
 ## 7. IPC (renderer ⇄ main)
 
-The preload exposes `window.filecon` through `contextBridge`. Every method calls `ipcRenderer.invoke(channel, payload)`.
+The preload exposes `window.filecon` through `contextBridge`. Every method calls `ipcRenderer.invoke(channel, payload)`. A failed call rejects with the plain `CoreError` (`code` and `params`), never an `Error`, because only the message of an `Error` survives IPC.
 
 | `window.filecon.` | Channel | Payload → Result | Main does |
 |---|---|---|---|
@@ -441,7 +442,7 @@ type InstallMethod =
 
 ## 10. Text and themes
 
-**Rule: core never sends user-facing prose.** It sends ids, codes and params. The app turns them into text with `t(key, params)` from `packages/app/src/locales/<locale>.json`. This keeps core language-free, so adding a language never touches core, RPC or converters.
+**Rule: core never sends user-facing prose.** It sends ids, codes and params. The app turns them into text with `translate(key, params)` from `packages/app/src/locales/<locale>.json`. This keeps core language-free, so adding a language never touches core, RPC or converters.
 
 | Key | Filled from | Example (en) |
 |---|---|---|

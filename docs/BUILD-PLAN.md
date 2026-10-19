@@ -247,53 +247,90 @@ Split into three changes (a, b, c) at M1-4, because it was too much for one. Tic
     - `submit` all-or-nothing validation
     - `shutdown` cancels running jobs and cleans up
 
-### M1-6 App main and preload ☐
-- **Parked to review first:** [P28 core log lines](PARKED.md#2-items), [P29 settings validated twice](PARKED.md#2-items)
+### M1-6 App main and preload ☑
+Split into three changes (a, b, c) because it was too much for one. Tick this heading when all three are ☑. Tasks that depend on M1-6 need all three.
+- **Parked to review first:** [P28 core log lines](PARKED.md#2-items) (adopted), [P29 settings validated twice](PARKED.md#2-items) (adopted)
 - **Depends on:** M1-5
-- **Files:** `app/src/main/{index,supervisor,coreClient,ipc,paths,settings,log}.ts`, `app/src/preload/index.ts`, electron-vite config
 - **Details:** [ARCHITECTURE section 12](ARCHITECTURE.md#12-core-host-and-supervision) and [CONTRACTS section 7 and section 8](CONTRACTS.md#7-ipc-renderer--main).
-  - `webPreferences`: `contextIsolation`, `sandbox`, no `nodeIntegration`.
-  - CSP: `default-src 'self'`.
-  - Navigation and new windows are blocked.
-  - `shared/i18n.ts` (`t()`) and `locales/en.json` land here, because main's install-confirm dialog uses them ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)).
+- **Dependencies to add (approved, with 6c):** `electron`, `electron-vite`.
+
+#### M1-6a Text, settings, paths and log ☑
+- **Files:** `app/package.json`, `app/src/shared/i18n.ts` (`translate()`), `app/src/locales/en.json`, `app/src/main/{settings,paths,log}.ts`, and in core `rpc/server.ts` (`log` events).
+- **Details:**
+  - `shared/i18n.ts` and `locales/en.json` land here, because main's install-confirm dialog uses them ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)).
   - Settings validation covers `ui.accent` and `ui.language`.
-- **Dependencies to add (ask):** `electron`, `electron-vite`.
+  - Core emits `log` events for a failed job and an engine re-probe, with codes and params only.
+- **Tests:**
+  - Happy path:
+    - `settings.test.ts`: load and save round-trip
+    - `paths.test.ts`: a valid file path is accepted
+    - `i18n.test.ts`: `{param}` substitution, `.one` / `.other` plurals
+  - Must also pass:
+    - paths: a relative path, a path with `..`, and a non-string are refused
+    - settings: invalid values rejected (including an unknown accent or locale), a corrupt settings file recovers to defaults
+    - i18n: a missing key falls back to `en`, then to the key, warns once and never throws; a missing param leaves `{param}` visible
+    - tooling test `test/tooling/i18n-keys.test.ts`: every key core can emit exists in `en.json`: `error.<code>` for all `ERROR_CODES`, `format.<id>` and `category.<c>` from `formats.ts`, `pack.<id>`, every converter's `lossy` id, every `invalid.<what>` core raises (extractor ids join with M1.1-3)
+    - tooling test `test/tooling/settings-agree.test.ts`: core and main reject the same broken settings (P29)
+
+#### M1-6b Core client and supervisor ☑
+- **Depends on:** M1-6a
+- **Files:** `app/src/main/{coreClient,supervisor}.ts`. Both take an injected fork or port, so they import no `electron`.
 - **Tests:**
   - Happy path:
     - `supervisor.test.ts`: fake fork reaches ready
     - `coreClient.test.ts`: id matching
-    - `paths.test.ts`: a valid file path is accepted
-    - `settings.test.ts`: load and save round-trip
-    - `i18n.test.ts`: `{param}` substitution, `.one` / `.other` plurals
   - Must also pass:
     - supervisor: ready timeout, crash and restart, budget exhaustion, synthesized `CORE_CRASHED` updates
     - coreClient: timeouts, out-of-order responses
-    - paths: a relative path, a path with `..`, and a non-string are refused
-    - settings: invalid values rejected (including an unknown accent or locale), a corrupt settings file recovers to defaults
-    - i18n: a missing key falls back to `en`, then to the key, warns once and never throws; a missing param leaves `{param}` visible
-    - tooling test `test/tooling/i18n-keys.test.ts`: every key core can emit exists in `en.json`: `error.<code>` for all `ERROR_CODES`, `format.<id>` and `category.<c>` from `formats.ts`, `pack.<id>`, every converter's `lossy` id, every extractor id, every `invalid.<what>` core raises
+
+#### M1-6c Electron wiring ☑
+- **Parked to review first:** [P32 log rotation](PARKED.md#2-items) (decided: rotate by size now)
+- **Depends on:** M1-6b
+- **Files:** `app/src/main/{index,ipc,expand,window}.ts`, `app/src/preload/{index,api}.ts`, `app/electron.vite.config.ts`, `app/src/renderer/index.html` (placeholder), `core/src/hostEntry.ts` (the core host entry)
+- **Details:**
+  - `webPreferences`: `contextIsolation`, `sandbox`, no `nodeIntegration`.
+  - CSP: `default-src 'self'`.
+  - Navigation and new windows are blocked.
+  - `log.ts` also rotates mid-session once the file passes 1 MB (P32).
+  - A failed call rejects in the renderer with the plain `CoreError` ([CONTRACTS section 7](CONTRACTS.md#7-ipc-renderer--main)).
+  - `sharp` is an app dependency too, because the bundled host loads it at run time.
+- **Tests:**
+  - Must also pass:
     - preload exposes only `window.filecon`; `webPreferences` has `contextIsolation`, `sandbox` and no `nodeIntegration`
+    - every channel in CONTRACTS section 7 has an `ipc.ts` handler (`test/tooling/ipc-channels.test.ts`, which also checks the preload methods and push channels against the doc)
+    - `reveal` and `openExternal` refuse anything outside the allow-lists; a declined install confirm gives `CANCELLED`
+  - Manual: `pnpm dev` opens a window under WSLg and the log shows `core status: ready`.
+- **Parked:** [P36 one bad input rejects the whole submit](PARKED.md#2-items), [P37 Electron glue in `index.ts` is only run by hand](PARKED.md#2-items), [P38 main text ignores the language setting](PARKED.md#2-items), [P33](PARKED.md#2-items) (also `expand.ts`)
 
 ### M1-7 Renderer ☐
-- **Parked to review first:** [P9 fonts in office → pdf](PARKED.md#2-items), [P30 serial detect](PARKED.md#2-items), [P20 page placement for image → pdf](PARKED.md#2-items), [P25 two sharp choices](PARKED.md#2-items), [P26 very large documents and the 180 s timeout](PARKED.md#2-items)
+Split into three changes (a, b, c). Tick this heading when all three are ☑. Decisions: state is `useReducer` + context with no state library; React, not Next.js; P34, P35, P26 and P9 are built here (P30, P20, P25 stay parked).
 - **Depends on:** M1-6
-- **Files:** `app/src/renderer/{store,components,pages}/…`
-- **Details:** [ARCHITECTURE section 13](ARCHITECTURE.md#13-renderer-architecture) and [UI-DESIGN](UI-DESIGN.md). Build order: theme tokens → store and selectors → DropZone and FileList → TargetPicker and OptionsBar → JobsPanel → EnginesPage → SettingsPage (with theme, accent, language).
-  - All text through `t()`, all colors through theme tokens, CSS logical properties only ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)).
-- **Dependencies to add (ask):** `react`, `react-dom`, `@testing-library/react`, `eslint-plugin-react` (for `react/jsx-no-literals`).
-- **Tests:**
-  - Happy path: `reducer.test.ts` and `selectors.test.ts` (pure) for add files → pick target → job done.
-  - Must also pass:
-    - TargetPicker keyboard navigation
-    - JobsPanel live-region text
-    - empty state (no files) and failed-job state render
-    - a 🔒 target can't be submitted
-    - `tokens.test.ts`: text, muted text and accent-on-background meet 4.5:1 for every accent × mode
-    - changing theme, accent or language updates `<html>` (`data-theme`, `data-accent`, `lang`, `dir`) and the visible text without a reload
-    - a JSX literal string in a component fails lint
+- **Details:** [ARCHITECTURE section 13](ARCHITECTURE.md#13-renderer-architecture) and [UI-DESIGN](UI-DESIGN.md). All text through `translate()`, all colors through theme tokens, CSS logical properties only ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)).
+
+#### M1-7a Foundations ☑
+- **Files:** `app/src/renderer/{main.tsx,styles.css,theme/,store/,components/{AppShell,CoreBanner}.tsx}`, `shared/i18n.ts` (`resolveLocale`), `app/electron.vite.config.ts`, `eslint.config.js`, CONTRACTS section 5 (`CORE_TIMEOUT`).
+- **Details:**
+  - Store: `state`, `reducer`, `actions`, `selectors`, and `StoreProvider` (which also does `useCoreEvents`).
+  - P35: no call before `core:status` is `ready`; drops are queued; startup calls re-run on every return to `ready`.
+  - P34: a call with no answer in 30 s rejects with `CORE_TIMEOUT`; the host is not restarted for it.
+  - Dependencies added: `react`, `react-dom`, `@vitejs/plugin-react`, `@testing-library/react`, `jsdom`, `eslint-plugin-react`.
+- **Tests:** `store.test.ts` (reducer and selectors, add files → pick target → job done), `actions.test.ts` (P35 queueing), `tokens.test.ts` (4.5:1 for every accent × mode, `<html>` attributes), `test/tooling/jsx-literals.test.ts` (a JSX literal fails lint).
+- **Parked:** [P39 renderer has no format categories](PARKED.md#2-items), [P40 renderer shares main's tsconfig](PARKED.md#2-items), [P37](PARKED.md#2-items) (CSP only checked in the built app)
+
+#### M1-7b Convert page ☐
+- **Parked to review first:** [P9 fonts in office → pdf](PARKED.md#2-items) (build the fixed note only), [P20 page placement for image → pdf](PARKED.md#2-items), [P25 two sharp choices](PARKED.md#2-items), [P30 serial detect](PARKED.md#2-items), [P39](PARKED.md#2-items)
+- **Depends on:** M1-7a
+- **Files:** `DropZone`, `FileList`/`FileRow`, `TargetPicker`, `RouteHint`, `OptionsBar`, `OutputChooser`, `ConvertButton`, the Convert page.
+- **Tests:** TargetPicker keyboard navigation; empty state; a 🔒 target can't be submitted; merge toggle rules; drop zone Enter/Space.
+
+#### M1-7c Jobs, Engines and Settings ☐
+- **Parked to review first:** [P26 very large documents and the 180 s timeout](PARKED.md#2-items) (build the setting), [P35](PARKED.md#2-items) recheck
+- **Depends on:** M1-7b
+- **Files:** `JobsPanel`, `EnginesPage`, `SettingsPage`; P26 adds a timeout setting (CONTRACTS section 8, `types/settings.ts`, main `parseSettings`, core `settingsOf`, `settings-agree` cases, the runner).
+- **Tests:** JobsPanel live-region text; failed-job state render; changing theme, accent or language updates `<html>` (`data-theme`, `data-accent`, `lang`, `dir`) and the visible text without a reload.
 
 ### M1-8 CI matrix ☐
-- **Parked to review first:** [P19 find LibreOffice on any Windows drive](PARKED.md#2-items), [P22 pdf-lib is unmaintained](PARKED.md#2-items), [P23 field-level metadata check](PARKED.md#2-items), [P24 sharp on Windows and macOS](PARKED.md#2-items), [P27 LibreOffice converter on Windows and macOS](PARKED.md#2-items)
+- **Parked to review first:** [P33 app modules on Windows and macOS](PARKED.md#2-items), [P37 packaging: `sharp` unpacked, Electron glue untested](PARKED.md#2-items), [P19 find LibreOffice on any Windows drive](PARKED.md#2-items), [P22 pdf-lib is unmaintained](PARKED.md#2-items), [P23 field-level metadata check](PARKED.md#2-items), [P24 sharp on Windows and macOS](PARKED.md#2-items), [P27 LibreOffice converter on Windows and macOS](PARKED.md#2-items)
 - **Depends on:** M1-7
 - **Files:** `.github/workflows/ci.yml`
 - **Details:** ubuntu, windows and macos, with Node 22 and pnpm: lint, typecheck, test, `docs:check`. LibreOffice is installed on ubuntu only, so that its golden tests run there. Installers come in M1.2 ([TRD section 7](TRD.md#7-build-and-release)).
@@ -350,6 +387,7 @@ Goal: PRD F9, F21, F22, F34 and F35 work. You can render PDF pages to images, ex
     - cancel mid-render leaves no `page-*` files in the destination
 
 ### M1.1-3 Extractor kind and pdfimages ☐
+- **Parked to review first:** [P31 hand-written invalid ids](PARKED.md#2-items)
 - **Depends on:** M1.1-2, M1-2
 - **Files:** `registry.ts` (extractors), `graph/targets.ts` (`targets().extract`), `jobs/runner.ts` (extract kind), `extractors/pdfimages.ts`, `test/fixtures/pdf/{two-jpegs.pdf,text-only.pdf}`. The source JPEGs are kept next to the fixture for comparison.
 - **Tests:**

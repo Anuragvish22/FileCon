@@ -72,6 +72,10 @@ export const createServer = (deps: ServerDeps): Server => {
 
   const emit = (name: RpcEvent, data: unknown): void => deps.send({ kind: 'evt', name, data });
 
+  // Codes and params only, never prose (CONTRACTS section 5). Main writes these to the log file.
+  const log = (level: 'info' | 'warn', msg: string, jobId?: string): void =>
+    emit('log', jobId === undefined ? { level, msg } : { level, msg, jobId });
+
   // Only called once `init` has finished, so the session exists.
   const live = (): Session => {
     if (session === undefined) throw new CoreFailure('CORE_UNAVAILABLE');
@@ -100,6 +104,8 @@ export const createServer = (deps: ServerDeps): Server => {
     engines = await deps.discover(current.settings.engines.paths);
     current.graphs = await buildGraphs(current.registry, current.settings.engines.priority);
     emit('engines.changed', engines);
+    const found = engines.filter((engine) => engine.found).map((engine) => engine.id);
+    log('info', `engines re-probed, found: ${found.join(',') || 'none'}`);
   };
 
   const outDirOf = (settings: Settings, request: JobRequest): string => {
@@ -114,6 +120,8 @@ export const createServer = (deps: ServerDeps): Server => {
     if (TERMINAL_STATES.includes(job.state)) activeJobs.delete(job.id);
     else activeJobs.add(job.id);
     emit('job.update', job);
+    if (job.state === 'failed' && job.error !== undefined)
+      log('warn', `job failed: ${job.error.code} ${JSON.stringify(job.error.params)}`, job.id);
     if (activeJobs.size === 0) {
       const waiters = drainWaiters;
       drainWaiters = [];

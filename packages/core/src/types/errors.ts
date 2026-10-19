@@ -2,7 +2,7 @@
 
 export interface CoreError {
   code: ErrorCode;
-  params: Record<string, string | number>; // fills the text t("error.<code>", params). No prose (section 10)
+  params: Record<string, string | number>; // fills the text translate("error.<code>", params). No prose (section 10)
   detail?: string; // engine stderr tail ≤ 2 KB, or technical cause. Shown raw, never translated
   input?: string; // which input path this concerns
 }
@@ -26,6 +26,7 @@ export const ERROR_CODES = [
   'DISK_FULL',
   'CORE_CRASHED',
   'CORE_UNAVAILABLE',
+  'CORE_TIMEOUT',
   'NOTHING_TO_EXTRACT',
   'INSTALL_FAILED',
   'CHECKSUM_MISMATCH',

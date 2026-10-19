@@ -67,7 +67,7 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 | [5. Errors](CONTRACTS.md#5-errors) | CoreError (code + params), ERROR_CODES, English text and retryability |
 | [6. Core RPC protocol](CONTRACTS.md#6-core-rpc-protocol) · [7. IPC](CONTRACTS.md#7-ipc-renderer--main) | Main ⇄ core methods and events, renderer ⇄ main channels, path validation |
 | [8. Settings](CONTRACTS.md#8-settings) · [9. Engines](CONTRACTS.md#9-engines) | Settings schema, defaults, storage, EngineInfo, EngineSpec |
-| [10. Text and themes](CONTRACTS.md#10-text-and-themes) | Core sends no prose, `t()` key namespaces, Locale, Accent |
+| [10. Text and themes](CONTRACTS.md#10-text-and-themes) | Core sends no prose, `translate()` key namespaces, Locale, Accent |
 
 ## FLOWS.md
 
@@ -112,7 +112,7 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 |---|---|
 | Format | Canonical lowercase id (`jpg`, `pdf`). Aliases are mapped in `formats.ts` |
 | Edge | One conversion a converter can do: `from → to`, with `cost`, `lossy`, `fanOut` and `options` |
-| Text key | A flat key like `error.EMPTY_FILE` or `format.jpg` that `t()` turns into text from `locales/<locale>.json`. Core sends only the ids, never text ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)) |
+| Text key | A flat key like `error.EMPTY_FILE` or `format.jpg` that `translate()` turns into text from `locales/<locale>.json`. Core sends only the ids, never text ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)) |
 | Theme token | A CSS variable (`--bg`, `--accent`, …) set per mode and accent from `renderer/theme/tokens.ts`. Components use only tokens, never raw colors |
 | Route | Cheapest chain of edges, at most 3 **hops**, with at most one fan-out |
 | Fan-out | An edge producing one file per page or frame (pdf → png). Later steps run per file, and the output goes to a folder |

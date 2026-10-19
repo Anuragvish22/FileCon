@@ -331,12 +331,12 @@ sequenceDiagram
   Core->>Core: remove tmp, release slot
   Core-->>Main: job.update failed { error }
   Main-->>Renderer: job:update
-  Renderer->>Renderer: row shows t("error.<code>", params), Details shows detail
+  Renderer->>Renderer: row shows translate("error.<code>", params), Details shows detail
   Renderer->>Main: submit(same JobRequest) on Retry
 ```
 
 **Steps**
-1. The row text is `t("error.<code>", params)`, using the English text in [CONTRACTS section 5](CONTRACTS.md#5-errors) as `en.json`. `detail` is shown raw, only under "Details".
+1. The row text is `translate("error.<code>", params)`, using the English text in [CONTRACTS section 5](CONTRACTS.md#5-errors) as `en.json`. `detail` is shown raw, only under "Details".
 2. Retry is offered only for retryable codes. It creates a **new** job, and the failed row stays in the list.
 3. `ENOSPC` at any point gives `DISK_FULL`.
 

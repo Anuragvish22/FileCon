@@ -52,7 +52,7 @@ This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) 
 | NFR-10 | Size | Engine binaries are never bundled in the installer or committed to the repo |
 | NFR-11 | Privacy | No network calls except user-initiated engine downloads (M3). No telemetry |
 | NFR-12 | Reliability | A core host crash never takes down the UI. Running jobs fail with `CORE_CRASHED`, and the host restarts (at most 3 times in 60 s) ([FLOWS F12](FLOWS.md#f12-core-crash-and-recovery)) |
-| NFR-13 | Localization | All user-facing text comes from locale files through `t()`. Core sends ids, codes and params, never prose. Every key core can emit exists in `en.json` (tooling test) ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)) |
+| NFR-13 | Localization | All user-facing text comes from locale files through `translate()`. Core sends ids, codes and params, never prose. Every key core can emit exists in `en.json` (tooling test) ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)) |
 | NFR-14 | Accessibility | Every color is a theme token. Text and controls meet 4.5:1 contrast in light and dark mode for every accent (unit test on the tokens) |
 
 ## 4. Engine matrix
