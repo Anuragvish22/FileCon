@@ -10,5 +10,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "file-type": "^22.2.0"
   }
 }

@@ -154,7 +154,7 @@ Images larger than the target format allows (JPEG 65,535 px, WebP 16,383 px a si
 - ☐ Word variants: docm, dotx, dotm, dot → docx · pdf · the others (macros are dropped)
 - ☐ Spreadsheet variants: xlsm, xltx → xlsx · pdf · csv · tsv ↔ csv · xlsx
 - ☐ Slide variants: pptm, potx, ppsx → pptx · pdf
-- ☐ New formats to register: txt, csv, tsv, xls, ppt and the variants above
+- ☐ New formats to register: txt, csv, tsv and the variants above (xls, ppt and svg are already registered for detection, M0-5)
 
 **Chained automatically** (Docs pack + Office pack)
 

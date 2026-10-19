@@ -80,7 +80,7 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
     - `targets` offers the input's own format only when it has a self-edge (mixed inputs: only if every input reaches it), and `needs-pack` comes from the full graph
     - the cache being cleared on rebuild
 
-### M0-5 Detection ☐
+### M0-5 Detection ☑
 - **Depends on:** M0-2
 - **Files:** `core/src/detect.ts`, `test/fixtures/{jpg,png,webp,pdf,docx,doc,txt-renamed}/…`
 - **Details:** [ARCHITECTURE section 7](ARCHITECTURE.md#7-detection-algorithm). Adds dependency `file-type`, which needs an ask.

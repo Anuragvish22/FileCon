@@ -166,13 +166,16 @@ M1 formats are listed below. The first extension is the one used for outputs.
 | avif | image | avif | — | |
 | tiff | image | tiff, tif | yes | tif |
 | gif | image | gif | yes | |
+| svg | image | svg | — | |
 | pdf | pdf | pdf | yes | |
 | doc | document | doc | — | |
 | docx | document | docx | — | |
 | odt | document | odt | — | |
 | rtf | document | rtf | — | |
+| xls | spreadsheet | xls | — | |
 | xlsx | spreadsheet | xlsx | — | |
 | ods | spreadsheet | ods | — | |
+| ppt | presentation | ppt | — | |
 | pptx | presentation | pptx | — | |
 | odp | presentation | odp | — | |
 
@@ -186,7 +189,7 @@ In v1, multi-page tiff and gif are read as their first frame only. shortcut: per
 
 1. `stat`. If it's missing, the result is `INPUT_NOT_FOUND`. If it's not a regular file or can't be read, `INPUT_UNREADABLE`. If size is 0, `EMPTY_FILE`.
 2. `byExt = formats.byExt(extension)`, which may be null.
-3. Read the first 4100 bytes and run `file-type`, which gives `byContent`.
+3. Read the first 4100 bytes (the size `file-type` recommends, since most signatures sit inside it) and run `file-type`, which gives `byContent`. It looks inside zips, so a docx or odt usually comes back as itself. An XML prolog comes back as `xml`, which counts as no match so that step 4.4 can still recognise svg.
 4. Resolve:
    1. **CFB/OLE** (`cfb`): legacy Office. If `byExt` is doc, xls or ppt, use it. Otherwise the result is `UNSUPPORTED_FORMAT`.
    2. **Generic zip**: if `byExt` is a zip-based format (docx, xlsx, pptx, odt, ods, odp, epub), use it. Otherwise it's `UNSUPPORTED_FORMAT`, since archives aren't supported in M1.
