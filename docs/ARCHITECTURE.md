@@ -144,7 +144,7 @@ The Test column names files under `<package>/test/`, at the same path as the mod
 | `jobs/scheduler` | Slots and semaphores | `createScheduler(slotCount)`, `acquire(convId, max)`, `setConcurrency(slotCount)` | `scheduler.test.ts` |
 | `jobs/runner` | Execute jobs | `createRunner(deps)`, `.submit(reqs)`, `.cancel(id)`, `.cancelAll()`, `on("update")` | `runner.test.ts` |
 | `jobs/output` | Never-overwrite commit | `commitFile({ src, dir, stem, ext })`, `commitFolder({ files, dir, stem, ext })`, `safeStem(name)`; both commits take an optional `fsOps` so tests can simulate EXDEV and ENOSPC | `output.test.ts` |
-| `jobs/spawn` | Safe external process | `run(bin, args, { signal, timeoutMs, cwd, onStdout? })` | `spawn.test.ts` |
+| `jobs/spawn` | Safe external process | `run({ bin, args, signal, timeoutMs, cwd?, onStdout? })` → `{ code, stdoutTail, stderrTail }`, or throws `ENGINE_FAILED`, `TIMEOUT`, `CANCELLED`; `createRunner(deps)` lets tests fake the OS | `spawn.test.ts` |
 | `jobs/tmp` | Temp lifecycle | `makeJobDir(id)`, `removeDir(dirPath)`, `sweep(olderThanMs)` (an optional `root` is only for tests) | `tmp.test.ts` |
 | `engines/discovery` | Find engines | `discover(spec, deps)`, `discoverAll(specs, overrides)` | `discovery.test.ts` |
 | `engines/install` | Install assistant (download kind) | `install(spec, deps, onProgress)` | `install.test.ts` (local fake HTTPS server) |

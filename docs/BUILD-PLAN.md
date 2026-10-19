@@ -116,19 +116,19 @@ Goal: the pure logic of `@filecon/core` is built and tested, with no engines, no
     - a failure midway removes what the commit created and keeps the temp files
     - `sweep` removes only old `filecon-*` dirs
 
-**M0 exit:** the core logic is covered by unit tests, and coverage of `graph`, `detect` and `output` is at least 90% of lines.
+**M0 exit** ☑: the core logic is covered by unit tests, and coverage of `graph`, `detect` and `output` is at least 90% of lines. Checked by `pnpm test:coverage`, which fails under 90% (98.5% at M0-6).
 
 ## 2. M1 — MVP
 
 Goal: PRD F1–F8 work end to end in the app on all three OSes.
 
-### M1-1 Safe spawn ☐
+### M1-1 Safe spawn ☑
 - **Depends on:** M0-2
 - **Files:** `core/src/jobs/spawn.ts`
 - **Details:**
   - `shell: false` always. POSIX uses `detached: true` and kills the process group with `process.kill(-pid)`. Windows uses `taskkill /PID <pid> /T /F`.
   - It keeps the last 2 KB of stderr.
-  - It resolves `{ code, stdoutTail, stderrTail }` and rejects with a `CoreError` (`ENGINE_FAILED`, `TIMEOUT`, `CANCELLED`).
+  - It resolves `{ code, stdoutTail, stderrTail }` and rejects with a `CoreError` (`ENGINE_FAILED`, `TIMEOUT`, `CANCELLED`). The signature is one object, `run({ bin, args, signal, timeoutMs, cwd?, onStdout? })`.
 - **Tests:** spawn `process.execPath` with `-e` scripts:
   - Happy path: exit 0 resolves with the stdout and stderr tails.
   - Must also pass:
