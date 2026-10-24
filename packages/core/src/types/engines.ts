@@ -1,5 +1,3 @@
-// Mirror of docs/CONTRACTS.md section 9. Change both together.
-
 import type { PackId } from './domain.ts';
 
 export interface EngineInfo {

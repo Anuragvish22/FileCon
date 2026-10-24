@@ -49,7 +49,7 @@ fileCon/
 │   ├── core/src/
 │   │   ├── index.ts              re-exports for tests and host
 │   │   ├── host.ts               utilityProcess / sidecar entry: wires transport → rpc/server
-│   │   ├── types/                CONTRACTS types, verbatim, one file per section + index.ts
+│   │   ├── types/                zod schemas and types for CONTRACTS, one file per section + index.ts
 │   │   ├── errors.ts             coreError() + CoreFailure (what core throws): code + params, no prose
 │   │   ├── formats.ts            FormatInfo table, aliases, ext → format lookup
 │   │   ├── detect.ts             content + extension detection
@@ -482,3 +482,4 @@ A combiner or extractor is the same: implement `Combiner` or `Extractor` and reg
 | ADR-15 | Extraction as its own `Extractor` kind | 1 → many files of mixed, unknown formats doesn't fit a `from → to` edge, and it mirrors Combiner for N → 1 | A fake `images` format node in the graph |
 | ADR-16 | Core sends codes, ids and params, the app owns all text | Core stays language-free and JSON-only. A new language is one locale file, with no change to core, RPC or converters. Logs stay stable across languages | English messages from core, translated in the UI by string matching |
 | ADR-17 | Own `translate()` and a token file, no i18n or theme library | Flat keys, `{param}` and `Intl.PluralRules` cover the need in a few lines. CSS variables already do theming | i18next / react-intl, a CSS-in-JS theme library |
+| ADR-18 | Zod schemas in `core/src/types/` are the source of truth, CONTRACTS only explains them | One schema checks the data at runtime and gives the type, so the docs, the types and the validation cannot drift, and the hand-written `fieldsOf` helpers and the doc-mirror test go away | A word-for-word copy of the types in the docs with a test to compare them (P10), JSON Schema generated from the types |

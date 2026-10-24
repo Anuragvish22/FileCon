@@ -1,13 +1,14 @@
-import type {
-  DetectResult,
-  EngineInfo,
-  Format,
-  Job,
-  JobRequest,
-  Settings,
-  SubmitResult,
-  TargetsResult,
-  CoreStatus,
+import {
+  PUSH_CHANNELS,
+  type DetectResult,
+  type EngineInfo,
+  type Format,
+  type Job,
+  type JobRequest,
+  type Settings,
+  type SubmitResult,
+  type TargetsResult,
+  type CoreStatus,
 } from '@filecon/core/types';
 
 /** What main answers on every channel (`ipc.ts` handlers wrapped in `index.ts`). */
@@ -20,12 +21,7 @@ export interface PushEvents {
   'core:status': { status: CoreStatus; restarts: number };
 }
 
-export const PUSH_CHANNELS: readonly (keyof PushEvents)[] = [
-  'job:update',
-  'engines:changed',
-  'engines:installProgress',
-  'core:status',
-];
+export { PUSH_CHANNELS };
 
 export interface PreloadDeps {
   invoke(channel: string, payload?: unknown): Promise<unknown>;

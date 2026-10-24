@@ -4,7 +4,7 @@ Convert files offline. Drop them in, pick a target format, and fileCon routes th
 
 ## What it does
 
-fileCon is a desktop app for Windows, macOS and Linux (Electron and React). It converts images, documents and, later, audio, video and 3D files, and it can merge several files into one PDF. Nothing is uploaded: there are no network calls and no telemetry. Engines such as sharp and LibreOffice do the format work, and fileCon decides which ones to chain.
+fileCon is a desktop app for Windows, macOS and Linux (Electron and React). It converts images, documents and, later, audio, video and 3D files, and it can merge several files into one PDF. Nothing is uploaded: there are no network calls and no telemetry.
 
 ## How it works
 

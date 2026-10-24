@@ -1,26 +1,32 @@
-// Mirror of docs/CONTRACTS.md section 6. Change both together.
-
 import type { CoreError } from './errors.ts';
+
+export const RPC_METHODS = [
+  'init',
+  'detect',
+  'targets',
+  'plan',
+  'submit',
+  'cancel',
+  'cancelAll',
+  'engines.list',
+  'engines.refresh',
+  'engines.install',
+  'settings.apply',
+  'shutdown',
+] as const;
+export type RpcMethod = (typeof RPC_METHODS)[number];
+
+export const RPC_EVENTS = [
+  'ready',
+  'job.update',
+  'engines.changed',
+  'engine.install.progress',
+  'log',
+] as const;
+export type RpcEvent = (typeof RPC_EVENTS)[number];
 
 export type RpcMessage =
   | { kind: 'req'; id: number; method: RpcMethod; params: unknown }
   | { kind: 'res'; id: number; ok: true; result: unknown }
   | { kind: 'res'; id: number; ok: false; error: CoreError }
   | { kind: 'evt'; name: RpcEvent; data: unknown };
-
-// The names in the tables below
-export type RpcMethod =
-  | 'init'
-  | 'detect'
-  | 'targets'
-  | 'plan'
-  | 'submit'
-  | 'cancel'
-  | 'cancelAll'
-  | 'engines.list'
-  | 'engines.refresh'
-  | 'engines.install'
-  | 'settings.apply'
-  | 'shutdown';
-export type RpcEvent =
-  'ready' | 'job.update' | 'engines.changed' | 'engine.install.progress' | 'log';

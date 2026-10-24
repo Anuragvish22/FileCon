@@ -1,4 +1,9 @@
-// Mirror of docs/CONTRACTS.md section 10. Change both together.
+import { z } from 'zod';
 
-export type Locale = 'en'; // add one entry per shipped locale file
-export type Accent = 'blue' | 'green' | 'purple' | 'orange';
+export const LOCALES = ['en'] as const; // add one entry per shipped locale file
+export const LocaleSchema = z.enum(LOCALES);
+export type Locale = z.infer<typeof LocaleSchema>;
+
+export const ACCENTS = ['blue', 'green', 'purple', 'orange'] as const;
+export const AccentSchema = z.enum(ACCENTS);
+export type Accent = z.infer<typeof AccentSchema>;

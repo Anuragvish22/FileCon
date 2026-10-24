@@ -2,137 +2,19 @@
 
 Status: draft v1 · Related: [Architecture](ARCHITECTURE.md) · [Flows](FLOWS.md) · [TRD](TRD.md) · [Index](INDEX.md)
 
-**This file is the single source of truth** for types, messages, error codes, settings and text keys. Other docs refer to these names and never redefine them. If code and this file disagree, the code is wrong. If this file needs to change, change it and the code in the same change.
+**The code in `core/src/types/` is the single source of truth** for types, messages, error codes and settings. This file explains them and links to it, and holds the tables (RPC methods, IPC channels, error texts, settings rules, text keys). Other docs refer to these names and never redefine them. If code and this file disagree, the code wins and this file is fixed in the same change.
 
 All types are JSON-serializable unless they're marked *(in-process only)*.
 
-Each section's code block is mirrored in its own file under `core/src/types/`: 1 `domain.ts`, 2 `options.ts`, 3 `detect.ts`, 4 `jobs.ts`, 5 `errors.ts`, 6 `rpc.ts`, 7 `ipc.ts`, 8 `settings.ts`, 9 `engines.ts`, 10 `text.ts`. `types/index.ts` re-exports them all.
+Each section has its own file under `core/src/types/`, written as zod schemas for what crosses a process boundary (options, settings, job requests, errors) with the types taken from `z.infer`, and as plain TypeScript for in-process interfaces: 1 `domain.ts`, 2 `options.ts`, 3 `detect.ts`, 4 `jobs.ts`, 5 `errors.ts`, 6 `rpc.ts`, 7 `ipc.ts`, 8 `settings.ts`, 9 `engines.ts`, 10 `text.ts`. `types/index.ts` re-exports them all. Core checks RPC params with the schemas in `rpc/protocol.ts`, and main checks IPC payloads and settings with the same schemas.
 
 ## 1. Domain types
 
-```ts
-type Format = string;                 // canonical lowercase id: "jpg", "pdf", "docx"
-type PackId =
-  | "builtin" | "office" | "media" | "docs" | "imaging" | "archive" | "ebook"
-  | "3d" | "cad" | "postscript" | "ocr";
-type FormatCategory =
-  | "image" | "pdf" | "document" | "spreadsheet" | "presentation"
-  | "audio" | "video" | "markup" | "ebook" | "3d" | "cad" | "archive"
-  | "vector" | "font" | "data" | "subtitle" | "email";
-
-interface FormatInfo {
-  id: Format;                         // display name: translate("format.<id>") (section 10)
-  category: FormatCategory;
-  exts: string[];                     // without dot, first = preferred output ext
-  multiPage?: boolean;                // pdf, tiff, gif: may hold many pages/frames
-}
-
-type OptionKey = keyof ConvertOptions;
-type LossyId = string;                // kebab-case, e.g. "layout-approx". Text: translate("lossy.<id>")
-
-interface Edge {
-  from: Format;
-  to: Format;
-  cost: number;                       // scale: ARCHITECTURE section 8
-  lossy?: LossyId;                    // set when quality or data is lost (section 10)
-  fanOut?: boolean;                   // produces one file per page/frame
-  options?: OptionKey[];              // options this edge honours
-}
-
-interface StepRequest {
-  input: string;                      // absolute path (source or previous step output)
-  from: Format;
-  to: Format;
-  outDir: string;                     // empty, job-private dir for this step
-  baseName: string;                   // file stem to use, already filesystem-safe
-  options: ConvertOptions;
-}
-
-// (in-process only)
-interface JobCtx {
-  signal: AbortSignal;
-  tmpDir: string;                     // job-private root, deleted by runner
-  onProgress(fraction: number | null): void;  // 0..1 for this step, null = indeterminate
-  note(id: LossyId): void;            // a loss found only at run time (e.g. "downscaled"). Collected into Job.notes
-}
-
-// (in-process only)
-interface Converter {
-  id: string;                         // "sharp" | "pdflib" | "libreoffice" | …
-  engineId: string;                   // EngineSpec id used for discovery ("builtin" engines: same as id)
-  pack: PackId;
-  edges: Edge[];
-  timeoutMs?: number;                 // per step, default 120_000. The runner adds 4 s per MB of the step's input (max 30 min), so big files are not cut off while working
-  maxConcurrent?: number;             // default unlimited; libreoffice = 1
-  available(): Promise<boolean>;
-  /** Writes only inside req.outDir. Returns produced files (≥1). fanOut edges name files `page-<page>.<ext>` (page = the real 1-based page number) and return them in page order. */
-  convert(req: StepRequest, ctx: JobCtx): Promise<string[]>;
-}
-
-// (in-process only)
-interface CombineRequest {
-  inputs: string[];                   // user order
-  outDir: string;                     // empty, job-private dir
-  options: ConvertOptions;
-}
-
-// (in-process only)
-interface ExtractRequest {
-  input: string;
-  outDir: string;                     // empty, job-private dir
-  options: ConvertOptions;
-}
-
-// (in-process only)
-interface Combiner {
-  id: string;                         // "merge-pdf"
-  accepts: Format;                    // every input is routed to this first
-  output: Format;
-  /** inputs are in user order. Writes one file inside outDir and returns its path. */
-  combine(req: CombineRequest, ctx: JobCtx): Promise<string>;
-}
-
-// (in-process only) 1 → many files of mixed formats. Lives outside the graph, like Combiner.
-interface Extractor {
-  id: string;                         // "pdfimages"
-  engineId: string;                   // "poppler"
-  pack: PackId;
-  accepts: Format;                    // "pdf". UI action text: translate("extract.<id>")
-  folder: string;                     // output folder suffix: "images" → "report (images)/"
-  options?: OptionKey[];              // e.g. ["pages"]
-  timeoutMs?: number;
-  available(): Promise<boolean>;
-  /** Writes only inside outDir. Returns files in page order. An empty array means nothing found (the runner maps it to NOTHING_TO_EXTRACT). */
-  extract(req: ExtractRequest, ctx: JobCtx): Promise<string[]>;
-}
-
-interface Step { converterId: string; from: Format; to: Format }
-
-interface Route {
-  steps: Step[];                      // length 1..3
-  cost: number;                       // sum of edge costs
-  hops: number;                       // = steps.length
-  lossy: LossyId[];                   // union of edge notes, in step order, deduped
-  fanOut: boolean;                    // true if any step fans out (max one per route)
-}
-```
+The types are in [`core/src/types/domain.ts`](../packages/core/src/types/domain.ts).
 
 ## 2. Options
 
-```ts
-interface ConvertOptions {
-  quality?: number;                   // 1..100, lossy image encoders. Default 90
-  dpi?: number;                       // 72..600, rasterizing (pdf→image). Default 150
-  pageSize?: "auto" | "a4" | "letter"; // image→pdf. "auto" = page fits image. Default "auto"
-  pages?: string;                     // pdf input only: "1-3,7,10-" (1-based). Empty/absent = all pages
-  width?: number;                     // 1..65535 px, images. Fit inside width × height, aspect kept, never enlarged
-  height?: number;                    // 1..65535 px. Either one alone works. shortcut: no upscaling, add when asked
-  grayscale?: boolean;                // images. Default false
-  keepMetadata?: boolean;             // images. Default false: EXIF, GPS and XMP are stripped. The ICC profile is always kept
-  tiffCompression?: "lzw" | "deflate" | "jpeg" | "none"; // tiff output only. Default "lzw"
-  background?: string;                // jpg output only: "#rrggbb" that transparent pixels are flattened onto. Default "#ffffff"
-}
-```
+The types are in [`core/src/types/options.ts`](../packages/core/src/types/options.ts).
 
 - Validation happens in core at `submit`. Out-of-range values fail with `INVALID_REQUEST`, never silently clamped.
 - A converter ignores keys that aren't in its edge's `options` list.
@@ -146,67 +28,11 @@ interface ConvertOptions {
 
 ## 3. Detection and planning
 
-```ts
-interface DetectResult {
-  path: string;
-  size: number;                       // bytes
-  format: Format | null;              // what core will treat it as; null = unsupported
-  byContent: Format | null;
-  byExt: Format | null;
-  mismatch: boolean;                  // content and extension disagree (aliases ignored)
-  error?: CoreError;                  // INPUT_NOT_FOUND | INPUT_UNREADABLE | EMPTY_FILE | UNSUPPORTED_FORMAT
-}
-
-interface TargetOption {
-  format: Format;
-  status: "ready" | "needs-pack";
-  pack?: PackId;                      // set when status = needs-pack (first missing pack on cheapest full-graph route)
-  route?: Route;                      // set when ready and a single source format is given
-  lossy: LossyId[];                   // union across all inputs' routes
-  fanOut: boolean;                    // any input's route fans out
-  options: OptionKey[];               // union of options honoured on the routes
-}
-
-interface TargetsResult {
-  convert: TargetOption[];            // formats reachable from every input
-  merge: {
-    combinerId: string; output: Format; status: "ready" | "needs-pack"; pack?: PackId;
-    fanOut: boolean;                  // some input's route to `accepts` fans out, so 1 file can merge (renderer applies the count rule)
-  }[];
-  extract: { extractorId: string; status: "ready" | "needs-pack"; pack?: PackId; options: OptionKey[] }[];
-  // extract: extractors whose `accepts` equals every input's format (no routing)
-}
-```
+The types are in [`core/src/types/detect.ts`](../packages/core/src/types/detect.ts).
 
 ## 4. Jobs
 
-```ts
-type JobRequest =
-  | { kind: "convert"; input: string; target: Format; options: ConvertOptions; outDir?: string }
-  | { kind: "merge"; inputs: string[]; combinerId: string; options: ConvertOptions; outDir?: string }
-  | { kind: "extract"; input: string; extractorId: string; options: ConvertOptions; outDir?: string };
-// outDir omitted = Settings.output (source folder or custom dir)
-
-interface SubmitResult { batchId: string; jobIds: string[] }   // same order as requests
-
-type JobState = "queued" | "running" | "done" | "failed" | "cancelled";
-
-interface Job {
-  id: string;
-  batchId: string;
-  kind: "convert" | "merge" | "extract";
-  inputs: string[];                   // 1 for convert and extract, N for merge (user order)
-  target: Format;
-  state: JobState;
-  progress: { unit: number; total: number; fraction: number | null };  // overall 0..1, null = indeterminate
-  outputs: string[];                  // final paths; a multi-output job has 1 folder + its files
-  notes: LossyId[];                   // run-time losses reported by steps via JobCtx.note, deduped, in order
-  error?: CoreError;
-  createdAt: number;                  // epoch ms
-  startedAt?: number;
-  endedAt?: number;
-}
-```
+The types are in [`core/src/types/jobs.ts`](../packages/core/src/types/jobs.ts).
 
 `progress.unit` and `progress.total` count steps for a convert job, inputs + 1 for a merge job, and 1 for an extract job.
 
@@ -225,23 +51,7 @@ interface Job {
 
 ## 5. Errors
 
-```ts
-interface CoreError {
-  code: ErrorCode;
-  params: Record<string, string | number>;  // fills the text translate("error.<code>", params). No prose (section 10)
-  detail?: string;                    // engine stderr tail ≤ 2 KB, or technical cause. Shown raw, never translated
-  input?: string;                     // which input path this concerns
-}
-
-// Runtime list so tests can enumerate the codes. Same order as the table below.
-const ERROR_CODES = [
-  "INVALID_REQUEST", "INPUT_NOT_FOUND", "INPUT_UNREADABLE", "EMPTY_FILE", "UNSUPPORTED_FORMAT",
-  "INPUT_ENCRYPTED", "NO_ROUTE", "ENGINE_MISSING", "ENGINE_FAILED", "ENGINE_OUTPUT_MISSING",
-  "TIMEOUT", "CANCELLED", "OUTPUT_DIR_NOT_WRITABLE", "OUTPUT_WRITE_FAILED", "DISK_FULL",
-  "CORE_CRASHED", "CORE_UNAVAILABLE", "CORE_TIMEOUT", "NOTHING_TO_EXTRACT", "INSTALL_FAILED", "CHECKSUM_MISMATCH",
-] as const;
-type ErrorCode = (typeof ERROR_CODES)[number];
-```
+The types are in [`core/src/types/errors.ts`](../packages/core/src/types/errors.ts).
 
 - Params use these names only: `name` (file name, no directories), `engine`, `pack`, `from`, `to`, `dir`, `what`. `what` is an id, not prose: its text is `translate("invalid.<what>")`, plus any extra numeric params it needs (`page-past-end` adds `page` and `count`).
 - Logs write `code` and `params`, never translated text.
@@ -275,19 +85,7 @@ type ErrorCode = (typeof ERROR_CODES)[number];
 
 Main ⇄ Core host. The transport is the utilityProcess `parentPort` (structured clone of plain JSON). The Tauri port uses stdio with newline-delimited JSON, carrying the same envelopes.
 
-```ts
-type RpcMessage =
-  | { kind: "req"; id: number; method: RpcMethod; params: unknown }
-  | { kind: "res"; id: number; ok: true; result: unknown }
-  | { kind: "res"; id: number; ok: false; error: CoreError }
-  | { kind: "evt"; name: RpcEvent; data: unknown };
-
-// The names in the tables below
-type RpcMethod =
-  | "init" | "detect" | "targets" | "plan" | "submit" | "cancel" | "cancelAll"
-  | "engines.list" | "engines.refresh" | "engines.install" | "settings.apply" | "shutdown";
-type RpcEvent = "ready" | "job.update" | "engines.changed" | "engine.install.progress" | "log";
-```
+The types are in [`core/src/types/rpc.ts`](../packages/core/src/types/rpc.ts).
 
 | Method | Params | Result | Notes |
 |---|---|---|---|
@@ -352,9 +150,7 @@ Push channels (main → renderer, via `webContents.send`):
 | `engines:installProgress` | `engine.install.progress` data | Core `engine.install.progress` |
 | `core:status` | `{ status: CoreStatus; restarts: number }` | Supervisor |
 
-```ts
-type CoreStatus = "starting" | "ready" | "restarting" | "unavailable";
-```
+The types are in [`core/src/types/ipc.ts`](../packages/core/src/types/ipc.ts).
 
 **Path validation in main** applies to `core:detect`, `files:expand` and `job:submit`:
 - The path is a string, absolute, at most 4096 characters, and contains no NUL byte.
@@ -364,22 +160,7 @@ type CoreStatus = "starting" | "ready" | "restarting" | "unavailable";
 
 ## 8. Settings
 
-```ts
-interface Settings {
-  version: 1;
-  output: { mode: "source" | "custom"; dir?: string };  // dir required when mode = custom
-  concurrency: "auto" | number;       // number: 1..32. auto = max(1, cpus - 1)
-  engines: {
-    paths: Record<string, string>;    // engineId → absolute binary path (user override)
-    priority: string[];               // converter ids, earlier wins equal-cost ties
-  };
-  ui: {
-    theme: "system" | "light" | "dark";
-    accent: Accent;                   // section 10
-    language: "system" | Locale;      // system = navigator.language if it's a known Locale, else "en"
-  };
-}
-```
+The types are in [`core/src/types/settings.ts`](../packages/core/src/types/settings.ts).
 
 | Key | Default |
 |---|---|
@@ -400,39 +181,7 @@ Storage:
 
 ## 9. Engines
 
-```ts
-interface EngineInfo {
-  id: string;                         // "libreoffice", "ffmpeg", "sharp"
-  pack: PackId;
-  found: boolean;
-  path?: string;                      // absent for bundled libraries
-  version?: string;
-  source?: "bundled" | "override" | "installed" | "path" | "known-dir";
-  installUrl: string;                 // human install guide
-  install?: InstallMethod;            // for the current platform, from EngineSpec.install
-  error?: string;                     // e.g. override path invalid, version probe failed
-}
-
-// (in-process only) declared in core/src/engines/specs.ts
-interface EngineSpec {
-  id: string;
-  pack: PackId;
-  bundled?: boolean;                  // sharp, pdf-lib: no discovery
-  bins?: { win32: string[]; darwin: string[]; linux: string[] };   // names to look up on PATH
-  knownPaths?: { win32: string[]; darwin: string[]; linux: string[] }; // absolute candidates (globs allowed)
-  versionArgs?: string[];             // ["--version"]
-  versionPattern?: string;            // regex source, first capture = version
-  installUrl: string;
-  install?: { win32?: InstallMethod; darwin?: InstallMethod; linux?: InstallMethod };
-  requiredBins?: string[];            // all must be found in the same dir (poppler: pdftoppm, pdfimages, pdfinfo)
-}
-
-type InstallMethod =
-  | { kind: "download"; version: string; url: string; sha256: string; sizeBytes: number;
-      archive: "zip"; binDir: string }          // binDir: path inside the archive holding the binaries
-  | { kind: "command"; commands: { label: string; cmd: string }[] };  // shown with Copy buttons, never executed
-
-```
+The types are in [`core/src/types/engines.ts`](../packages/core/src/types/engines.ts).
 
 **Install rules**
 - Downloads go only to `userData/engines/<engineId>/<version>/`. That location is discovered with source `"installed"`, after the override and before PATH.
@@ -462,9 +211,6 @@ type InstallMethod =
 - A missing key falls back to `en`, then to the key itself, and logs a warning once. It never throws.
 - `InstallMethod` command `label`s ("Homebrew", "Debian/Ubuntu") and engine names are names, not prose, and are shown as-is.
 
-```ts
-type Locale = "en";                   // add one entry per shipped locale file
-type Accent = "blue" | "green" | "purple" | "orange";
-```
+The types are in [`core/src/types/text.ts`](../packages/core/src/types/text.ts).
 
 **Themes.** `ui.theme` picks the mode (`system` follows `prefers-color-scheme`) and `ui.accent` the accent color. The renderer sets `<html data-theme="light|dark" data-accent="<Accent>" lang="<locale>" dir="ltr|rtl">`. Every color is a CSS variable from the theme tokens ([ARCHITECTURE section 13](ARCHITECTURE.md#13-renderer-architecture)). Theme, accent and language never reach core.

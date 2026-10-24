@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "resolveJsonModule": true },
+  "include": [
+    "src/main",
+    "src/preload",
+    "src/shared",
+    "test/main",
+    "test/preload",
+    "test/shared",
+    "electron.vite.config.ts"
+  ]
+}

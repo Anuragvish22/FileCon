@@ -364,10 +364,10 @@ Found while reviewing the running app (screenshots of empty, files, done, failed
   - Happy path: CI is green when run by hand (manual trigger only until M1-8).
   - Must also pass: `docs:check` resolves every README link.
 
-#### M1-F2 Schemas as the source of truth ☐
+#### M1-F2 Schemas as the source of truth ☑
 - **Parked to review first:** [P10](PARKED.md#2-items) (the mirror check it replaces), [P40 renderer shares main's tsconfig](PARKED.md#2-items)
 - **Depends on:** M1-F1
-- **Files:** `core/src/types/*` (zod schemas, types via `z.infer`), `core/src/rpc/protocol.ts`, `core/src/options.ts`, `app/src/main/{ipc,settings}.ts`, CONTRACTS (prose plus links to the code, no copied type blocks), remove `test/tooling/types-mirror.test.ts`, CLAUDE.md and INDEX (the source-of-truth rule), ARCHITECTURE section 15 (ADR-18).
+- **Files:** `core/src/types/*` (zod schemas, types via `z.infer`), `core/src/rpc/protocol.ts`, `core/src/options.ts`, `app/src/main/{ipc,settings}.ts`, `app/tsconfig.{node,web}.json` (P40), CONTRACTS (prose plus links to the code, no copied type blocks), remove `test/tooling/types-mirror.test.ts`, CLAUDE.md and INDEX (the source-of-truth rule), ARCHITECTURE section 15 (ADR-18).
 - **Details:**
   - One schema per RPC method's params, IPC payload, `Settings` and `ConvertOptions`. The hand-written `fieldsOf` and `stringOf` helpers go.
   - Wire behavior is unchanged: a schema failure is still `INVALID_REQUEST`, with the same `what` ids for options (`quality-range`…). Settings still drop unknown keys.

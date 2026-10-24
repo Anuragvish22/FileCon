@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { CoreError, DetectResult, EngineInfo, RpcMethod, Settings } from '@filecon/core/types';
 import { CoreCallError } from './coreClient.ts';
 import { expandPaths } from './expand.ts';
@@ -26,15 +27,22 @@ const BYTES_PER_MB = 1_000_000;
 
 const refuse = (code: CoreError['code']): CoreCallError => new CoreCallError({ code, params: {} });
 
-const stringOf = (payload: unknown): string => {
-  if (typeof payload !== 'string') throw refuse('INVALID_REQUEST');
-  return payload;
-};
+// Payload shapes. A path inside them is checked one by one (`checkPath`), so a bad one fails alone.
+const StringPayload = z.string();
+const ListPayload = z.array(z.unknown());
+const RequestPayload = z.looseObject({
+  input: z.unknown().optional(),
+  inputs: z.array(z.unknown()).optional(),
+  outDir: z.unknown().optional(),
+});
 
-const fieldsOf = (value: unknown): Record<string, unknown> => {
-  if (typeof value !== 'object' || value === null || Array.isArray(value))
-    throw refuse('INVALID_REQUEST');
-  return value as Record<string, unknown>;
+const payloadOf = <Schema extends z.ZodType>(
+  schema: Schema,
+  payload: unknown,
+): z.output<Schema> => {
+  const result = schema.safeParse(payload);
+  if (!result.success) throw refuse('INVALID_REQUEST');
+  return result.data;
 };
 
 const failedDetect = (path: unknown, error: CoreError): DetectResult => ({
@@ -56,15 +64,11 @@ const resolved = async (value: unknown, kind: 'file' | 'directory'): Promise<str
 
 // shortcut: one bad input or outDir rejects the whole submit, CONTRACTS section 7 wants only that file to fail. A renderer that detected first rarely sends one, P36 has the option.
 const checkedRequest = async (value: unknown): Promise<unknown> => {
-  const request = fieldsOf(value);
+  const request = payloadOf(RequestPayload, value);
   const next: Record<string, unknown> = { ...request };
   if (request.input !== undefined) next.input = await resolved(request.input, 'file');
-  if (request.inputs !== undefined) {
-    if (!Array.isArray(request.inputs)) throw refuse('INVALID_REQUEST');
-    next.inputs = await Promise.all(
-      (request.inputs as unknown[]).map((input) => resolved(input, 'file')),
-    );
-  }
+  if (request.inputs !== undefined)
+    next.inputs = await Promise.all(request.inputs.map((input) => resolved(input, 'file')));
   if (request.outDir !== undefined) next.outDir = await resolved(request.outDir, 'directory');
   return next;
 };
@@ -87,29 +91,26 @@ const handlerTable = (deps: IpcDeps): Record<string, (payload: unknown) => unkno
 
   return {
     'core:detect': async (payload) => {
-      if (!Array.isArray(payload)) throw refuse('INVALID_REQUEST');
-      const checks = await Promise.all(
-        (payload as unknown[]).map((path) => checkPath(path, 'file')),
-      );
+      const paths = payloadOf(ListPayload, payload);
+      const checks = await Promise.all(paths.map((path) => checkPath(path, 'file')));
       const valid = checks.flatMap((check) => (check.ok ? [check.path] : []));
       const found = (await deps.call('detect', { paths: valid })) as DetectResult[];
       const results = [...found];
       return checks.map((check, index) =>
-        check.ok ? results.shift() : failedDetect((payload as unknown[])[index], check.error),
+        check.ok ? results.shift() : failedDetect(paths[index], check.error),
       );
     },
     'core:targets': (payload) => deps.call('targets', { formats: payload }),
     'job:submit': async (payload) => {
-      if (!Array.isArray(payload)) throw refuse('INVALID_REQUEST');
-      const requests = await Promise.all((payload as unknown[]).map(checkedRequest));
+      const requests = await Promise.all(payloadOf(ListPayload, payload).map(checkedRequest));
       return deps.call('submit', { requests });
     },
-    'job:cancel': (payload) => deps.call('cancel', { jobId: stringOf(payload) }),
+    'job:cancel': (payload) => deps.call('cancel', { jobId: payloadOf(StringPayload, payload) }),
     'job:cancelAll': () => deps.call('cancelAll', {}),
     'engines:list': () => deps.call('engines.list', {}),
     'engines:refresh': () => deps.call('engines.refresh', {}),
     'engines:install': async (payload) => {
-      const engineId = stringOf(payload);
+      const engineId = payloadOf(StringPayload, payload);
       const method = (await engines()).find((engine) => engine.id === engineId)?.install;
       // Anything but a download is refused by core, so only a download needs the dialog.
       if (method?.kind === 'download') {
@@ -128,16 +129,17 @@ const handlerTable = (deps: IpcDeps): Record<string, (payload: unknown) => unkno
     },
     'dialog:openFiles': () => deps.dialogs.openFiles(),
     'dialog:chooseDir': () => deps.dialogs.chooseDir(),
-    'dialog:chooseEngine': (payload) => deps.dialogs.chooseEngine(stringOf(payload)),
+    'dialog:chooseEngine': (payload) =>
+      deps.dialogs.chooseEngine(payloadOf(StringPayload, payload)),
     'files:expand': (payload) => expandPaths(payload),
     'shell:reveal': (payload) => {
-      const path = stringOf(payload);
+      const path = payloadOf(StringPayload, payload);
       if (!deps.isKnownOutput(path)) throw refuse('INVALID_REQUEST');
       deps.shell.reveal(path);
       return Promise.resolve();
     },
     'shell:openExternal': async (payload) => {
-      const url = stringOf(payload);
+      const url = payloadOf(StringPayload, payload);
       if (!(await engines()).some((engine) => engine.installUrl === url))
         throw refuse('INVALID_REQUEST');
       await deps.shell.openExternal(url);

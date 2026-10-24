@@ -1,5 +1,3 @@
-// Mirror of docs/CONTRACTS.md section 3. Change both together.
-
 import type { Format, LossyId, OptionKey, PackId, Route } from './domain.ts';
 import type { CoreError } from './errors.ts';
 

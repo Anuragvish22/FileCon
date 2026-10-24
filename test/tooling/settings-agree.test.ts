@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, parseSettings } from '../../packages/app/src/main/settings.ts';
 import { PARAMS } from '../../packages/core/src/rpc/protocol.ts';
 
-// P29: core re-checks settings at the RPC edge and main validates the full object. Both must reject
-// the same broken shapes, so a case that only one of them catches shows up here.
+// P29: core checks settings at the RPC edge and main validates the full object, both with SettingsSchema.
+// Main adds the absolute-path rule, so a case that only one of them catches shows up here.
 const broken: [string, unknown][] = [
   ['wrong version', { ...DEFAULT_SETTINGS, version: 2 }],
   ['not an object', 'nope'],
@@ -15,13 +15,13 @@ const broken: [string, unknown][] = [
   ['concurrency text', { ...DEFAULT_SETTINGS, concurrency: 'many' }],
   ['engine path not a string', { ...DEFAULT_SETTINGS, engines: { paths: { a: 1 }, priority: [] } }],
   ['priority not strings', { ...DEFAULT_SETTINGS, engines: { paths: {}, priority: [1] } }],
-];
-
-// Only main knows the UI fields (core never sees theme, accent or language: CONTRACTS section 10).
-const uiOnly: [string, unknown][] = [
   ['unknown accent', { ...DEFAULT_SETTINGS, ui: { ...DEFAULT_SETTINGS.ui, accent: 'pink' } }],
   ['unknown locale', { ...DEFAULT_SETTINGS, ui: { ...DEFAULT_SETTINGS.ui, language: 'xx' } }],
   ['unknown theme', { ...DEFAULT_SETTINGS, ui: { ...DEFAULT_SETTINGS.ui, theme: 'neon' } }],
+];
+
+// Only main knows the machine's paths, so only it refuses a relative one.
+const mainOnly: [string, unknown][] = [
   [
     'relative engine path',
     { ...DEFAULT_SETTINGS, engines: { paths: { a: 'soffice' }, priority: [] } },
@@ -48,7 +48,7 @@ describe('core and main settings validation agree (P29)', () => {
     expect(coreAccepts(settings)).toBe(false);
   });
 
-  it.each(uiOnly)('main rejects: %s', (_name, settings) => {
+  it.each(mainOnly)('main rejects: %s', (_name, settings) => {
     expect(parseSettings(settings)).toBeUndefined();
   });
 });

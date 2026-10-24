@@ -1,13 +1,8 @@
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
-import type { Accent, Locale, Settings } from '@filecon/core/types';
+import { z } from 'zod';
+import { SETTINGS_VERSION, SettingsSchema, type Settings } from '@filecon/core/types';
 
-// CONTRACTS section 8 and section 10. The lists are runtime copies of the type unions.
-const ACCENTS: readonly Accent[] = ['blue', 'green', 'purple', 'orange'];
-const LOCALES: readonly Locale[] = ['en'];
-const THEMES: readonly Settings['ui']['theme'][] = ['system', 'light', 'dark'];
-const MAX_CONCURRENCY = 32;
-const SETTINGS_VERSION = 1;
 const JSON_INDENT = 2;
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -18,75 +13,30 @@ export const DEFAULT_SETTINGS: Settings = {
   ui: { theme: 'system', accent: 'blue', language: 'system' },
 };
 
-type Fields = Record<string, unknown>;
+// Core takes any string for a path. Main is where a relative one is refused.
+const AppSettingsSchema = SettingsSchema.refine(
+  (settings) =>
+    Object.values(settings.engines.paths).every((path) => isAbsolute(path)) &&
+    (settings.output.mode !== 'custom' || isAbsolute(settings.output.dir ?? '')),
+);
 
-const fieldsOf = (value: unknown): Fields | undefined =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Fields)
-    : undefined;
+const FieldsSchema = z.record(z.string(), z.unknown());
 
-const oneOf = <Item extends string>(allowed: readonly Item[], value: unknown): Item | undefined =>
-  allowed.find((item) => item === value);
-
-const isAbsolutePath = (value: unknown): value is string =>
-  typeof value === 'string' && isAbsolute(value);
-
-/**
- * The full check. Builds a new object from known fields only, so unknown keys are dropped.
- * Returns undefined when anything is invalid.
- */
+/** The full check. Unknown keys are dropped. Returns undefined when anything is invalid. */
 export const parseSettings = (value: unknown): Settings | undefined => {
-  const settings = fieldsOf(value);
-  const output = fieldsOf(settings?.output);
-  const engines = fieldsOf(settings?.engines);
-  const paths = fieldsOf(engines?.paths);
-  const ui = fieldsOf(settings?.ui);
-  if (settings === undefined || output === undefined || engines === undefined) return undefined;
-  if (paths === undefined || ui === undefined || settings.version !== SETTINGS_VERSION)
-    return undefined;
-
-  const { concurrency } = settings;
-  const concurrencyValid =
-    concurrency === 'auto' ||
-    (typeof concurrency === 'number' &&
-      Number.isInteger(concurrency) &&
-      concurrency >= 1 &&
-      concurrency <= MAX_CONCURRENCY);
-  const mode = oneOf(['source', 'custom'], output.mode);
-  const theme = oneOf(THEMES, ui.theme);
-  const accent = oneOf(ACCENTS, ui.accent);
-  const language = ui.language === 'system' ? 'system' : oneOf(LOCALES, ui.language);
-  const { priority } = engines;
-  if (!concurrencyValid || mode === undefined || theme === undefined) return undefined;
-  if (accent === undefined || language === undefined) return undefined;
-  if (!Array.isArray(priority) || !priority.every((item) => typeof item === 'string'))
-    return undefined;
-  const pathEntries = Object.entries(paths);
-  if (!pathEntries.every(([, path]) => isAbsolutePath(path))) return undefined;
-  if (mode === 'custom' && !isAbsolutePath(output.dir)) return undefined;
-
-  return {
-    version: SETTINGS_VERSION,
-    output: mode === 'custom' ? { mode, dir: output.dir as string } : { mode },
-    concurrency,
-    engines: {
-      paths: Object.fromEntries(pathEntries) as Record<string, string>,
-      priority,
-    },
-    ui: { theme, accent, language },
-  };
+  const result = AppSettingsSchema.safeParse(value);
+  return result.success ? result.data : undefined;
 };
 
 /** Applies a partial patch one level deep (output, engines and ui merge by field), then validates. */
 export const mergeSettings = (current: Settings, patch: unknown): Settings | undefined => {
-  const changes = fieldsOf(patch);
-  if (changes === undefined) return undefined;
-  const merged: Fields = { ...current };
-  for (const [key, change] of Object.entries(changes)) {
-    const group = fieldsOf(change);
-    const existing = fieldsOf(merged[key]);
-    merged[key] =
-      group !== undefined && existing !== undefined ? { ...existing, ...group } : change;
+  const changes = FieldsSchema.safeParse(patch);
+  if (!changes.success) return undefined;
+  const merged: Record<string, unknown> = { ...current };
+  for (const [key, change] of Object.entries(changes.data)) {
+    const group = FieldsSchema.safeParse(change);
+    const existing = FieldsSchema.safeParse(merged[key]);
+    merged[key] = group.success && existing.success ? { ...existing.data, ...group.data } : change;
   }
   return parseSettings(merged);
 };
@@ -121,10 +71,10 @@ export const loadSettings = async ({ dir, warn }: LoadInput): Promise<SettingsSt
     } catch {
       parsed = undefined;
     }
-    const version = fieldsOf(parsed)?.version;
+    const version = z.object({ version: z.number() }).safeParse(parsed);
     const valid = parseSettings(parsed);
     if (valid !== undefined) current = valid;
-    else if (typeof version === 'number' && version > SETTINGS_VERSION)
+    else if (version.success && version.data.version > SETTINGS_VERSION)
       warn('settings.json is from a newer version, using defaults');
     else {
       warn('settings.json is invalid, moved to settings.bad.json');

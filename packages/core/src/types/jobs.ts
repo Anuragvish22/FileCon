@@ -1,26 +1,35 @@
-// Mirror of docs/CONTRACTS.md section 4. Change both together.
-
+import { z } from 'zod';
 import type { Format, LossyId } from './domain.ts';
 import type { CoreError } from './errors.ts';
-import type { ConvertOptions } from './options.ts';
+import { ConvertOptionsSchema } from './options.ts';
 
-export type JobRequest =
-  | { kind: 'convert'; input: string; target: Format; options: ConvertOptions; outDir?: string }
-  | {
-      kind: 'merge';
-      inputs: string[];
-      combinerId: string;
-      options: ConvertOptions;
-      outDir?: string;
-    }
-  | {
-      kind: 'extract';
-      input: string;
-      extractorId: string;
-      options: ConvertOptions;
-      outDir?: string;
-    };
-// outDir omitted = Settings.output (source folder or custom dir)
+const OutDir = z.string().min(1).optional(); // omitted = Settings.output (source folder or custom dir)
+const Path = z.string().min(1);
+
+export const JobRequestSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('convert'),
+    input: Path,
+    target: z.string().min(1), // a Format. Core canonicalizes aliases, see rpc/protocol.ts
+    options: ConvertOptionsSchema,
+    outDir: OutDir,
+  }),
+  z.object({
+    kind: z.literal('merge'),
+    inputs: z.array(Path),
+    combinerId: Path,
+    options: ConvertOptionsSchema,
+    outDir: OutDir,
+  }),
+  z.object({
+    kind: z.literal('extract'),
+    input: Path,
+    extractorId: Path,
+    options: ConvertOptionsSchema,
+    outDir: OutDir,
+  }),
+]);
+export type JobRequest = z.infer<typeof JobRequestSchema>;
 
 export interface SubmitResult {
   batchId: string;

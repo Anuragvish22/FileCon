@@ -1,4 +1,4 @@
-// Mirrors of docs/CONTRACTS.md, one file per section.
+// One file per CONTRACTS section. Wire shapes are zod schemas, the types come from `z.infer`.
 
 export * from './domain.ts';
 export * from './options.ts';

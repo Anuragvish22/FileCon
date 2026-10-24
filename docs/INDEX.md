@@ -8,7 +8,7 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 | [PRD](PRD.md) | What we build and why, features and acceptance criteria |
 | [TRD](TRD.md) | Requirements (FR/NFR), engines, licenses, testing, release |
 | [ARCHITECTURE](ARCHITECTURE.md) | Processes, modules, layering, algorithms, ADRs |
-| [CONTRACTS](CONTRACTS.md) | **Every type, RPC method, IPC channel, error code and setting** (source of truth) |
+| [CONTRACTS](CONTRACTS.md) | What every type, RPC method, IPC channel, error code and setting means, with links to the schemas in `core/src/types/` (the code is the source of truth) |
 | [FLOWS](FLOWS.md) | Step-by-step sequence diagrams for every behavior |
 | [BUILD-PLAN](BUILD-PLAN.md) | Ordered M0/M1 tasks: files, tests, done-when |
 | [CONVERSIONS](CONVERSIONS.md) | **At-a-glance From → To table, plus a checklist of every conversion by phase.** If it's not there, it's out of scope |
@@ -56,7 +56,7 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 | [8. Routing algorithm](ARCHITECTURE.md#8-routing-algorithm) | Graph build, cost scale, bounded Bellman-Ford, fan-out, targets |
 | [9. Job runner](ARCHITECTURE.md#9-job-runner) · [10. Output commit](ARCHITECTURE.md#10-output-commit) | Scheduling, steps, progress, cancel, never-overwrite commit |
 | [11. Engine discovery](ARCHITECTURE.md#11-engine-discovery) · [12. Core host and supervision](ARCHITECTURE.md#12-core-host-and-supervision) | Finding engines, install assistant and pins, process lifecycle, crash recovery |
-| [13. Renderer architecture](ARCHITECTURE.md#13-renderer-architecture) · [14. Extensibility](ARCHITECTURE.md#14-extensibility) · [15. ADR log](ARCHITECTURE.md#15-adr-log) | Store slices, text and theme, adding converters, ADR-1 to ADR-17 |
+| [13. Renderer architecture](ARCHITECTURE.md#13-renderer-architecture) · [14. Extensibility](ARCHITECTURE.md#14-extensibility) · [15. ADR log](ARCHITECTURE.md#15-adr-log) | Store slices, text and theme, adding converters, ADR-1 to ADR-18 |
 
 ## CONTRACTS.md
 

@@ -1,5 +1,3 @@
-// Mirror of docs/CONTRACTS.md section 1. Change both together.
-
 import type { ConvertOptions } from './options.ts';
 
 export type Format = string; // canonical lowercase id: "jpg", "pdf", "docx"

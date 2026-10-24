@@ -1,13 +1,6 @@
-// Mirror of docs/CONTRACTS.md section 5. Change both together.
+import { z } from 'zod';
 
-export interface CoreError {
-  code: ErrorCode;
-  params: Record<string, string | number>; // fills the text translate("error.<code>", params). No prose (section 10)
-  detail?: string; // engine stderr tail ≤ 2 KB, or technical cause. Shown raw, never translated
-  input?: string; // which input path this concerns
-}
-
-// Runtime list so tests can enumerate the codes. Same order as the table below.
+// Same order as the table in CONTRACTS section 5.
 export const ERROR_CODES = [
   'INVALID_REQUEST',
   'INPUT_NOT_FOUND',
@@ -32,3 +25,11 @@ export const ERROR_CODES = [
   'CHECKSUM_MISMATCH',
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
+
+export const CoreErrorSchema = z.object({
+  code: z.enum(ERROR_CODES),
+  params: z.record(z.string(), z.union([z.string(), z.number()])), // fills the text translate("error.<code>", params). No prose (CONTRACTS section 10)
+  detail: z.string().optional(), // engine stderr tail ≤ 2 KB, or technical cause. Shown raw, never translated
+  input: z.string().optional(), // which input path this concerns
+});
+export type CoreError = z.infer<typeof CoreErrorSchema>;

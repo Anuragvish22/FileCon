@@ -1,34 +1,18 @@
+import { z } from 'zod';
 import { CoreFailure } from './errors.ts';
-import type { ConvertOptions } from './types/index.ts';
+import { ConvertOptionsSchema } from './types/index.ts';
 
-// CONTRACTS section 2. Out-of-range values fail, they are never clamped.
-const RANGES = {
-  quality: { min: 1, max: 100 },
-  dpi: { min: 72, max: 600 },
-  width: { min: 1, max: 65535 },
-  height: { min: 1, max: 65535 },
-} as const;
+// A field's failure message is its `what` id (types/options.ts); any other message is a malformed shape.
+const WHAT_ID = /^[a-z]+(-[a-z]+)*-(range|value)$/;
 
-const ENUMS = {
-  pageSize: { what: 'page-size-value', allowed: ['auto', 'a4', 'letter'] },
-  tiffCompression: { what: 'tiff-compression-value', allowed: ['lzw', 'deflate', 'jpeg', 'none'] },
-} as const;
+/** INVALID_REQUEST with `what: "<option>-range"` or `"<option>-value"` (text: `invalid.<what>`) when a field named one. */
+export const invalidRequest = (error: z.ZodError): CoreFailure => {
+  const what = error.issues.map((issue) => issue.message).find((message) => WHAT_ID.test(message));
+  return new CoreFailure('INVALID_REQUEST', what === undefined ? {} : { what });
+};
 
-const HEX_COLOR = /^#[0-9a-f]{6}$/i;
-
-/** Throws INVALID_REQUEST with `what: "<option>-range"` or `"<option>-value"` (text: `invalid.<what>`). */
-export const validateOptions = (options: ConvertOptions): void => {
-  for (const [key, { min, max }] of Object.entries(RANGES)) {
-    const value = options[key as keyof typeof RANGES];
-    if (value === undefined) continue;
-    if (!Number.isInteger(value) || value < min || value > max)
-      throw new CoreFailure('INVALID_REQUEST', { what: `${key}-range` });
-  }
-  for (const [key, { what, allowed }] of Object.entries(ENUMS)) {
-    const value: unknown = options[key as keyof typeof ENUMS];
-    if (value !== undefined && !(allowed as readonly unknown[]).includes(value))
-      throw new CoreFailure('INVALID_REQUEST', { what });
-  }
-  if (options.background !== undefined && !HEX_COLOR.test(options.background))
-    throw new CoreFailure('INVALID_REQUEST', { what: 'background-value' });
+/** Throws `invalidRequest` when the options are out of range or of the wrong type. */
+export const validateOptions = (options: unknown): void => {
+  const result = ConvertOptionsSchema.safeParse(options);
+  if (!result.success) throw invalidRequest(result.error);
 };
