@@ -106,8 +106,17 @@ export const createSteps = ({ registry, scheduler, addNote }: StepsDeps) => {
       note: (id) => addNote(entry, id),
     };
     try {
-      const produced = await converter.convert(request, ctx);
-      // A converter that ignores the signal (sharp) only gets here once its operation ends.
+      // A converter that ignores the signal (sharp) can't be stopped, so the step stops waiting for it
+      // instead: cancel and the timeout take effect at once and its late result is dropped.
+      const conversion = converter.convert(request, ctx);
+      conversion.catch(() => undefined);
+      const stopped = new Promise<never>((_resolve, reject) => {
+        const stop = (): void => reject(new CoreFailure(timedOut ? 'TIMEOUT' : 'CANCELLED'));
+        if (stepController.signal.aborted) stop();
+        else stepController.signal.addEventListener('abort', stop, { once: true });
+      });
+      stopped.catch(() => undefined);
+      const produced = await Promise.race([conversion, stopped]);
       if (!timedOut && jobSignal.aborted) throw new CoreFailure('CANCELLED');
       if (!timedOut) await verifyOutputs(produced, request.outDir);
       if (timedOut) throw new CoreFailure('TIMEOUT');

@@ -98,8 +98,11 @@ describe('primitives take focus and have an accessible name', () => {
     const { rerender } = render(<Progress fraction={0.4} label="holiday.jpg" />);
     const bar = screen.getByRole('progressbar', { name: 'holiday.jpg' });
     expect(bar.getAttribute('aria-valuenow')).toBe('40');
+    expect(bar.querySelector('.progress-indeterminate')).toBeNull();
     rerender(<Progress fraction={null} label="holiday.jpg" />);
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBeNull();
+    const sweeping = screen.getByRole('progressbar');
+    expect(sweeping.getAttribute('aria-valuenow')).toBeNull();
+    expect(sweeping.querySelector('.progress-indeterminate')).not.toBeNull();
   });
 
   it('Badge shows its status icon and text', () => {

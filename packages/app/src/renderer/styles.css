@@ -55,6 +55,27 @@
   outline-offset: 2px;
 }
 
+/* A half-width bar slides across at constant speed, enters from behind the left edge and leaves behind
+   the right edge, then repeats. Measured from a reference recording: 0.5 of the track, 2 s per pass,
+   no easing. The track clips it, so it grows in and shrinks out without any width animation. Under
+   reduced motion the global rule drops the animation and the bar rests at the start (UI-DESIGN
+   section 8.7). */
+.progress-indeterminate {
+  animation: progress-sweep 2s linear infinite;
+  will-change: transform;
+}
+[dir='rtl'] .progress-indeterminate-track {
+  transform: scaleX(-1);
+}
+@keyframes progress-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(200%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -80,62 +101,9 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: system-ui, sans-serif;
-}
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-inline: 16px;
-  border-block-end: 1px solid var(--border);
-}
-nav button {
-  background: none;
-  border: 0;
-  color: var(--fg);
-  padding: 12px;
-  cursor: pointer;
-}
-nav button[aria-current='page'] {
-  color: var(--accent);
-  border-block-end: 2px solid var(--accent);
-}
-.banner,
-.notice {
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  padding: 8px 16px;
-  background: var(--surface);
-  border-block-end: 1px solid var(--border);
-}
-.banner[data-status='unavailable'] {
-  color: var(--danger);
-}
-.dropzone {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: center;
-  margin: 16px;
-  padding: 32px;
-  border: 2px dashed var(--border);
-  border-radius: 8px;
-}
-.dropzone[data-slim='true'] {
-  padding: 12px;
-}
-.dropzone[data-drag='over'] {
-  border-color: var(--accent);
-  background: var(--surface);
-}
-.convert-page {
-  display: grid;
-  gap: 12px;
-  padding-block-end: 16px;
-}
-.convert-page > :not(.dropzone) {
-  margin-inline: 16px;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 [aria-invalid='true'] {
   outline: 2px solid var(--danger);
@@ -147,35 +115,4 @@ nav button[aria-current='page'] {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-.engines,
-.settings {
-  padding: 16px;
-  display: grid;
-  gap: 12px;
-}
-.engines table {
-  border-collapse: collapse;
-}
-.engines th,
-.engines td {
-  text-align: start;
-  padding: 6px 12px;
-  border-block-end: 1px solid var(--border);
-}
-.swatch[data-accent='blue'] span {
-  border-inline-start: 12px solid var(--swatch-blue);
-  padding-inline-start: 6px;
-}
-.swatch[data-accent='green'] span {
-  border-inline-start: 12px solid var(--swatch-green);
-  padding-inline-start: 6px;
-}
-.swatch[data-accent='purple'] span {
-  border-inline-start: 12px solid var(--swatch-purple);
-  padding-inline-start: 6px;
-}
-.swatch[data-accent='orange'] span {
-  border-inline-start: 12px solid var(--swatch-orange);
-  padding-inline-start: 6px;
 }

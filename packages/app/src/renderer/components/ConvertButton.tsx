@@ -9,6 +9,7 @@ export const ConvertButton = () => {
   return (
     <Button
       variant="primary"
+      size="lg"
       busy={busy}
       unavailable={blocker !== undefined}
       reason={blocker === undefined ? undefined : translate(`convert.reason.${blocker}`)}

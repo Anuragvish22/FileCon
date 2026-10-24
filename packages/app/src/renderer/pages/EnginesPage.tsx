@@ -6,52 +6,67 @@ const EngineRow = ({ engine }: { engine: EngineInfo }) => {
   const { actions, translate } = useStore();
   const status = engine.error !== undefined ? 'error' : engine.found ? 'ready' : 'missing';
   const { install } = engine;
+  const location =
+    engine.source === 'bundled'
+      ? translate('engine.bundled')
+      : [engine.path, engine.version].filter((part) => part !== undefined).join(' · ');
   return (
-    <tr>
-      <td>{translate(`pack.${engine.pack}`)}</td>
-      <td>{engine.id}</td>
-      <td>
-        <span aria-hidden="true">{status === 'ready' ? '✓' : '✗'}</span>{' '}
-        {translate(`engine.status.${status}`)}
-        {engine.error !== undefined && (
-          <div>{translate(`engine.error.${engine.error.code}`, engine.error.params)}</div>
-        )}
-      </td>
-      <td>
-        {engine.source === 'bundled'
-          ? translate('engine.bundled')
-          : [engine.path, engine.version].filter((part) => part !== undefined).join(' · ')}
-      </td>
-      <td>
-        <div className="flex flex-wrap items-center gap-2">
-          {engine.source !== 'bundled' && (
-            <>
-              <Button size="sm" onClick={() => void actions.chooseEnginePath(engine.id)}>
-                {translate('engine.setPath')}
-              </Button>
-              <Button size="sm" onClick={() => void actions.openExternal(engine.installUrl)}>
-                {translate('engine.guide')}
-              </Button>
-            </>
-          )}
-          {!engine.found && install?.kind === 'download' && (
-            <Button size="sm" onClick={() => void actions.installEngine(engine.id)}>
-              {translate('engine.install', { size: Math.round(install.sizeBytes / MEGABYTE) })}
-            </Button>
-          )}
-          {!engine.found &&
-            install?.kind === 'command' &&
-            install.commands.map((command) => (
-              <div key={command.cmd}>
-                <span>{command.label}</span> <code>{command.cmd}</code>
-                <Button size="sm" onClick={() => void navigator.clipboard.writeText(command.cmd)}>
-                  {translate('engine.copy')}
-                </Button>
-              </div>
-            ))}
+    <li className="grid gap-3 border-b border-border px-4 py-3 last:border-b-0">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-medium">
+            {translate(`pack.${engine.pack}`)}{' '}
+            <span className="font-mono text-xs text-muted">{engine.id}</span>
+          </p>
+          <p className="truncate text-muted">{location}</p>
         </div>
-      </td>
-    </tr>
+        <span
+          className={`inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-xs font-medium ${status === 'ready' ? 'bg-success-subtle text-success' : status === 'error' ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning'}`}
+        >
+          <span aria-hidden="true">{status === 'ready' ? '✓' : '✗'}</span>
+          {translate(`engine.status.${status}`)}
+        </span>
+      </div>
+      {engine.error !== undefined && (
+        <p className="text-danger">
+          {translate(`engine.error.${engine.error.code}`, engine.error.params)}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {engine.source !== 'bundled' && (
+          <>
+            <Button size="sm" onClick={() => void actions.chooseEnginePath(engine.id)}>
+              {translate('engine.setPath')}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void actions.openExternal(engine.installUrl)}
+            >
+              {translate('engine.guide')}
+            </Button>
+          </>
+        )}
+        {!engine.found && install?.kind === 'download' && (
+          <Button size="sm" variant="primary" onClick={() => void actions.installEngine(engine.id)}>
+            {translate('engine.install', { size: Math.round(install.sizeBytes / MEGABYTE) })}
+          </Button>
+        )}
+        {!engine.found &&
+          install?.kind === 'command' &&
+          install.commands.map((command) => (
+            <div key={command.cmd} className="flex items-center gap-2">
+              <span className="text-muted">{command.label}</span>
+              <code className="rounded-control bg-surface px-2 py-0.5 font-mono text-xs">
+                {command.cmd}
+              </code>
+              <Button size="sm" onClick={() => void navigator.clipboard.writeText(command.cmd)}>
+                {translate('engine.copy')}
+              </Button>
+            </div>
+          ))}
+      </div>
+    </li>
   );
 };
 
@@ -59,28 +74,29 @@ const MEGABYTE = 1_000_000;
 
 export const EnginesPage = () => {
   const { state, actions, translate } = useStore();
+  const missing = state.engines.filter(
+    (engine) => !engine.found || engine.error !== undefined,
+  ).length;
   return (
-    <section className="engines" aria-label={translate('engines.title')}>
-      <h2>{translate('engines.title')}</h2>
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">{translate('engines.pack')}</th>
-            <th scope="col">{translate('engines.engine')}</th>
-            <th scope="col">{translate('engines.status')}</th>
-            <th scope="col">{translate('engines.location')}</th>
-            <th scope="col">{translate('engines.actions')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {state.engines.map((engine) => (
-            <EngineRow key={engine.id} engine={engine} />
-          ))}
-        </tbody>
-      </table>
-      <Button size="sm" onClick={() => void actions.refreshEngines()}>
-        {translate('engine.recheck')}
-      </Button>
+    <section className="grid gap-4" aria-label={translate('engines.title')}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">{translate('engines.title')}</h2>
+          <p className={missing === 0 ? 'text-success' : 'text-warning'}>
+            {missing === 0
+              ? translate('engines.allReady')
+              : translate('engines.needSetup', { count: missing })}
+          </p>
+        </div>
+        <Button size="sm" onClick={() => void actions.refreshEngines()}>
+          {translate('engine.recheck')}
+        </Button>
+      </div>
+      <ul className="rounded-card border border-border bg-surface-raised">
+        {state.engines.map((engine) => (
+          <EngineRow key={engine.id} engine={engine} />
+        ))}
+      </ul>
     </section>
   );
 };

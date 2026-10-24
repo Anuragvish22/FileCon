@@ -15,6 +15,7 @@ const VARIANTS = {
 
 const SIZES = {
   md: 'h-8 min-w-8 px-3 text-sm',
+  lg: 'h-10 min-w-10 px-5 text-base',
   sm: 'h-7 min-w-7 px-2 text-sm',
   icon: 'size-8 justify-center',
 } as const;
@@ -44,7 +45,7 @@ export const Button = ({
       {...state.attributes}
       onClick={state.guard(onClick)}
       className={cx(
-        'inline-flex items-center gap-2 rounded-control font-medium transition-colors aria-disabled:cursor-not-allowed aria-disabled:border-dashed',
+        'inline-flex items-center gap-2 whitespace-nowrap rounded-control font-medium transition-colors aria-disabled:cursor-not-allowed aria-disabled:border-dashed',
         VARIANTS[variant],
         SIZES[size],
         className,

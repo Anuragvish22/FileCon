@@ -405,6 +405,8 @@ describe('runner: failures', () => {
   });
 });
 
+const LONG_MS = 3000;
+
 describe('runner: cancel', () => {
   /** A converter that waits for its abort signal, as an engine killed by spawn does. */
   const waitsForAbort = (started: { count: number }): Converter =>
@@ -437,6 +439,26 @@ describe('runner: cancel', () => {
     expect(await readdir(outDir)).toEqual([]);
     expect(await readFile(input)).toEqual(before);
     expect(updates.filter((update) => update.state === 'cancelled')).toHaveLength(1);
+  });
+
+  it('cancel stops a converter that ignores the abort signal at once, not when it ends', async () => {
+    const started = { count: 0 };
+    const stubborn = jpgToPng({
+      convert: async (req) => {
+        started.count += 1;
+        await sleep(LONG_MS); // like sharp: nothing can interrupt it
+        return writeOutput(req);
+      },
+    });
+    const { runner, finished, outDir } = await harness({ converters: [stubborn] });
+    const { jobIds } = runner.submit([convertRequest(await source('jpg', 'sample.jpg'), 'png')]);
+    while (started.count === 0) await sleep(POLL_MS);
+    const cancelledAt = Date.now();
+    runner.cancel(jobIds[0] ?? '');
+    const job = await finished(jobIds[0] ?? '');
+    expect(job.state).toBe('cancelled');
+    expect(Date.now() - cancelledAt).toBeLessThan(LONG_MS / 2);
+    expect(await readdir(outDir)).toEqual([]);
   });
 
   it('cancel while queued: cancelled at once, its converter never runs', async () => {
@@ -484,6 +506,22 @@ describe('runner: progress and notes', () => {
     const numbers = fractions.filter((fraction): fraction is number => fraction !== null);
     expect(numbers.length).toBeGreaterThan(2);
     expect(numbers).toEqual([...numbers].sort((first, second) => first - second));
+  });
+
+  it('a converter that never reports progress shows as indeterminate, not stuck at 0%', async () => {
+    const converter = jpgToPng({
+      convert: async (req) => {
+        await sleep(SLOW_MS);
+        return writeOutput(req);
+      },
+    });
+    const { submitOne, updates } = await harness({ converters: [converter] });
+    const job = await submitOne(convertRequest(await source('jpg', 'sample.jpg'), 'png'));
+    const running = updates.filter((update) => update.id === job.id && update.state === 'running');
+    expect(running.length).toBeGreaterThan(0);
+    // Later updates may report 1 when the step ends; what matters is that it never shows 0 while converting.
+    expect(running.some((update) => update.progress.fraction === 0)).toBe(false);
+    expect(running[0]?.progress.fraction).toBeNull();
   });
 
   it('a step that reports null makes the overall fraction null, and the unit still advances', async () => {

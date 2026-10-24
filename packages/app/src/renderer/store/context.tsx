@@ -67,7 +67,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const translate = useMemo(() => createTranslator({ locale }), [locale]);
 
   const theme = state.settings?.ui.theme ?? 'system';
-  const accent = state.settings?.ui.accent ?? 'blue';
+  const accent = state.settings?.ui.accent ?? 'teal';
   useEffect(() => {
     const query = window.matchMedia(DARK_QUERY);
     const apply = (): void =>

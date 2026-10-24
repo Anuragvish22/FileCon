@@ -291,7 +291,7 @@ The rules every screen follows. The tokens live in `renderer/theme/tokens.ts` (b
 
 ### 8.1 Direction
 
-Calm and neutral, like a tool: cool-gray surfaces, one accent (blue by default), thin borders, almost no shadow, 6 to 8 px corners and the system font. Information first, decoration never.
+Calm and warm, like a well-made tool: warm paper-gray surfaces, white raised cards, one accent (teal by default), thin borders, almost no shadow, 6 to 8 px corners and the system font. Information first, decoration never.
 
 ### 8.2 Ramps
 
@@ -299,7 +299,8 @@ Eleven steps per ramp, from 50 (lightest) to 950 (darkest). Success uses the gre
 
 | Ramp | 50 | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 950 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| neutral | `#f6f7f9` | `#eceef2` | `#dde0e7` | `#c4c9d4` | `#9aa1b0` | `#717889` | `#565d6e` | `#3f4552` | `#2a2e38` | `#1c1f26` | `#12141a` |
+| neutral | `#f8f7f4` | `#f6f4f1` | `#e4e1da` | `#c9c5bb` | `#a39e92` | `#7b766b` | `#5d594f` | `#46433b` | `#302e28` | `#201f1b` | `#151411` |
+| teal | `#f0fdfa` | `#ccfbf1` | `#99f6e4` | `#5eead4` | `#2dd4bf` | `#14b8a6` | `#0d9488` | `#0f766e` | `#115e59` | `#134e4a` | `#042f2e` |
 | blue | `#eff6ff` | `#dbeafe` | `#bfdbfe` | `#93c5fd` | `#60a5fa` | `#3b82f6` | `#2563eb` | `#1d4ed8` | `#1e40af` | `#1e3a8a` | `#172554` |
 | green | `#f0fdf4` | `#dcfce7` | `#bbf7d0` | `#86efac` | `#4ade80` | `#22c55e` | `#16a34a` | `#15803d` | `#166534` | `#14532d` | `#052e16` |
 | purple | `#faf5ff` | `#f3e8ff` | `#e9d5ff` | `#d8b4fe` | `#c084fc` | `#a855f7` | `#9333ea` | `#7e22ce` | `#6b21a8` | `#581c87` | `#3b0764` |
@@ -310,12 +311,12 @@ Eleven steps per ramp, from 50 (lightest) to 950 (darkest). Success uses the gre
 
 ### 8.3 Roles
 
-Each role points at a ramp step per mode. `X` is the chosen accent ramp (blue, green, purple or orange).
+Each role points at a ramp step per mode. `X` is the chosen accent ramp (teal, blue, green, purple or orange).
 
 | Role (CSS variable) | Light | Dark | Used for |
 |---|---|---|---|
-| `--bg` | white | neutral 950 | Page background |
-| `--surface` | neutral 50 | neutral 900 | Bars, panels, rows |
+| `--bg` | neutral 50 | neutral 950 | Page background |
+| `--surface` | neutral 100 | neutral 900 | Bars, panels, rows |
 | `--surface-raised` | white | neutral 800 | Popovers, dialogs, menus |
 | `--border` | neutral 300 | neutral 700 | Dividers and card edges (decorative) |
 | `--border-strong` | neutral 500 | neutral 500 | Edges of inputs, chips and checkboxes (a part you need to see) |
@@ -337,7 +338,7 @@ Each role points at a ramp step per mode. `X` is the chosen accent ramp (blue, g
 
 ### 8.4 Contrast (enforced by test)
 
-The targets are WCAG 2.2: **7:1** (AAA) for primary text, **4.5:1** (AA) for all other text, and **3:1** for the parts you need to see (input edges, the focus ring and disabled text). The test runs every row below in both modes and for every accent, and fails on the first pair that drops under its target. The ranges show the spread across the four accents. These numbers come from the palette above.
+The targets are WCAG 2.2: **7:1** (AAA) for primary text, **4.5:1** (AA) for all other text, and **3:1** for the parts you need to see (input edges, the focus ring and disabled text). The test runs every row below in both modes and for every accent, and fails on the first pair that drops under its target. The ranges show the spread across the five accents. These numbers come from the palette above.
 
 | Pair (text or part on background) | Target | Light | Dark |
 |---|---|---|---|
@@ -412,7 +413,7 @@ Sizes are `rem`, so the OS font scale and browser zoom work. Nothing is set in `
 
 ### 8.7 Motion and focus
 
-- Motion is 150 ms ease-out for hover, popovers and chips, and the progress fill eases over 100 ms. Under `prefers-reduced-motion: reduce` every transition and animation is off, and the indeterminate bar becomes a static striped bar.
+- Motion is 150 ms ease-out for hover, popovers and chips, and the progress fill eases over 100 ms. Under `prefers-reduced-motion: reduce` every transition and animation is off, and the indeterminate bar becomes a static short bar. Otherwise it slides: a bar half the track wide moves at constant speed from behind the left edge to behind the right edge in 2 s, no easing, and repeats, so the track clips it into and out of view. `transform` only.
 - Focus is always visible: `outline: 2px solid var(--focus-ring)` with a 2 px offset, on every focusable element, never removed. The ring must hold 3:1 against whatever it touches (the rows above check the surfaces and `--accent-subtle`).
 - Hover and pressed never rely on color alone: they also change the fill step (`--accent-hover`) or add an underline.
 
@@ -425,7 +426,7 @@ Every status shows an **icon plus text**, in its status color on its subtle back
 1. Components use roles through `var(--…)` (or the Tailwind theme that reads them), never a ramp step or a hex value. `no-raw-colors` already refuses hex outside `tokens.ts`.
 2. Text comes from `translate()`, and layout uses logical properties only, so a right-to-left language needs no redesign.
 3. `forced-colors: active` (Windows high contrast): borders, focus and status icons fall back to system colors (`CanvasText`, `Highlight`, `GrayText`), and no meaning is carried by a background alone.
-4. The page follows the OS theme by default, and Settings can force light or dark and pick one of the four accents. Both modes and all four accents must pass section 8.4.
+4. The page follows the OS theme by default, and Settings can force light or dark and pick one of the five accents. Both modes and all five accents must pass section 8.4.
 5. **Unavailable is `aria-disabled`, not `disabled`.** The native `disabled` attribute takes a control out of the tab order and hides it from screen readers, so nobody learns why it is off. A control that is unavailable (a format the file can't convert to, Convert with nothing to do, an options button with no options) keeps `aria-disabled="true"`, stays focusable, is dimmed and dashed by CSS (`[aria-disabled='true']`), ignores activation, and names its reason in `aria-describedby` (also shown as a tooltip). A busy control (Convert while submitting) uses `aria-busy` the same way. Native `disabled` is kept for controls whose state nobody needs explained. Tailwind variant: `aria-disabled:`.
 
 ### 8.10 Changing it later

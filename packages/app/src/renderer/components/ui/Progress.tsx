@@ -15,12 +15,16 @@ export const Progress = ({ fraction, label, className }: ProgressProps) => (
   <RadixProgress.Root
     value={fraction === null ? null : Math.round(fraction * PERCENT)}
     aria-label={label}
-    className={cx('relative h-2 w-full overflow-hidden rounded-full bg-surface', className)}
+    className={cx(
+      'relative h-2 w-full overflow-hidden rounded-full bg-surface',
+      fraction === null && 'progress-indeterminate-track',
+      className,
+    )}
   >
     <RadixProgress.Indicator
       className={cx(
-        'h-full rounded-full bg-accent transition-[width] duration-100',
-        fraction === null && 'w-1/3 animate-pulse',
+        'h-full rounded-full bg-accent',
+        fraction === null ? 'progress-indeterminate w-1/2' : 'transition-[width] duration-100',
       )}
       style={fraction === null ? undefined : { width: `${Math.round(fraction * PERCENT)}%` }}
     />

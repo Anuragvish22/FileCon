@@ -170,7 +170,7 @@ The types are in [`core/src/types/settings.ts`](../packages/core/src/types/setti
 | `engines.paths` | `{}` |
 | `engines.priority` | `[]`. Unlisted converters keep registration order |
 | `ui.theme` | `"system"` |
-| `ui.accent` | `"blue"` |
+| `ui.accent` | `"teal"` |
 | `ui.language` | `"system"` |
 
 Storage:

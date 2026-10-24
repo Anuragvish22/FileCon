@@ -54,12 +54,12 @@ export const HeaderBar = () => {
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <span role="status" className="font-medium">
+      <span role="status" className="text-base font-semibold">
         {counts}
       </span>
       {ready.length > 0 && (
         <>
-          <span>{translate('header.convertAll')}</span>
+          <span className="text-muted">{translate('header.convertAll')}</span>
           <FormatPopover
             title={translate('header.batch')}
             from={formats.map((format) => translate(`format.${format}`)).join(', ')}
@@ -95,12 +95,23 @@ export const HeaderBar = () => {
       )}
       <span className="flex-1" />
       {summary.active && (
-        <Button onClick={() => void actions.cancelAll()}>{translate('jobs.cancelAll')}</Button>
+        <Button variant="danger" onClick={() => void actions.cancelAll()}>
+          {translate('jobs.cancelAll')}
+        </Button>
       )}
       {summary.finished && (
-        <Button onClick={actions.clearFinished}>{translate('jobs.clear')}</Button>
+        <Button variant="ghost" onClick={actions.clearFinished}>
+          {translate('jobs.clear')}
+        </Button>
       )}
-      <Button onClick={actions.clearFiles}>{translate('files.clear')}</Button>
+      <Button
+        variant="ghost"
+        unavailable={summary.active}
+        reason={translate('files.clear.running')}
+        onClick={actions.clearFiles}
+      >
+        {translate('files.clear')}
+      </Button>
     </div>
   );
 };

@@ -92,7 +92,8 @@ export const createRunner = (deps: RunnerDeps): Runner => {
     const from = await detectInput(request.input);
     const found = plan(from, request.target);
     await requireWritableOutDir(request);
-    setProgress(entry, { unit: 0, total: found.steps.length, fraction: 0 });
+    // In-process converters such as sharp report nothing, so a bar parked at 0% would look hung.
+    setProgress(entry, { unit: 0, total: found.steps.length, fraction: null });
     const files = await runSteps({
       entry,
       source: request.input,
@@ -246,7 +247,7 @@ export const createRunner = (deps: RunnerDeps): Runner => {
           inputs: merge ? request.inputs : [request.input],
           target: merge ? combinerOf(request.combinerId).output : request.target,
           state: 'queued',
-          progress: { unit: 0, total: merge ? request.inputs.length + 1 : 1, fraction: 0 },
+          progress: { unit: 0, total: merge ? request.inputs.length + 1 : 1, fraction: null },
           outputs: [],
           notes: [],
           createdAt: now(),

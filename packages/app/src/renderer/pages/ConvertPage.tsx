@@ -9,7 +9,7 @@ export const ConvertPage = () => {
   const { state } = useStore();
   const empty = state.files.length + state.detecting.length === 0;
   return (
-    <div className="convert-page grid gap-3">
+    <div className="grid gap-4">
       <DropZone slim={!empty} />
       <HeaderBar />
       {!empty && <FileList />}

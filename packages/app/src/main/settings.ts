@@ -10,7 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
   output: { mode: 'source' },
   concurrency: 'auto',
   engines: { paths: {}, priority: [] },
-  ui: { theme: 'system', accent: 'blue', language: 'system' },
+  ui: { theme: 'system', accent: 'teal', language: 'system' },
 };
 
 // Core takes any string for a path. Main is where a relative one is refused.

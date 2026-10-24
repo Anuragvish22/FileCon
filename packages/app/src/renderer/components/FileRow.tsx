@@ -74,7 +74,7 @@ export const FileRow = ({ file, onMove, onDropRow }: RowProps) => {
 
   return (
     <li
-      className="grid gap-1 border-b border-border p-3"
+      className="group grid gap-1 border-b border-border px-4 py-3 last:border-b-0 hover:bg-surface data-[state=done]:bg-success-subtle/40 data-[state=failed]:bg-danger-subtle/40"
       tabIndex={0}
       onKeyDown={onKeyDown}
       data-state={phase}
@@ -90,13 +90,14 @@ export const FileRow = ({ file, onMove, onDropRow }: RowProps) => {
           <span
             draggable
             aria-hidden="true"
+            className="cursor-grab text-muted opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
             onDragStart={(event) => event.dataTransfer.setData(ROW_TYPE, file.path)}
           >
             <GripVertical size={ICON_SIZE} />
           </span>
         )}
         <FileIcon format={file.format} />
-        <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
+        <span className="min-w-0 flex-1 truncate text-base font-medium">{name}</span>
         {phase === 'unsupported' && (
           <span className="flex items-center gap-1 text-danger">
             <TriangleAlert size={ICON_SIZE} aria-hidden="true" />
@@ -107,8 +108,8 @@ export const FileRow = ({ file, onMove, onDropRow }: RowProps) => {
         )}
         {phase === 'ready' && file.format !== null && (
           <>
-            <span>{from}</span>
-            <ArrowRight size={ICON_SIZE} aria-hidden="true" />
+            <span className="rounded-control bg-surface px-2 py-0.5 font-mono text-xs">{from}</span>
+            <ArrowRight size={ICON_SIZE} aria-hidden="true" className="text-accent" />
             <FormatPopover
               title={name}
               from={from}
@@ -138,6 +139,7 @@ export const FileRow = ({ file, onMove, onDropRow }: RowProps) => {
           <Button
             size="icon"
             variant="ghost"
+            className="opacity-0 transition-opacity focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
             aria-label={translate('file.remove', { name })}
             onClick={() => actions.removeFile(file.path)}
           >
@@ -146,7 +148,7 @@ export const FileRow = ({ file, onMove, onDropRow }: RowProps) => {
         ) : null}
       </div>
       {job === undefined ? (
-        <div className="flex flex-col gap-1 ps-9 text-muted">
+        <div className="flex flex-col gap-1 ps-14 text-muted">
           <span>{humanSize(file.size)}</span>
           {notes.map((note) => (
             <span key={note.key} className="flex items-center gap-1">
@@ -163,7 +165,7 @@ export const FileRow = ({ file, onMove, onDropRow }: RowProps) => {
           )}
         </div>
       ) : (
-        <div className="ps-9">
+        <div className="ps-14">
           <JobLine job={job} />
         </div>
       )}

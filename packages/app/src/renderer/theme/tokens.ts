@@ -13,17 +13,30 @@ const ramp = (...colors: string[]): Ramp =>
 
 export const RAMPS = {
   neutral: ramp(
-    '#f6f7f9',
-    '#eceef2',
-    '#dde0e7',
-    '#c4c9d4',
-    '#9aa1b0',
-    '#717889',
-    '#565d6e',
-    '#3f4552',
-    '#2a2e38',
-    '#1c1f26',
-    '#12141a',
+    '#f8f7f4',
+    '#f6f4f1',
+    '#e4e1da',
+    '#c9c5bb',
+    '#a39e92',
+    '#7b766b',
+    '#5d594f',
+    '#46433b',
+    '#302e28',
+    '#201f1b',
+    '#151411',
+  ),
+  teal: ramp(
+    '#f0fdfa',
+    '#ccfbf1',
+    '#99f6e4',
+    '#5eead4',
+    '#2dd4bf',
+    '#14b8a6',
+    '#0d9488',
+    '#0f766e',
+    '#115e59',
+    '#134e4a',
+    '#042f2e',
   ),
   blue: ramp(
     '#eff6ff',
@@ -151,8 +164,8 @@ export const rolesOf = (mode: Mode, accent: Accent): Record<string, string> => {
   const neutral = RAMPS.neutral;
   const accentRamp = RAMPS[accent];
   const roles: Record<string, string> = {
-    '--bg': light ? WHITE : neutral['950'],
-    '--surface': light ? neutral['50'] : neutral['900'],
+    '--bg': light ? neutral['50'] : neutral['950'],
+    '--surface': light ? neutral['100'] : neutral['900'],
     '--surface-raised': light ? WHITE : neutral['800'],
     '--border': light ? neutral['300'] : neutral['700'],
     '--border-strong': neutral['500'],
