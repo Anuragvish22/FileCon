@@ -414,7 +414,7 @@ Found while reviewing the running app (screenshots of empty, files, done, failed
     - core host killed mid-batch → every active job `CORE_CRASHED`, then new jobs work after restart
     - a converter that writes a symlink pointing outside its out dir → `ENGINE_OUTPUT_MISSING`
 
-#### M1-F5 UI design pass ☐
+#### M1-F5 UI design pass ☑
 - **Parked to review first:** [P41](PARKED.md#2-items) (adopted: a `detecting` row state), [P42](PARKED.md#2-items) (text stays parked, the row shows one reason line), [P9](PARKED.md#2-items) (an info line on rows whose route starts from a document)
 - **Depends on:** M1-7 (can run alongside F2 to F4)
 - **Files:** UI-DESIGN sections 2 to 8 (docs only), INDEX, ARCHITECTURE section 13 (store slices).
@@ -423,10 +423,10 @@ Found while reviewing the running app (screenshots of empty, files, done, failed
   - **Part B, the screens (sections 2 to 7):** one list where each file is one row that morphs (ready, running, result), with a **per-row format select and options button**, header actions "Convert all to" and "Options for all", merge groups, extract result rows, a sticky bottom bar, and a format popover with search, categories and chips that lists **every** format and dims the ones that are not possible. The nav names pages ("Files", "Engines", "Settings") and "Convert" labels only the button. Icons are lucide, not emoji. A state matrix covers every element in every state.
 - **Gate:** the user approves the wireframes and the state matrix (Part B) before F6.
 
-#### M1-F6 UI foundations ☐
-- **Parked to review first:** [P43 dev CSP](PARKED.md#2-items)
+#### M1-F6 UI foundations ☑
+- **Parked to review first:** [P43 dev CSP](PARKED.md#2-items) (decided: dev stays loose, a guard test keeps the built page strict)
 - **Depends on:** M1-F5
-- **Files:** `app/package.json`, `app/electron.vite.config.ts`, `renderer/styles.css`, `renderer/theme/` (the ramps and roles of UI-DESIGN section 8), `renderer/components/ui/` (Button, Badge, Chip, Select, Checkbox, RadioGroup, Progress, Tooltip, Popover, Dialog), ARCHITECTURE sections 13 and 15 (ADR-19), `eslint.config.js`.
+- **Files:** `app/package.json`, `app/electron.vite.config.ts`, `renderer/styles.css`, `renderer/theme/` (the ramps and roles of UI-DESIGN section 8), `renderer/components/ui/` (Button, Badge, Chip, Select, Checkbox, RadioGroup, Progress, Tooltip, Popover, Dialog), ARCHITECTURE sections 13 and 15 (ADR-19), `eslint.config.js`, `test/tooling/csp.test.ts`. No class helper library: `ui/cx.ts` and object maps.
 - **Details:**
   - Tailwind v4 with its theme read from the existing tokens, so colors still come only from tokens and the contrast test still applies.
   - Primitives are copied into the repo shadcn-style (Radix underneath), not imported as a kit.

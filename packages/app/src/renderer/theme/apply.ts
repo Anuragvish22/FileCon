@@ -1,5 +1,5 @@
 import type { Accent, Locale, Settings } from '@filecon/core/types';
-import { ACCENT_TOKENS, BASE_TOKENS, type Mode } from './tokens.ts';
+import { ACCENTS, rolesOf, type Mode } from './tokens.ts';
 
 const RIGHT_TO_LEFT = new Set(['ar', 'he', 'fa', 'ur']);
 
@@ -17,11 +17,11 @@ export interface ThemeInput {
 /** Writes the tokens and the four `<html>` attributes of CONTRACTS section 10. */
 export const applyTheme = ({ root, theme, accent, locale, prefersDark }: ThemeInput): void => {
   const mode = resolveMode(theme, prefersDark);
-  const tokens = { ...BASE_TOKENS[mode], ...ACCENT_TOKENS[mode][accent] };
-  for (const [name, value] of Object.entries(tokens)) root.style.setProperty(name, value);
+  for (const [name, value] of Object.entries(rolesOf(mode, accent)))
+    root.style.setProperty(name, value);
   // Every accent, so Settings can show each swatch in its own color without raw values in CSS.
-  for (const [name, set] of Object.entries(ACCENT_TOKENS[mode]))
-    root.style.setProperty(`--swatch-${name}`, set['--accent']);
+  for (const name of ACCENTS)
+    root.style.setProperty(`--swatch-${name}`, rolesOf(mode, name)['--accent'] ?? '');
   root.dataset.theme = mode;
   root.dataset.accent = accent;
   root.lang = locale;

@@ -447,9 +447,10 @@ The result is cached per session. It's refreshed on `engines.refresh`, after `en
 - CSS uses logical properties (`margin-inline-start`, `inset-inline-end`, `text-align: start`) so a right-to-left locale only needs `dir="rtl"`.
 
 **Theme:**
-- `renderer/theme/tokens.ts` holds the base tokens per mode (`--bg`, `--fg`, `--muted`, `--border`, `--danger`, …) and the accent tokens per accent × mode (`--accent`, `--accent-fg`). At startup and on every settings change it writes them as CSS variables on `<html>` and sets `data-theme` and `data-accent`.
+- `renderer/theme/tokens.ts` holds the color ramps and `rolesOf(mode, accent)`, which maps every role of [UI-DESIGN section 8.3](UI-DESIGN.md#83-roles) (`--bg`, `--fg`, `--muted`, `--accent`, the status roles, …) to a ramp step. At startup and on every settings change `theme/apply.ts` writes the roles as CSS variables on `<html>` and sets `data-theme` and `data-accent`.
 - `system` mode follows `matchMedia("(prefers-color-scheme: dark)")` and updates live when the OS changes.
-- Components use only `var(--…)`. Raw color values appear only in `tokens.ts`, whose test checks contrast for every accent × mode.
+- Components use only roles, as `var(--…)` or as Tailwind utilities (`bg-surface`, `text-muted`) that `styles.css` maps to those variables. The default Tailwind palette is removed, so a ramp step cannot be used. Raw color values appear only in `tokens.ts`, whose test runs every row of the [contrast table](UI-DESIGN.md#84-contrast-enforced-by-test) for every mode and accent.
+- Primitives (`components/ui/`: Button, Badge, Chip, Select, Checkbox, RadioGroup, Progress, Tooltip, Popover, Dialog) are copied in shadcn style on Radix. A control that is unavailable uses `aria-disabled`, stays focusable and names its reason (`ui/unavailable.tsx`). Class names use logical utilities only, which `eslint.config.js` enforces.
 
 ## 14. Extensibility
 
@@ -487,3 +488,4 @@ A combiner or extractor is the same: implement `Combiner` or `Extractor` and reg
 | ADR-16 | Core sends codes, ids and params, the app owns all text | Core stays language-free and JSON-only. A new language is one locale file, with no change to core, RPC or converters. Logs stay stable across languages | English messages from core, translated in the UI by string matching |
 | ADR-17 | Own `translate()` and a token file, no i18n or theme library | Flat keys, `{param}` and `Intl.PluralRules` cover the need in a few lines. CSS variables already do theming | i18next / react-intl, a CSS-in-JS theme library |
 | ADR-18 | Zod schemas in `core/src/types/` are the source of truth, CONTRACTS only explains them | One schema checks the data at runtime and gives the type, so the docs, the types and the validation cannot drift, and the hand-written `fieldsOf` helpers and the doc-mirror test go away | A word-for-word copy of the types in the docs with a test to compare them (P10), JSON Schema generated from the types |
+| ADR-19 | Tailwind v4 on the role variables, Radix primitives copied in shadcn style, lucide icons, no class helper library | Roles stay the only colors (the default palette is removed), the primitives give focus handling and ARIA for popovers, dialogs, selects and tooltips, and a 5-line `cx` and object maps do what `clsx`, `class-variance-authority` and `tailwind-merge` would | A hand-written CSS file per component, a full UI kit such as MUI, shadcn's helper trio |

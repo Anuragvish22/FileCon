@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'electron-vite';
 
@@ -22,6 +23,7 @@ export default defineConfig({
   renderer: {
     plugins: [
       react(),
+      tailwindcss(),
       {
         // The dev server injects CSS as inline <style> and talks to its socket, which the strict
         // `default-src 'self'` of index.html blocks. Only `pnpm dev` relaxes it, the built page keeps it.

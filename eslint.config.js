@@ -5,6 +5,10 @@ import react from 'eslint-plugin-react';
 import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
+// A Tailwind class that names a physical side: ml-2, -pr-1, left-0, text-right, border-l, rounded-r-md.
+const PHYSICAL_CLASS =
+  /(^|[\s'"`:!])-?(?:(?:m|p)[lr]-|(?:left|right)-|text-(?:left|right)(?![\w-])|border-[lr](?![\w])|rounded-[lr](?![\w]))/;
+
 export default defineConfig(
   { ignores: ['**/dist/', '**/out/', '**/release/', '**/coverage/', 'docs/', '**/node_modules/'] },
   js.configs.recommended,
@@ -79,7 +83,29 @@ export default defineConfig(
     // Every visible string comes from translate() (CLAUDE.md Code style)
     files: ['packages/app/src/renderer/**/*.tsx'],
     plugins: { react },
-    rules: { 'react/jsx-no-literals': ['error', { noStrings: true, ignoreProps: true }] },
+    rules: {
+      'react/jsx-no-literals': ['error', { noStrings: true, ignoreProps: true }],
+      // Logical properties only (UI-DESIGN section 8.9): ms-/me-/ps-/pe-/start-/end-, never left and right.
+      // Replaces the block above for these files, so the boolean rule is repeated.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            ':matches(CallExpression, NewExpression) > Literal.arguments[raw=/^(true|false)$/]',
+          message: 'Pass a boolean as a named field ({ usedFanOut: false }), never bare',
+        },
+        {
+          selector: `Literal[value=${PHYSICAL_CLASS}]`,
+          message:
+            'Use logical utilities: ms-/me-, ps-/pe-, start-/end-, text-start/end, border-s/e, rounded-s/e',
+        },
+        {
+          selector: `TemplateElement[value.cooked=${PHYSICAL_CLASS}]`,
+          message:
+            'Use logical utilities: ms-/me-, ps-/pe-, start-/end-, text-start/end, border-s/e, rounded-s/e',
+        },
+      ],
+    },
   },
   {
     files: ['**/*.config.{js,ts}'],

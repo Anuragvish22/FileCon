@@ -92,4 +92,53 @@ describe('lint rules', () => {
       LINT_TIMEOUT_MS,
     );
   });
+  describe('logical properties only (UI-DESIGN section 8.9)', () => {
+    const inRenderer = (code: string) =>
+      ruleIds({ filePath: 'packages/app/src/renderer/components/Example.tsx', code });
+    const withClass = (className: string): string =>
+      `export const Example = () => <div className="${className}" />;\n`;
+
+    it.each([
+      'ml-2',
+      'flex -mr-1',
+      'pl-3',
+      'left-0',
+      'text-right',
+      'border-l',
+      'hover:rounded-r-md',
+    ])(
+      'rejects the physical class %s',
+      async (className) => {
+        expect(await inRenderer(withClass(className))).toContain('no-restricted-syntax');
+      },
+      LINT_TIMEOUT_MS,
+    );
+
+    it.each([
+      'ms-2',
+      'me-1 ps-3',
+      'start-0',
+      'text-start',
+      'border-s',
+      'rounded-e-md',
+      'flex-row-reverse',
+    ])(
+      'accepts the logical class %s',
+      async (className) => {
+        expect(await inRenderer(withClass(className))).not.toContain('no-restricted-syntax');
+      },
+      LINT_TIMEOUT_MS,
+    );
+
+    it(
+      'also checks template strings, and keeps the bare boolean rule',
+      async () => {
+        const template = 'export const cls = (on: boolean) => `flex ${on ? "x" : ""} ml-2`;\n';
+        expect(await inRenderer(template)).toContain('no-restricted-syntax');
+        const bare = 'const run = (options: unknown) => options;\nrun(true);\nexport {};\n';
+        expect(await inRenderer(bare)).toContain('no-restricted-syntax');
+      },
+      LINT_TIMEOUT_MS,
+    );
+  });
 });
