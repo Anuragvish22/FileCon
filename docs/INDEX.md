@@ -39,7 +39,8 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 | Core crash, startup, quit | [ARCH section 12](ARCHITECTURE.md#12-core-host-and-supervision) · [FLOWS F1](FLOWS.md#f1-app-startup) · [F12](FLOWS.md#f12-core-crash-and-recovery) · [F13](FLOWS.md#f13-app-quit) |
 | Where does module X go, what can it import | [ARCH section 3](ARCHITECTURE.md#3-repo-layout) · [ARCH section 4](ARCHITECTURE.md#4-layering) · [ARCH section 5](ARCHITECTURE.md#5-module-map) |
 | Build or change a screen | [UI section 2](UI-DESIGN.md#2-screens) to [UI section 6](UI-DESIGN.md#6-components) · [ARCH section 13](ARCHITECTURE.md#13-renderer-architecture) |
-| Accessibility check | [UI section 7](UI-DESIGN.md#7-accessibility) |
+| Accessibility check | [UI section 7](UI-DESIGN.md#7-accessibility) · [UI section 8.4](UI-DESIGN.md#84-contrast-enforced-by-test) |
+| Change a color, accent or type size | [UI section 8](UI-DESIGN.md#8-design-system) (ramps and roles) |
 | Is conversion X planned? Which phase? | [CONVERSIONS](CONVERSIONS.md) |
 | Park an idea for later | [PARKED section 1](PARKED.md#1-how-this-list-works) |
 | Scope or priority question | [PRD section 4](PRD.md#4-goals-and-non-goals) · [PRD section 5](PRD.md#5-features-by-milestone) |
@@ -104,7 +105,7 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 |---|---|
 | PRD [1](PRD.md#1-problem)–[3](PRD.md#3-users) · [4](PRD.md#4-goals-and-non-goals) · [5](PRD.md#5-features-by-milestone) · [6](PRD.md#6-success-metrics) · [7](PRD.md#7-differentiators) · [8](PRD.md#8-risks) | Problem, users, goals, F1–F23, metrics, differentiators, risks |
 | TRD [1](TRD.md#1-stack) · [2](TRD.md#2-functional-requirements) · [3](TRD.md#3-non-functional-requirements) · [4](TRD.md#4-engine-matrix) · [5](TRD.md#5-license-constraints) · [6](TRD.md#6-testing-strategy) · [7](TRD.md#7-build-and-release) · [8](TRD.md#8-tauri-port-path) | Stack, FR-1–15, NFR-1–12, engines, licenses, testing, release, Tauri |
-| UI [1](UI-DESIGN.md#1-principles) · [2](UI-DESIGN.md#2-screens) · [3](UI-DESIGN.md#3-wireframes) · [4](UI-DESIGN.md#4-flows) · [5](UI-DESIGN.md#5-states) · [6](UI-DESIGN.md#6-components) · [7](UI-DESIGN.md#7-accessibility) | Principles, screens, wireframes, UX flows, states, components, a11y |
+| UI [1](UI-DESIGN.md#1-principles) · [2](UI-DESIGN.md#2-screens) · [3](UI-DESIGN.md#3-wireframes) · [4](UI-DESIGN.md#4-flows) · [5](UI-DESIGN.md#5-states) · [6](UI-DESIGN.md#6-components) · [7](UI-DESIGN.md#7-accessibility) · [8](UI-DESIGN.md#8-design-system) | Principles, screens, wireframes, UX flows, states, components, a11y, design system (ramps, roles, contrast, type, space) |
 
 ## Glossary
 

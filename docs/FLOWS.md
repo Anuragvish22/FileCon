@@ -126,21 +126,21 @@ sequenceDiagram
   participant Renderer
   participant Main
   participant Core as Core host
-  Renderer->>Main: targets(distinct formats of ready rows)
+  Renderer->>Main: targets([that row's format]), once per distinct format; a merge group sends all its members' formats
   Main->>Core: targets { formats }
   Core->>Core: reachable sets in available and full graphs, intersect
   Core-->>Main: TargetsResult
   Main-->>Renderer: TargetsResult
-  Renderer->>Renderer: group by category, badge lossy / needs-pack, show Merge if eligible
+  Renderer->>Renderer: per row: chip state (available, needs-pack, not possible), lossy note, and Merge… if eligible
 ```
 
 **Steps**
-1. Unsupported rows are excluded from `formats`. If every row is unsupported, there's no call and the picker is disabled.
-2. If the current `selection.target` isn't in the new result, it's cleared.
-3. The Merge toggle shows when `merge` has an entry and there are 2 or more ready rows, or 1 ready row and the entry's `fanOut` is true ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm)).
-4. The OptionsBar shows only the keys in the chosen `TargetOption.options`.
+1. Unsupported rows get no call and no select. Each other row is asked with its own format, so its chips, route and lossy note are its own (UI-DESIGN section 3).
+2. A chip's state comes from the row's answer: present and `ready` is available, `needs-pack` is locked, absent is not possible (dimmed, `aria-disabled`, never hidden). If a row's chosen target is no longer available, it is cleared.
+3. "Merge…" is offered when `merge` has an entry and there are 2 or more ready rows, or 1 ready row and the entry's `fanOut` is true ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm)).
+4. A row's options popover shows only the keys in its chosen `TargetOption.options`.
 
-**Errors:** an empty `convert` shows "These files share no output format".
+**Errors:** a row whose answer has no available chip shows one reason line instead of a select (P42). A mixed batch is not an error, because each row has its own target.
 **Invariants:** a `ready` target always has a route in the available graph for every input.
 **Tests:** `graph/targets.test.ts` (intersection, needs-pack labelling, merge eligibility), `selectors.test.ts`.
 

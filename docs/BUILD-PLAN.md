@@ -415,39 +415,40 @@ Found while reviewing the running app (screenshots of empty, files, done, failed
     - a converter that writes a symlink pointing outside its out dir → `ENGINE_OUTPUT_MISSING`
 
 #### M1-F5 UI design pass ☐
-- **Parked to review first:** [P41 Convert-page gaps](PARKED.md#2-items), [P42 lone PDF message](PARKED.md#2-items), [P9 font note](PARKED.md#2-items)
+- **Parked to review first:** [P41](PARKED.md#2-items) (adopted: a `detecting` row state), [P42](PARKED.md#2-items) (text stays parked, the row shows one reason line), [P9](PARKED.md#2-items) (an info line on rows whose route starts from a document)
 - **Depends on:** M1-7 (can run alongside F2 to F4)
-- **Files:** UI-DESIGN sections 3 to 6 (docs only).
+- **Files:** UI-DESIGN sections 2 to 8 (docs only), INDEX, ARCHITECTURE section 13 (store slices).
 - **Details:**
-  - One screen for the main job: the drop zone shrinks once files exist; file rows have one fixed column order (name, format badge, size in KB/MB, status, remove); targets are grouped chips; options appear only for the chosen target; a sticky bottom bar holds Save to and the Convert button; jobs show in a panel that stays visible after Convert.
-  - The nav names pages, not actions, so "Convert" labels only the button.
-  - A state matrix: rows are UI elements, columns are app states (empty, detecting, ready, busy, running, done, partial, failed, cancelled, locked, core unavailable).
-  - Icons from `lucide-react` replace emoji.
-- **Gate:** the user approves the wireframes and the state matrix before F6.
+  - **Part A, the design system (UI-DESIGN section 8):** two-tier tokens (ramps, then roles), a contrast table enforced by test (7:1 primary text, 4.5:1 other text, 3:1 for input edges, the focus ring and disabled text), status colors, type, space, motion, focus, and the rule that unavailable controls use `aria-disabled`, not `disabled`. Gate A is passed.
+  - **Part B, the screens (sections 2 to 7):** one list where each file is one row that morphs (ready, running, result), with a **per-row format select and options button**, header actions "Convert all to" and "Options for all", merge groups, extract result rows, a sticky bottom bar, and a format popover with search, categories and chips that lists **every** format and dims the ones that are not possible. The nav names pages ("Files", "Engines", "Settings") and "Convert" labels only the button. Icons are lucide, not emoji. A state matrix covers every element in every state.
+- **Gate:** the user approves the wireframes and the state matrix (Part B) before F6.
 
 #### M1-F6 UI foundations ☐
 - **Parked to review first:** [P43 dev CSP](PARKED.md#2-items)
 - **Depends on:** M1-F5
-- **Files:** `app/package.json`, `app/electron.vite.config.ts`, `renderer/styles.css`, `renderer/theme/`, `renderer/components/ui/` (Button, Badge, Chip, Select, Checkbox, RadioGroup, Progress, Tooltip, Dialog), ARCHITECTURE sections 13 and 15 (ADR-19), `eslint.config.js`.
+- **Files:** `app/package.json`, `app/electron.vite.config.ts`, `renderer/styles.css`, `renderer/theme/` (the ramps and roles of UI-DESIGN section 8), `renderer/components/ui/` (Button, Badge, Chip, Select, Checkbox, RadioGroup, Progress, Tooltip, Popover, Dialog), ARCHITECTURE sections 13 and 15 (ADR-19), `eslint.config.js`.
 - **Details:**
   - Tailwind v4 with its theme read from the existing tokens, so colors still come only from tokens and the contrast test still applies.
   - Primitives are copied into the repo shadcn-style (Radix underneath), not imported as a kit.
   - Logical properties only: Tailwind's `ms-`/`me-`/`ps-`/`pe-` utilities; lint refuses `ml-`/`mr-`/`pl-`/`pr-`/`left-`/`right-`.
 - **Tests:**
   - Happy path: each primitive renders, takes focus and has its accessible name.
-  - Must also pass: `tokens.test.ts` (4.5:1, both themes, every accent), `no-raw-colors`, `jsx-literals`, the new lint rule.
+  - Must also pass: `tokens.test.ts` loops over the contrast table of UI-DESIGN section 8.4 (7:1, 4.5:1 and 3:1 targets, both themes, every accent, every status role), `no-raw-colors`, `jsx-literals`, the new lint rule, and a primitive test that an `aria-disabled` control stays focusable and keeps its reason.
 
 #### M1-F7 Convert screen rebuild ☐
 - **Depends on:** M1-F6
-- **Files:** `renderer/components/*`, `renderer/pages/ConvertPage.tsx`, `renderer/format.ts` (human sizes), `en.json`. Store, reducer, selectors and actions stay, changed only where the state matrix needs it.
-- **Details:** build exactly the F5 wireframes and state matrix.
+- **Files:** `renderer/components/*`, `renderer/pages/ConvertPage.tsx`, `renderer/format.ts` (human sizes), `renderer/store/*` (per-file target and options, `fileId → jobId`), `en.json`.
+- **Details:** build exactly the F5 wireframes and state matrix. The store keeps a **target and options per file** (and per merge group) instead of one for the batch, with "Convert all to" and "Options for all" as actions, `targets()` is asked per distinct format, and a file's row reads its job through `fileId → jobId`. There is no separate jobs panel. The format popover lists every format from the registry, with `picker.unavailable` as its new text key.
 - **Tests:**
-  - Happy path: drop 3 files → pick a chip → Convert → the jobs panel is visible and shows 3 done rows with Show in folder.
+  - Happy path: drop 3 files → pick a format on each row → Convert → each row shows its progress, then a done row with Show in folder.
   - Must also pass:
     - every cell of the state matrix (one test per column at least)
     - keyboard-only flow (Tab, arrows, Enter, Space, Alt+Arrow reorder)
     - a mismatch row, an unsupported row, a locked chip that opens Engines
-    - `ui-core-targets.test.ts` still feeds the real `targets()` result
+    - a mixed batch (a jpg and a docx) converts each row to its own target and options, and "Convert all to" and "Options for all" set every row that honours them
+    - a format the file can't be converted to is `aria-disabled` and dimmed, still in the tab order, with its reason in `aria-describedby`
+    - a merge group: reorder, one bar with steps, collapse to one result row
+    - `ui-core-targets.test.ts` still feeds the real `targets()` result, now per row
 
 #### M1-F8 Engines, Settings and verification ☐
 - **Parked to review first:** [P44 Settings gaps](PARKED.md#2-items), [P45 install progress](PARKED.md#2-items)

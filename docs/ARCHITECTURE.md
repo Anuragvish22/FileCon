@@ -429,9 +429,9 @@ The result is cached per session. It's refreshed on `engines.refresh`, after `en
 | Slice | Holds | Updated by |
 |---|---|---|
 | `files` | Ordered `DetectResult[]` | Add (after `expand` + `detect`), remove, reorder, clear |
-| `selection` | `target`, `mergeMode`, `options` | User. Reset if the target is no longer offered |
-| `targets` | `TargetsResult` or loading | `targets(formats)` call, 150 ms debounce after `files` changes |
-| `jobs` | `Map<jobId, Job>` in submit order | `job:update` events (replace by id) |
+| `selection` | Per file: `target` and `options`. Per merge group: members in order, `target`, `options` | User, or the "Convert all to" and "Options for all" actions. A target is reset when it is no longer offered for that file |
+| `targets` | Per file format: `TargetsResult` or loading (cached by format) | `targets([format])` call per distinct format, 150 ms debounce after `files` changes. A merge group asks with all its members' formats |
+| `jobs` | `Map<jobId, Job>` in submit order, plus `fileId → jobId` so a file's row shows its job | `job:update` events (replace by id) |
 | `engines` | `EngineInfo[]` | `ready` → `engines()`, `engines:changed` |
 | `settings` | `Settings` | `getSettings()` at load, `setSettings()` result |
 | `core` | `CoreStatus` | `core:status` |
