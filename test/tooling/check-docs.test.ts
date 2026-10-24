@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { checkDocs, headingSlugs } from '../../scripts/check-docs.mjs';
 
@@ -15,8 +15,17 @@ describe('docs:check', () => {
     for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, name), body);
   };
 
-  it('passes on the real docs', () => {
-    expect(checkDocs(docsDir)).toEqual([]);
+  it('passes on the real docs and the README', () => {
+    expect(checkDocs(docsDir, [join(docsDir, '..', 'README.md')])).toEqual([]);
+  });
+
+  it('resolves links of an extra file against its own folder', () => {
+    write({ 'A.md': '# Intro\n' });
+    const outside = mkdtempSync(join(tmpdir(), 'filecon-readme-'));
+    const readme = join(outside, 'README.md');
+    writeFileSync(readme, `[ok](${relative(outside, dir)}/A.md#intro) [gone](nope.png)\n`);
+    expect(checkDocs(dir, [readme])).toEqual(['README.md:1 → nope.png']);
+    rmSync(outside, { recursive: true, force: true });
   });
 
   it('passes on valid same-file and cross-file anchors', () => {

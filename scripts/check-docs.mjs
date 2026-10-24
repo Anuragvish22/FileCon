@@ -1,7 +1,7 @@
 // Checks that every relative link and #anchor in the top-level .md files of a folder resolves.
 // Usage: node scripts/check-docs.mjs [dir]   (default: docs)
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** GitHub-style heading slugs, with -1, -2 suffixes for duplicates. @param {string} md */
@@ -37,9 +37,9 @@ function codeFree(md, { dropInline = true } = {}) {
   });
 }
 
-/** @param {string} dir @returns {string[]} one "file:line → target" entry per broken link */
-export function checkDocs(dir) {
-  const files = readdirSync(dir).filter((name) => name.endsWith('.md'));
+/** @param {string} dir @param {string[]} [extraFiles] absolute paths of .md files outside dir, e.g. the README @returns {string[]} one "file:line → target" entry per broken link */
+export function checkDocs(dir, extraFiles = []) {
+  const files = [...readdirSync(dir).filter((name) => name.endsWith('.md')), ...extraFiles];
   /** @type {Map<string, Set<string>>} */
   const slugCache = new Map();
   /** @param {string} path */
@@ -55,15 +55,15 @@ export function checkDocs(dir) {
   /** @type {string[]} */
   const broken = [];
   for (const file of files) {
-    const path = join(dir, file);
+    const path = resolve(dir, file);
     codeFree(readFileSync(path, 'utf8')).forEach((line, lineIndex) => {
       for (const [, target = ''] of line.matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
         if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue;
         const [rel = '', anchor] = target.split('#');
-        const dest = rel ? resolve(dir, rel) : path;
+        const dest = rel ? resolve(dirname(path), rel) : path;
         const ok =
           existsSync(dest) && (!anchor || (dest.endsWith('.md') && slugsOf(dest).has(anchor)));
-        if (!ok) broken.push(`${file}:${lineIndex + 1} → ${target}`);
+        if (!ok) broken.push(`${basename(file)}:${lineIndex + 1} → ${target}`);
       }
     });
   }
@@ -74,7 +74,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const dir = resolve(
     process.argv[2] ?? join(dirname(fileURLToPath(import.meta.url)), '..', 'docs'),
   );
-  const broken = checkDocs(dir);
+  const readme = join(dir, '..', 'README.md');
+  const broken = checkDocs(dir, existsSync(readme) ? [readme] : []);
   for (const entry of broken) console.error(`broken link: ${entry}`);
   console.log(broken.length ? `${broken.length} broken link(s)` : 'docs: all links ok');
   process.exitCode = broken.length ? 1 : 0;

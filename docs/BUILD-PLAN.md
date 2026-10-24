@@ -353,15 +353,15 @@ Found while reviewing the running app (screenshots of empty, files, done, failed
 - Discovery sends English prose (`override path is not an executable file`), breaking ADR-16 (F3).
 - `sort-arrow-sprite.jpg` is committed at the repo root, probably output from a manual test whose output folder was the repo (F1).
 
-#### M1-F1 Repo front door ☐
+#### M1-F1 Repo front door ☑
 - **Depends on:** M1-7
 - **Files:** `README.md`, `LICENSE`, `package.json` (`license`), `.github/workflows/ci.yml` (Linux only), delete `sort-arrow-sprite.jpg`.
 - **Details:**
-  - README: a one-line pitch, what it does and why it's offline, a screenshot (replaced in F8), the 5-step model (find engines → detect → route → run isolated → commit safely), a short note on how routing works, the never-overwrite guarantee, setup and commands, and links into `docs/`.
+  - README: a one-line pitch, what it does and why it's offline, the 5-step model (find engines → detect → route → run isolated → commit safely), a short note on how routing works, the never-overwrite guarantee, setup and commands, and links into `docs/`. The screenshot is added in F8, once the UI is proper.
   - Say **isolated**, not sandboxed: engines run as separate processes with a timeout and a private temp dir, under the user's own permissions.
   - CI runs lint, typecheck, test and `docs:check` on ubuntu with Node 22 and pnpm, so the refactors in F2 and F3 are guarded. M1-8 grows it into the 3-OS matrix.
 - **Tests:**
-  - Happy path: CI is green on a push.
+  - Happy path: CI is green when run by hand (manual trigger only until M1-8).
   - Must also pass: `docs:check` resolves every README link.
 
 #### M1-F2 Schemas as the source of truth ☐
