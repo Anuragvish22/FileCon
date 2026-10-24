@@ -1,12 +1,13 @@
-import type { CoreError, JobRequest, OptionKey, Settings } from '@filecon/core/types';
+import type {
+  ConvertOptions,
+  CoreError,
+  Format,
+  OptionKey,
+  Settings,
+  TargetsResult,
+} from '@filecon/core/types';
 import type { FileconApi } from '../../preload/api.ts';
-import {
-  convertibleFiles,
-  inputFormats,
-  mergeChoice,
-  mergeOnlyTarget,
-  visibleOptions,
-} from './selectors.ts';
+import { neededTargets, plannedJobs, targetsKey } from './selectors.ts';
 import type { Action } from './reducer.ts';
 import type { State } from './state.ts';
 
@@ -45,15 +46,18 @@ export const createActions = ({ api, dispatch, getState }: ActionDeps) => {
   const loadTargets = async (): Promise<void> => {
     targetsRun += 1;
     const run = targetsRun;
-    const formats = inputFormats(getState());
-    if (formats.length === 0) {
-      dispatch({ type: 'targets/loaded', result: { convert: [], merge: [], extract: [] } });
+    const wanted = neededTargets(getState());
+    if (wanted.length === 0) {
+      dispatch({ type: 'targets/loaded', byKey: new Map() });
       return;
     }
     dispatch({ type: 'targets/loading' });
     try {
-      const result = await api.targets(formats);
-      if (run === targetsRun) dispatch({ type: 'targets/loaded', result });
+      const answers = await Promise.all(wanted.map((formats) => api.targets(formats)));
+      const byKey = new Map<string, TargetsResult>(
+        wanted.map((formats, index) => [targetsKey(formats), answers[index] as TargetsResult]),
+      );
+      if (run === targetsRun) dispatch({ type: 'targets/loaded', byKey });
     } catch (caught) {
       if (run !== targetsRun) return;
       dispatch({
@@ -127,47 +131,45 @@ export const createActions = ({ api, dispatch, getState }: ActionDeps) => {
       dispatch({ type: 'files/cleared' });
     },
     refreshTargets,
-    pickTarget: (target: string | null): void => {
-      dispatch({ type: 'selection/target', target });
-      // A target only a merge can make has no other meaning, so the merge starts ticked.
-      if (
-        target !== null &&
-        mergeOnlyTarget({ ...getState(), selection: { ...getState().selection, target } })
-      )
-        dispatch({ type: 'selection/merge', on: true });
+    pickTarget: (id: string, target: Format | null): void => {
+      dispatch({ type: 'row/target', id, target });
     },
-    setMerge: (on: boolean): void => {
-      dispatch({ type: 'selection/merge', on });
+    pickTargetForAll: (target: Format): void => {
+      dispatch({ type: 'all/target', target });
     },
-    setOption: (key: OptionKey, value: unknown): void => {
-      dispatch({ type: 'selection/option', key, value });
+    setOption: (id: string, key: OptionKey, value: unknown): void => {
+      dispatch({ type: 'row/option', id, key, value });
+    },
+    resetOptions: (id: string): void => {
+      dispatch({ type: 'row/reset', id });
+    },
+    applyOptionsToAll: (options: ConvertOptions): void => {
+      dispatch({ type: 'all/options', options });
+    },
+    mergeFiles: (paths: string[]): void => {
+      dispatch({ type: 'group/created', paths });
+      refreshTargets();
+    },
+    unmerge: (id: string): void => {
+      dispatch({ type: 'group/dissolved', id });
+    },
+    moveMember: (move: { id: string; from: number; to: number }): void => {
+      dispatch({ type: 'group/moved', ...move });
     },
     submit: (): Promise<void> =>
       guarded(async () => {
-        const state = getState();
-        const { target, options: chosen } = state.selection;
-        const wanted = new Set<string>(visibleOptions(state));
-        const options = Object.fromEntries(
-          Object.entries(chosen).filter(([key]) => wanted.has(key)),
-        );
-        const files = convertibleFiles(state);
-        const merge = state.selection.mergeMode ? mergeChoice(state) : undefined;
-        if (target === null) return;
-        const requests: JobRequest[] =
-          merge === undefined
-            ? files.map((file) => ({ kind: 'convert', input: file.path, target, options }))
-            : [
-                {
-                  kind: 'merge',
-                  inputs: files.map((file) => file.path),
-                  combinerId: merge.combinerId,
-                  options,
-                },
-              ];
+        const planned = plannedJobs(getState());
+        if (planned.length === 0) return;
+        const requests = planned.map((job) => job.request);
         dispatch({ type: 'submit/started' });
         try {
           const { jobIds } = await api.submit(requests);
-          dispatch({ type: 'submit/finished', jobIds, requests });
+          dispatch({
+            type: 'submit/finished',
+            owners: planned.map((job) => job.owner),
+            jobIds,
+            requests,
+          });
         } catch (caught) {
           dispatch({ type: 'submit/failed' });
           throw caught;
@@ -175,10 +177,12 @@ export const createActions = ({ api, dispatch, getState }: ActionDeps) => {
       }),
     retry: (jobId: string): Promise<void> =>
       guarded(async () => {
-        const request = getState().requests.get(jobId);
-        if (request === undefined) return;
+        const state = getState();
+        const request = state.requests.get(jobId);
+        const owner = [...state.fileJobs].find(([, id]) => id === jobId)?.[0];
+        if (request === undefined || owner === undefined) return;
         const { jobIds } = await api.submit([request]);
-        dispatch({ type: 'submit/finished', jobIds, requests: [request] });
+        dispatch({ type: 'submit/finished', owners: [owner], jobIds, requests: [request] });
       }),
     clearFinished: (): void => {
       dispatch({ type: 'jobs/cleared' });

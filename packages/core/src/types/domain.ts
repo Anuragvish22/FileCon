@@ -15,7 +15,6 @@ export type PackId =
   | 'ocr';
 export type FormatCategory =
   | 'image'
-  | 'pdf'
   | 'document'
   | 'spreadsheet'
   | 'presentation'

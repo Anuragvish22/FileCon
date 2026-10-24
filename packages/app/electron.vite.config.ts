@@ -17,8 +17,12 @@ export default defineConfig({
     },
   },
   preload: {
-    // A sandboxed preload cannot be an ES module.
-    build: { rollupOptions: { output: { format: 'cjs', entryFileNames: '[name].js' } } },
+    build: {
+      // A sandboxed preload can require only 'electron', so everything (core's PUSH_CHANNELS, zod) is bundled in.
+      externalizeDeps: false,
+      // A sandboxed preload cannot be an ES module.
+      rollupOptions: { output: { format: 'cjs', entryFileNames: '[name].js' } },
+    },
   },
   renderer: {
     plugins: [

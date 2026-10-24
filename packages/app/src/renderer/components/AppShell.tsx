@@ -3,7 +3,7 @@ import { useStore } from '../store/context.tsx';
 import type { Page } from '../store/state.ts';
 import { CoreBanner } from './CoreBanner.tsx';
 
-const PAGES: readonly Page[] = ['convert', 'engines', 'settings'];
+const PAGES: readonly Page[] = ['files', 'engines', 'settings'];
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const { state, actions, translate } = useStore();

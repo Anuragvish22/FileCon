@@ -61,14 +61,19 @@ describe('submit and retry', () => {
       files: [
         { path: '/a.png', size: 1, format: 'png', byContent: 'png', byExt: 'png', mismatch: false },
       ],
-      selection: { target: 'jpg', mergeMode: false, options: {} },
+      choices: new Map([['/a.png', { target: 'jpg', options: {} }]]),
       targets: {
         status: 'ready',
-        result: {
-          convert: [{ format: 'jpg', status: 'ready', lossy: [], fanOut: false, options: [] }],
-          merge: [],
-          extract: [],
-        },
+        byKey: new Map([
+          [
+            'png',
+            {
+              convert: [{ format: 'jpg', status: 'ready', lossy: [], fanOut: false, options: [] }],
+              merge: [],
+              extract: [],
+            },
+          ],
+        ]),
       },
     });
     const pending = harness.actions.submit();
@@ -77,6 +82,7 @@ describe('submit and retry', () => {
     await pending;
     expect(harness.state().submit).toBe('idle');
     expect(harness.state().requests.get('9')).toEqual(request);
+    expect(harness.state().fileJobs.get('/a.png')).toBe('9'); // the row finds its job
 
     await harness.actions.retry('9');
     expect(harness.api.submit).toHaveBeenLastCalledWith([request]);
@@ -93,14 +99,19 @@ describe('submit and retry', () => {
       files: [
         { path: '/a.png', size: 1, format: 'png', byContent: 'png', byExt: 'png', mismatch: false },
       ],
-      selection: { target: 'jpg', mergeMode: false, options: {} },
+      choices: new Map([['/a.png', { target: 'jpg', options: {} }]]),
       targets: {
         status: 'ready',
-        result: {
-          convert: [{ format: 'jpg', status: 'ready', lossy: [], fanOut: false, options: [] }],
-          merge: [],
-          extract: [],
-        },
+        byKey: new Map([
+          [
+            'png',
+            {
+              convert: [{ format: 'jpg', status: 'ready', lossy: [], fanOut: false, options: [] }],
+              merge: [],
+              extract: [],
+            },
+          ],
+        ]),
       },
     });
     await harness.actions.submit();

@@ -41,11 +41,19 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   // useCoreEvents (ARCHITECTURE section 13): the push channels, subscribed once for the whole app.
   useEffect(() => {
     const { filecon } = window;
+    // The first push can land before this effect runs; ask once, and let a newer push win.
+    let pushed = false;
     const stops = [
-      filecon.on('core:status', (update) => dispatch({ type: 'core/status', ...update })),
+      filecon.on('core:status', (update) => {
+        pushed = true;
+        dispatch({ type: 'core/status', ...update });
+      }),
       filecon.on('job:update', (job) => dispatch({ type: 'jobs/updated', job })),
       filecon.on('engines:changed', (engines) => dispatch({ type: 'engines/loaded', engines })),
     ];
+    void filecon.coreStatus().then((update) => {
+      if (!pushed) dispatch({ type: 'core/status', ...update });
+    });
     return () => stops.forEach((stop) => stop());
   }, []);
 

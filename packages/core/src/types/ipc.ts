@@ -16,6 +16,7 @@ export const IPC_METHODS = {
   expand: 'files:expand',
   reveal: 'shell:reveal',
   openExternal: 'shell:openExternal',
+  coreStatus: 'core:getStatus',
   getSettings: 'settings:get',
   setSettings: 'settings:set',
   on: null,

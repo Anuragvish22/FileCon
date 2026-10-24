@@ -1,7 +1,7 @@
 import { useState, type DragEvent } from 'react';
 import { useStore } from '../store/context.tsx';
 
-export const DropZone = () => {
+export const DropZone = ({ slim }: { slim: boolean }) => {
   const { actions, translate } = useStore();
   const [drag, setDrag] = useState<'over' | 'idle'>('idle');
   const onDrop = (event: DragEvent): void => {
@@ -12,6 +12,7 @@ export const DropZone = () => {
   return (
     <div
       className="dropzone"
+      data-slim={slim}
       data-drag={drag}
       onDragOver={(event) => {
         event.preventDefault();

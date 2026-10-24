@@ -42,6 +42,7 @@ const setup = (overrides: Partial<IpcDeps> = {}) => {
   const deps: IpcDeps = {
     call,
     settings: { current: () => DEFAULT_SETTINGS, save },
+    coreStatus: () => ({ status: 'ready', restarts: 0 }),
     translate: createTranslator({ locale: 'en', warn: () => undefined }),
     dialogs: {
       openFiles: () => Promise.resolve([]),
@@ -65,6 +66,16 @@ const rejection = async (promise: Promise<unknown>): Promise<unknown> => {
   }
   return 'resolved';
 };
+
+describe('core:getStatus', () => {
+  it('answers the latest status, for a renderer that missed the push', async () => {
+    const { handlers } = setup();
+    await expect(handlers['core:getStatus']?.(undefined)).resolves.toEqual({
+      status: 'ready',
+      restarts: 0,
+    });
+  });
+});
 
 describe('core:detect', () => {
   it('relays valid paths resolved, and answers a bad path alone without calling core for it', async () => {

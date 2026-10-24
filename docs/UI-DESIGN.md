@@ -143,7 +143,7 @@ All categories always show. The chip list comes from the format registry (`@file
 ```
 Validation shows as you type with the same messages as today (`invalid.<what>`, red outline plus text). "Apply to all rows" copies these values to every row that honours each key. A row with no options for its route has an `aria-disabled` button whose tooltip says so. The header's own `[opts]` next to "Convert all to" does the same for the whole batch.
 
-**Merge.** "Merge…" turns the chosen rows into one group with a single target, one options button and one output name. Members keep the drag handle (their order is the page order) and remove. Unmerge returns them to single rows.
+**Merge.** "Merge…" turns the ready rows into one group (M1: all of them, a per-row choice is parked as P55) with a single target, one options button and one output name. Members keep the drag handle (their order is the page order) and remove. Unmerge returns them to single rows.
 ```
 ┌ fileCon ────────────────────────────────────── Files  Engines  Settings ┐
 │ ┌ ─ ─ + Drop more files here, or [ Choose files ] ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐ │

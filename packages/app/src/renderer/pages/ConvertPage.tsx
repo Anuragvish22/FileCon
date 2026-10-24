@@ -1,21 +1,19 @@
-import { ConvertButton } from '../components/ConvertButton.tsx';
+import { ActionBar } from '../components/ActionBar.tsx';
 import { DropZone } from '../components/DropZone.tsx';
 import { FileList } from '../components/FileList.tsx';
-import { MergeToggle } from '../components/MergeToggle.tsx';
-import { OptionsBar } from '../components/OptionsBar.tsx';
-import { OutputChooser } from '../components/OutputChooser.tsx';
-import { RouteHint } from '../components/RouteHint.tsx';
-import { TargetPicker } from '../components/TargetPicker.tsx';
+import { HeaderBar } from '../components/HeaderBar.tsx';
+import { useStore } from '../store/context.tsx';
 
-export const ConvertPage = () => (
-  <div className="convert-page">
-    <DropZone />
-    <FileList />
-    <TargetPicker />
-    <MergeToggle />
-    <RouteHint />
-    <OptionsBar />
-    <OutputChooser />
-    <ConvertButton />
-  </div>
-);
+/** The Files screen: one list where each row picks, runs and shows its own result. */
+export const ConvertPage = () => {
+  const { state } = useStore();
+  const empty = state.files.length + state.detecting.length === 0;
+  return (
+    <div className="convert-page grid gap-3">
+      <DropZone slim={!empty} />
+      <HeaderBar />
+      {!empty && <FileList />}
+      <ActionBar />
+    </div>
+  );
+};

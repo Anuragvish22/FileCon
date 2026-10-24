@@ -9,7 +9,7 @@ export const FORMATS: readonly FormatInfo[] = [
   { id: 'tiff', category: 'image', exts: ['tiff', 'tif'], multiPage: true },
   { id: 'gif', category: 'image', exts: ['gif'], multiPage: true },
   { id: 'svg', category: 'image', exts: ['svg'] },
-  { id: 'pdf', category: 'pdf', exts: ['pdf'], multiPage: true },
+  { id: 'pdf', category: 'document', exts: ['pdf'], multiPage: true },
   { id: 'doc', category: 'document', exts: ['doc'] },
   { id: 'docx', category: 'document', exts: ['docx'] },
   { id: 'odt', category: 'document', exts: ['odt'] },

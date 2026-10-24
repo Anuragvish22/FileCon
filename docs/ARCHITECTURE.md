@@ -95,7 +95,7 @@ fileCon/
 │   │   └── renderer/
 │   │       ├── theme/            tokens.ts (light/dark × accent), applied as CSS variables
 │   │       ├── store/            reducer, actions, selectors, useCoreEvents
-│   │       ├── components/       DropZone, FileList, TargetPicker, OptionsBar, JobsPanel, …
+│   │       ├── components/       DropZone, HeaderBar, FileList, FileRow, FormatPopover, RowOptions, MergeGroup, JobLine, ActionBar, …
 │   │       └── pages/            ConvertPage, EnginesPage, SettingsPage
 │   └── app/test/                 tests mirroring src/
 ├── test/fixtures/<format>/       tiny license-clean inputs (≤ 1 MB each)
@@ -429,16 +429,16 @@ The result is cached per session. It's refreshed on `engines.refresh`, after `en
 | Slice | Holds | Updated by |
 |---|---|---|
 | `files` | Ordered `DetectResult[]` | Add (after `expand` + `detect`), remove, reorder, clear |
-| `selection` | Per file: `target` and `options`. Per merge group: members in order, `target`, `options` | User, or the "Convert all to" and "Options for all" actions. A target is reset when it is no longer offered for that file |
-| `targets` | Per file format: `TargetsResult` or loading (cached by format) | `targets([format])` call per distinct format, 150 ms debounce after `files` changes. A merge group asks with all its members' formats |
-| `jobs` | `Map<jobId, Job>` in submit order, plus `fileId → jobId` so a file's row shows its job | `job:update` events (replace by id) |
+| `choices`, `groups`, `lastTargets` | `choices`: per file path or group id, its `target` and `options`. `groups`: merge groups with members in page order. `lastTargets`: the last target picked per source format, kept for the session | User, or the "Convert all to" and "Options for all" actions. A target is cleared when core no longer offers it, and an empty row starts with the last target for its format |
+| `targets` | `TargetsResult` or loading, keyed by format (`png`) or by a group's sorted format set (`docx,png`) | `targets([format])` call per distinct format, 150 ms debounce after `files` changes. A merge group asks with all its members' formats |
+| `jobs` | `Map<jobId, Job>` in submit order, plus `fileJobs` (`fileId → jobId`, where `fileId` is the file path or the group id) so a row shows its job | `job:update` events (replace by id) |
 | `engines` | `EngineInfo[]` | `ready` → `engines()`, `engines:changed` |
 | `settings` | `Settings` | `getSettings()` at load, `setSettings()` result |
 | `core` | `CoreStatus` | `core:status` |
 
 - `useCoreEvents()` is mounted once at the app root and subscribes to the three push channels.
 - Components never call `window.filecon` directly. They dispatch action creators in `store/actions.ts`, which do the IPC.
-- Derived values (`canConvert`, `visibleOptions`, `batchSummary`) are pure selectors in `store/selectors.ts`, tested without React.
+- Derived values (`plannedJobs`, `rowState`, `visibleOptions`, `batchSummary`) are pure selectors in `store/selectors.ts`, tested without React.
 
 **Text** ([CONTRACTS section 10](CONTRACTS.md#10-text-and-themes)):
 - Every visible string comes from `translate(key, params)` in `shared/i18n.ts`, which reads `locales/<locale>.json`. Components never contain literal text. ESLint `react/jsx-no-literals` enforces this from M1-7.

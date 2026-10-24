@@ -1,88 +1,52 @@
-import type { DetectResult } from '@filecon/core/types';
-import type { KeyboardEvent } from 'react';
 import { useStore } from '../store/context.tsx';
+import { groupOf } from '../store/selectors.ts';
+import { DetectingRow, FileRow } from './FileRow.tsx';
+import { MergeGroup } from './MergeGroup.tsx';
 
-const ROW_TYPE = 'application/x-filecon-row';
-
-const baseName = (path: string): string => path.split(/[\\/]/).pop() ?? path;
-
-const FileRow = ({ file, index, last }: { file: DetectResult; index: number; last: number }) => {
-  const { actions, translate } = useStore();
-  const unsupported = file.error !== undefined || file.format === null;
-  // Alt+Up and Alt+Down reorder from the keyboard (UI-DESIGN section 7).
-  const onKeyDown = (event: KeyboardEvent): void => {
-    if (!event.altKey) return;
-    const target =
-      event.key === 'ArrowUp' ? index - 1 : event.key === 'ArrowDown' ? index + 1 : index;
-    if (target === index || target < 0 || target > last) return;
-    event.preventDefault();
-    actions.moveFile({ from: index, to: target });
-  };
-  return (
-    <li
-      className="file-row"
-      tabIndex={0}
-      onKeyDown={onKeyDown}
-      data-unsupported={unsupported}
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={(event) => {
-        const from = Number(event.dataTransfer.getData(ROW_TYPE));
-        if (event.dataTransfer.types.includes(ROW_TYPE) && from !== index) {
-          event.preventDefault();
-          actions.moveFile({ from, to: index });
-        }
-      }}
-    >
-      {/* Mouse reorder; the keyboard path is Alt+Up and Alt+Down on the row (UI-DESIGN section 7). */}
-      <span
-        className="drag-handle"
-        draggable
-        aria-hidden="true"
-        onDragStart={(event) => event.dataTransfer.setData(ROW_TYPE, String(index))}
-      >
-        {translate('file.handle')}
-      </span>
-      <span className="file-name">{baseName(file.path)}</span>
-      {file.format !== null && <span>{translate(`format.${file.format}`)}</span>}
-      <span>{new Intl.NumberFormat().format(file.size)}</span>
-      {file.mismatch && (
-        <span title={translate('file.mismatch.detail')}>{translate('file.mismatch')}</span>
-      )}
-      {unsupported && (
-        <span>
-          {file.error === undefined
-            ? translate('file.unsupported')
-            : translate(`error.${file.error.code}`, file.error.params)}
-        </span>
-      )}
-      <button
-        type="button"
-        aria-label={translate('file.remove', { name: baseName(file.path) })}
-        onClick={() => actions.removeFile(file.path)}
-      >
-        {translate('file.removeShort')}
-      </button>
-    </li>
-  );
-};
-
+/** Rows in list order, with each merge group standing where its first member is. */
 export const FileList = () => {
   const { state, actions, translate } = useStore();
-  if (state.files.length === 0 && state.detecting.length === 0) return null;
+  const shown = new Set<string>();
+  const items = state.files.flatMap((file, index) => {
+    const group = groupOf(state, file.path);
+    if (group !== undefined) {
+      if (shown.has(group.id)) return [];
+      shown.add(group.id);
+      return [<MergeGroup key={group.id} group={group} />];
+    }
+    // Neighbours are other single rows: Alt+Arrow jumps over a group so it stays in one piece.
+    const step = (direction: -1 | 1): number => {
+      for (let at = index + direction; at >= 0 && at < state.files.length; at += direction) {
+        const neighbour = state.files[at];
+        if (neighbour !== undefined && groupOf(state, neighbour.path) === undefined) return at;
+      }
+      return index;
+    };
+    return [
+      <FileRow
+        key={file.path}
+        file={file}
+        onMove={(direction) => {
+          const to = step(direction);
+          if (to !== index) actions.moveFile({ from: index, to });
+        }}
+        onDropRow={(fromPath) => {
+          const from = state.files.findIndex((candidate) => candidate.path === fromPath);
+          if (from >= 0 && from !== index) actions.moveFile({ from, to: index });
+        }}
+      />,
+    ];
+  });
+  const pending = state.detecting.filter((path) => !state.files.some((file) => file.path === path));
   return (
-    <section aria-label={translate('files.title', { count: state.files.length })}>
-      <h2>{translate('files.title', { count: state.files.length })}</h2>
-      {state.detecting.length > 0 && (
-        <p role="status">{translate('files.detecting', { count: state.detecting.length })}</p>
-      )}
-      <ul>
-        {state.files.map((file, index) => (
-          <FileRow key={file.path} file={file} index={index} last={state.files.length - 1} />
-        ))}
-      </ul>
-      <button type="button" onClick={actions.clearFiles}>
-        {translate('files.clear')}
-      </button>
-    </section>
+    <ul
+      aria-label={translate('files.list')}
+      className="rounded-card border border-border bg-surface-raised"
+    >
+      {items}
+      {pending.map((path) => (
+        <DetectingRow key={path} path={path} />
+      ))}
+    </ul>
   );
 };

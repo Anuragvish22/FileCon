@@ -26,10 +26,10 @@ export const RadioGroup = ({
     value={value}
     onValueChange={onValueChange}
     aria-label={label}
-    className={cx('flex flex-col gap-2', className)}
+    className={cx('flex flex-wrap items-center gap-x-6 gap-y-2', className)}
   >
     {options.map((option) => (
-      <label key={option.value} className="inline-flex items-center gap-2 text-sm">
+      <label key={option.value} className="inline-flex min-w-0 items-center gap-2 text-sm">
         <RadixRadio.Item
           value={option.value}
           className="flex size-5 items-center justify-center rounded-full border border-border-strong bg-surface data-[state=checked]:border-accent"

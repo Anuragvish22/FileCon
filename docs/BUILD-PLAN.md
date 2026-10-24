@@ -435,7 +435,7 @@ Found while reviewing the running app (screenshots of empty, files, done, failed
   - Happy path: each primitive renders, takes focus and has its accessible name.
   - Must also pass: `tokens.test.ts` loops over the contrast table of UI-DESIGN section 8.4 (7:1, 4.5:1 and 3:1 targets, both themes, every accent, every status role), `no-raw-colors`, `jsx-literals`, the new lint rule, and a primitive test that an `aria-disabled` control stays focusable and keeps its reason.
 
-#### M1-F7 Convert screen rebuild ☐
+#### M1-F7 Convert screen rebuild ☑
 - **Depends on:** M1-F6
 - **Files:** `renderer/components/*`, `renderer/pages/ConvertPage.tsx`, `renderer/format.ts` (human sizes), `renderer/store/*` (per-file target and options, `fileId → jobId`), `en.json`.
 - **Details:** build exactly the F5 wireframes and state matrix. The store keeps a **target and options per file** (and per merge group) instead of one for the batch, with "Convert all to" and "Options for all" as actions, `targets()` is asked per distinct format, and a file's row reads its job through `fileId → jobId`. There is no separate jobs panel. The format popover lists every format from the registry, with `picker.unavailable` as its new text key.

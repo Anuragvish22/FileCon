@@ -1,6 +1,5 @@
 import { createRoot } from 'react-dom/client';
 import { AppShell } from './components/AppShell.tsx';
-import { JobsPanel } from './components/JobsPanel.tsx';
 import { ConvertPage } from './pages/ConvertPage.tsx';
 import { EnginesPage } from './pages/EnginesPage.tsx';
 import { SettingsPage } from './pages/SettingsPage.tsx';
@@ -11,12 +10,7 @@ const Page = () => {
   const { state } = useStore();
   if (state.page === 'engines') return <EnginesPage />;
   if (state.page === 'settings') return <SettingsPage />;
-  return (
-    <>
-      <ConvertPage />
-      <JobsPanel />
-    </>
-  );
+  return <ConvertPage />;
 };
 
 const root = document.getElementById('root');

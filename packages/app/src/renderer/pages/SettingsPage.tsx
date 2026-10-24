@@ -1,4 +1,5 @@
 import type { Accent, Settings } from '@filecon/core/types';
+import { Select } from '../components/ui/Select.tsx';
 import { OutputChooser } from '../components/OutputChooser.tsx';
 import { CATALOGS } from '../../shared/i18n.ts';
 import { ACCENTS } from '../theme/tokens.ts';
@@ -51,42 +52,41 @@ export const SettingsPage = () => {
         ))}
       </fieldset>
 
-      <label>
+      <div className="flex items-center gap-3">
         <span>{translate('settings.language')}</span>
-        <select
+        <Select
+          label={translate('settings.language')}
           value={ui.language}
-          onChange={(event) =>
-            setUi({ language: event.target.value as Settings['ui']['language'] })
-          }
-        >
-          <option value="system">{translate('settings.language.system')}</option>
-          {Object.keys(CATALOGS).map((locale) => (
-            <option key={locale} value={locale}>
-              {translate(`settings.language.${locale}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+          onValueChange={(language) => setUi({ language: language as Settings['ui']['language'] })}
+          options={[
+            { value: 'system', label: translate('settings.language.system') },
+            ...Object.keys(CATALOGS).map((locale) => ({
+              value: locale,
+              label: translate(`settings.language.${locale}`),
+            })),
+          ]}
+        />
+      </div>
 
       <OutputChooser />
 
-      <label>
+      <div className="flex items-center gap-3">
         <span>{translate('settings.concurrency')}</span>
-        <select
+        <Select
+          label={translate('settings.concurrency')}
           value={concurrency === 'auto' ? 'auto' : String(concurrency)}
-          onChange={(event) => {
-            const { value } = event.target;
-            void actions.setSettings({ concurrency: value === 'auto' ? 'auto' : Number(value) });
-          }}
-        >
-          <option value="auto">{translate('settings.concurrency.auto')}</option>
-          {Array.from({ length: MAX_CONCURRENCY - MIN_CONCURRENCY + 1 }, (unused, index) => (
-            <option key={index} value={index + MIN_CONCURRENCY}>
-              {index + MIN_CONCURRENCY}
-            </option>
-          ))}
-        </select>
-      </label>
+          onValueChange={(value) =>
+            void actions.setSettings({ concurrency: value === 'auto' ? 'auto' : Number(value) })
+          }
+          options={[
+            { value: 'auto', label: translate('settings.concurrency.auto') },
+            ...Array.from({ length: MAX_CONCURRENCY - MIN_CONCURRENCY + 1 }, (unused, index) => ({
+              value: String(index + MIN_CONCURRENCY),
+              label: String(index + MIN_CONCURRENCY),
+            })),
+          ]}
+        />
+      </div>
     </section>
   );
 };

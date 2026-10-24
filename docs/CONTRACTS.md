@@ -136,6 +136,7 @@ The preload exposes `window.filecon` through `contextBridge`. Every method calls
 | `expand(paths)` | `files:expand` | `string[]` → `{ files: string[]; skipped: number; capped: boolean }` | Directories expand recursively, skipping hidden entries and symlinked dirs, max 1000 files |
 | `reveal(path)` | `shell:reveal` | `string` → `void` | `shell.showItemInFolder` (only for paths in some job's `outputs`) |
 | `openExternal(url)` | `shell:openExternal` | `string` → `void` | Only URLs equal to some `EngineInfo.installUrl` |
+| `coreStatus()` | `core:getStatus` | → `{ status, restarts }` | The latest `core:status`. The renderer asks once after subscribing, because the push can arrive before it listens (first start) |
 | `getSettings()` | `settings:get` | → `Settings` | |
 | `setSettings(patch)` | `settings:set` | `Partial<Settings>` → `Settings` | Validate, merge, persist atomically, then relay `settings.apply` |
 | `pathForFile(file)` | — (preload only) | `File` → `string` | `webUtils.getPathForFile` |

@@ -80,6 +80,7 @@ const start = async (): Promise<void> => {
   const handlers = createHandlers({
     call: (method, params) => supervisor.call(method, params),
     settings,
+    coreStatus: () => lastStatus,
     translate,
     dialogs: {
       openFiles: async () =>

@@ -57,6 +57,7 @@ export const createApi = (deps: PreloadDeps) => ({
     call<{ files: string[]; skipped: number; capped: boolean }>(deps, 'files:expand', paths),
   reveal: (path: string) => call<void>(deps, 'shell:reveal', path),
   openExternal: (url: string) => call<void>(deps, 'shell:openExternal', url),
+  coreStatus: () => call<{ status: CoreStatus; restarts: number }>(deps, 'core:getStatus'),
   getSettings: () => call<Settings>(deps, 'settings:get'),
   setSettings: (patch: Partial<Settings>) => call<Settings>(deps, 'settings:set', patch),
   pathForFile: (file: File) => deps.pathForFile(file),

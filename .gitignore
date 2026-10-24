@@ -12,3 +12,4 @@ docs/plans/
 CLAUDE.md
 .claude/
 coverage/
+test-assets/

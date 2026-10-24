@@ -1,4 +1,5 @@
 import type { EngineInfo } from '@filecon/core/types';
+import { Button } from '../components/ui/Button.tsx';
 import { useStore } from '../store/context.tsx';
 
 const EngineRow = ({ engine }: { engine: EngineInfo }) => {
@@ -22,31 +23,33 @@ const EngineRow = ({ engine }: { engine: EngineInfo }) => {
           : [engine.path, engine.version].filter((part) => part !== undefined).join(' · ')}
       </td>
       <td>
-        {engine.source !== 'bundled' && (
-          <>
-            <button type="button" onClick={() => void actions.chooseEnginePath(engine.id)}>
-              {translate('engine.setPath')}
-            </button>
-            <button type="button" onClick={() => void actions.openExternal(engine.installUrl)}>
-              {translate('engine.guide')}
-            </button>
-          </>
-        )}
-        {!engine.found && install?.kind === 'download' && (
-          <button type="button" onClick={() => void actions.installEngine(engine.id)}>
-            {translate('engine.install', { size: Math.round(install.sizeBytes / MEGABYTE) })}
-          </button>
-        )}
-        {!engine.found &&
-          install?.kind === 'command' &&
-          install.commands.map((command) => (
-            <div key={command.cmd}>
-              <span>{command.label}</span> <code>{command.cmd}</code>
-              <button type="button" onClick={() => void navigator.clipboard.writeText(command.cmd)}>
-                {translate('engine.copy')}
-              </button>
-            </div>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          {engine.source !== 'bundled' && (
+            <>
+              <Button size="sm" onClick={() => void actions.chooseEnginePath(engine.id)}>
+                {translate('engine.setPath')}
+              </Button>
+              <Button size="sm" onClick={() => void actions.openExternal(engine.installUrl)}>
+                {translate('engine.guide')}
+              </Button>
+            </>
+          )}
+          {!engine.found && install?.kind === 'download' && (
+            <Button size="sm" onClick={() => void actions.installEngine(engine.id)}>
+              {translate('engine.install', { size: Math.round(install.sizeBytes / MEGABYTE) })}
+            </Button>
+          )}
+          {!engine.found &&
+            install?.kind === 'command' &&
+            install.commands.map((command) => (
+              <div key={command.cmd}>
+                <span>{command.label}</span> <code>{command.cmd}</code>
+                <Button size="sm" onClick={() => void navigator.clipboard.writeText(command.cmd)}>
+                  {translate('engine.copy')}
+                </Button>
+              </div>
+            ))}
+        </div>
       </td>
     </tr>
   );
@@ -75,9 +78,9 @@ export const EnginesPage = () => {
           ))}
         </tbody>
       </table>
-      <button type="button" onClick={() => void actions.refreshEngines()}>
+      <Button size="sm" onClick={() => void actions.refreshEngines()}>
         {translate('engine.recheck')}
-      </button>
+      </Button>
     </section>
   );
 };

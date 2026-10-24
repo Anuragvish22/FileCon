@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import type { CoreError, DetectResult, EngineInfo, RpcMethod, Settings } from '@filecon/core/types';
+import type {
+  CoreError,
+  CoreStatus,
+  DetectResult,
+  EngineInfo,
+  RpcMethod,
+  Settings,
+} from '@filecon/core/types';
 import { CoreCallError } from './coreClient.ts';
 import { expandPaths } from './expand.ts';
 import { checkPath } from './paths.ts';
@@ -9,6 +16,8 @@ import type { Translate } from '../shared/i18n.ts';
 export interface IpcDeps {
   call(method: RpcMethod, params: unknown): Promise<unknown>;
   settings: SettingsStore;
+  /** The latest core status, for a renderer that missed the push (first start). */
+  coreStatus(): { status: CoreStatus; restarts: number };
   translate: Translate;
   dialogs: {
     openFiles(): Promise<string[]>;
@@ -144,6 +153,7 @@ const handlerTable = (deps: IpcDeps): Record<string, (payload: unknown) => unkno
         throw refuse('INVALID_REQUEST');
       await deps.shell.openExternal(url);
     },
+    'core:getStatus': () => Promise.resolve(deps.coreStatus()),
     'settings:get': () => Promise.resolve(deps.settings.current()),
     'settings:set': async (payload) => {
       const merged: Settings | undefined = mergeSettings(deps.settings.current(), payload);
