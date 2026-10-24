@@ -12,7 +12,9 @@ const EngineRow = ({ engine }: { engine: EngineInfo }) => {
       <td>
         <span aria-hidden="true">{status === 'ready' ? '✓' : '✗'}</span>{' '}
         {translate(`engine.status.${status}`)}
-        {engine.error !== undefined && <div>{engine.error}</div>}
+        {engine.error !== undefined && (
+          <div>{translate(`engine.error.${engine.error.code}`, engine.error.params)}</div>
+        )}
       </td>
       <td>
         {engine.source === 'bundled'

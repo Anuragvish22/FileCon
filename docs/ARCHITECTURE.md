@@ -47,7 +47,6 @@ The core host is a plain Node entry (`core/src/host.ts`). Electron starts it wit
 fileCon/
 ├── packages/
 │   ├── core/src/
-│   │   ├── index.ts              re-exports for tests and host
 │   │   ├── host.ts               utilityProcess / sidecar entry: wires transport → rpc/server
 │   │   ├── types/                zod schemas and types for CONTRACTS, one file per section + index.ts
 │   │   ├── errors.ts             coreError() + CoreFailure (what core throws): code + params, no prose
@@ -60,7 +59,11 @@ fileCon/
 │   │   │   ├── targets.ts        convert, merge and extract options for a set of inputs
 │   │   │   └── index.ts          public API
 │   │   ├── jobs/
-│   │   │   ├── runner.ts         job lifecycle, step execution, progress, cleanup
+│   │   │   ├── runner.ts         job lifecycle, convert and merge flows, cleanup
+│   │   │   ├── steps.ts          one step: scheduler slot, size-scaled timeout, output check, fan-out
+│   │   │   ├── combine.ts        a combiner run with the same scaled timeout
+│   │   │   ├── plan.ts           re-detect an input, route it (ENGINE_MISSING vs NO_ROUTE)
+│   │   │   ├── progress.ts       throttled updates, never-backwards fraction, notes
 │   │   │   ├── scheduler.ts      FIFO queue, global slots, per-converter semaphores
 │   │   │   ├── output.ts         name reservation, exclusive commit, multi-output folder
 │   │   │   ├── spawn.ts          safe spawn: args array, timeout, abort, tree kill, stderr tail
@@ -145,7 +148,7 @@ The Test column names files under `<package>/test/`, at the same path as the mod
 | `jobs/scheduler` | Slots and semaphores | `createScheduler(slotCount)`, `acquireSlot(signal)`, `acquireConverter({ converterId, max, signal })`, `setConcurrency(slotCount)`; a waiter that aborts leaves the queue with `CANCELLED` | `scheduler.test.ts` |
 | `jobs/runner` | Execute jobs | `createRunner({ registry, graphs, scheduler, resolveOutDir })`, `.submit(requests)`, `.cancel(id)`, `.cancelAll()`, `.on("update", listener)`. Convert and merge only until M1.1-3 adds extract | `runner.test.ts` |
 | `jobs/output` | Never-overwrite commit | `commitFile({ src, dir, stem, ext })`, `commitFolder({ files, dir, stem, ext })`, `safeStem(name)`; both commits take an optional `fsOps` so tests can simulate EXDEV and ENOSPC | `output.test.ts` |
-| `jobs/spawn` | Safe external process | `run({ bin, args, signal, timeoutMs, cwd?, onStdout? })` → `{ code, stdoutTail, stderrTail }`, or throws `ENGINE_FAILED`, `TIMEOUT`, `CANCELLED`; `createRunner(deps)` lets tests fake the OS | `spawn.test.ts` |
+| `jobs/spawn` | Safe external process | `run({ bin, args, signal, timeoutMs, cwd?, onStdout? })` → `{ code, stdoutTail, stderrTail }`, or throws `ENGINE_FAILED`, `TIMEOUT`, `CANCELLED`; `createSpawn(deps)` lets tests fake the OS | `spawn.test.ts` |
 | `jobs/tmp` | Temp lifecycle | `makeJobDir(id)`, `removeDir(dirPath)`, `sweep(olderThanMs)` (an optional `root` is only for tests) | `tmp.test.ts` |
 | `engines/discovery` | Find engines | `discover({ spec, deps?, override? })`, `discoverAll({ specs, overrides, deps? })`; `deps` defaults to the real machine | `discovery.test.ts` |
 | `engines/install` | Install assistant (download kind) | `install(spec, deps, onProgress)` | `install.test.ts` (local fake HTTPS server) |
@@ -327,7 +330,7 @@ Fonts: soffice uses the system's fonts, so a document in a script the machine ha
 **Notes:** `ctx.note(id)` from any step adds `id` to `Job.notes` (deduped, in order). The done row shows them like route lossy notes.
 
 **Timeouts and cancel:**
-- Each step gets its own `AbortController`, linked to the job's controller. A timer of `converter.timeoutMs` plus 4 s per MB of the step's input (at most 30 minutes, `jobs/timeout.ts`) aborts it with the reason `TIMEOUT`.
+- Each step gets its own `AbortController`, linked to the job's controller. A timer of `converter.timeoutMs` plus 4 s per MB of the step's input (at most 30 minutes, `jobs/timeout.ts`) aborts it with the reason `TIMEOUT`. A combiner gets the same limit (the default plus 4 s per MB of its inputs, `jobs/combine.ts`), and a combiner that ignores its signal still ends the job, because the timer rejects the wait.
 - `cancel` on a queued job removes it from the queue and marks it `cancelled` immediately.
 - `cancel` on a running job aborts. `spawn.ts` kills the process tree, the converter promise rejects, the runner cleans up and then marks the job `cancelled`.
 - In-process engines check `ctx.signal.aborted` between pages or chunks. sharp operations aren't interruptible, so cancel takes effect when the current operation ends.
@@ -381,7 +384,7 @@ This section is the "never overwrite" guarantee ([PRD G4](PRD.md#4-goals-and-non
 5. **Known paths:** `knownPaths[platform]`, with globs expanded (e.g. `/opt/libreoffice*/program/soffice`).
 6. **WSL guard:** if `/proc/version` contains "microsoft", skip any candidate under `/mnt/<letter>/`. A Windows `.exe` would get Linux-style paths it can't read.
 7. **Required bins:** when `requiredBins` is set (Poppler), every bin must exist in the **same** dir as the first hit. Otherwise `found = false`, with the error "incomplete install (missing pdfimages)".
-8. **Version probe:** `exec(path, versionArgs, timeout 5 s)` (through `jobs/spawn`), then `versionPattern`. A failed probe means `found = true` with an error ("version check failed"). Only an unrunnable binary means `found = false`.
+8. **Version probe:** `exec(path, versionArgs, timeout 5 s)` (through `jobs/spawn`), then `versionPattern`. A failed probe means `found = true` with the error code `version-check-failed`. Only an unrunnable binary means `found = false`.
 
 The result is cached per session. It's refreshed on `engines.refresh`, after `engines.install`, or when `settings.apply` changes `engines.paths`.
 

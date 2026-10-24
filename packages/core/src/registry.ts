@@ -8,7 +8,8 @@ export interface Registry {
   get(id: string): Converter | Combiner | undefined;
 }
 
-const isConverter = (item: Converter | Combiner): item is Converter => 'edges' in item;
+export const isConverter = (item: Converter | Combiner | undefined): item is Converter =>
+  item !== undefined && 'edges' in item;
 
 export const createRegistry = (): Registry => {
   // One map for both kinds, so an id names one thing and Map keeps insertion order.

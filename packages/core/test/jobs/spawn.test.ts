@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { createRunner, run, type RunRequest } from '../../src/jobs/spawn.ts';
+import { createSpawn, run, type RunRequest } from '../../src/jobs/spawn.ts';
 
 const TIMEOUT_MS = 10_000;
 const SHORT_TIMEOUT_MS = 300;
@@ -172,7 +172,7 @@ describe('spawn: Windows branch', () => {
   it('kills the tree with taskkill and an argument array, not a process group', async () => {
     const calls: { bin: string; args: readonly string[]; options: SpawnOptions }[] = [];
     let engineChild: ChildProcess | undefined;
-    const runner = createRunner({
+    const spawnWith = createSpawn({
       platform: 'win32',
       spawnFn: (bin, args, options) => {
         calls.push({ bin, args, options });
@@ -186,7 +186,7 @@ describe('spawn: Windows branch', () => {
     });
 
     const controller = new AbortController();
-    const pending = runner({
+    const pending = spawnWith({
       ...node(SLEEP_FOREVER),
       signal: controller.signal,
     });

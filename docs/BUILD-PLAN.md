@@ -379,12 +379,12 @@ Found while reviewing the running app (screenshots of empty, files, done, failed
     - unknown keys in settings are dropped
     - `ipc-channels` and `settings-agree` tooling tests read the exported constants
 
-#### M1-F3 Core tidy-up ☐
-- **Parked to review first:** [P28 nothing emits `log`](PARKED.md#2-items), [P48 GLib spam from sharp](PARKED.md#2-items)
+#### M1-F3 Core tidy-up ☑
+- **Parked to review first:** [P48 GLib spam from sharp](PARKED.md#2-items), kept parked for M1-8 (P28 was already adopted)
 - **Depends on:** M1-F2
 - **Files:** `core/src/jobs/{runner,progress,plan,spawn}.ts`, `core/src/registry.ts`, `core/src/types/jobs.ts`, `core/src/engines/discovery.ts`, `core/src/index.ts` (delete), the matching app callers, CONTRACTS section 9, `en.json`.
 - **Details:**
-  - Split `runner.ts`: progress throttling and the never-backwards fraction go to `progress.ts`, and `detectInput` plus `planRoute` go to `plan.ts`. The lifecycle and step code stays together.
+  - Split `runner.ts`: progress throttling and the never-backwards fraction go to `progress.ts`, `detectInput` plus `planRoute` go to `plan.ts`, one step goes to `steps.ts` and the combiner run to `combine.ts`, so the lifecycle and the convert and merge flows stay in `runner.ts` (about 270 lines).
   - One shared `TERMINAL_STATES` and `ACTIVE_STATES` in core, used by core, the supervisor and the reducer. `isConverter` lives only in `registry.ts`.
   - Rename spawn's `createRunner` to `createSpawn`, so only one thing is called runner.
   - `EngineInfo.error` becomes a code with params (`engine.error.<code>`), so the Engines page text comes from `en.json` (ADR-16).

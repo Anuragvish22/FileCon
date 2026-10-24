@@ -7,24 +7,24 @@ import { createRunner, type Runner } from '../jobs/runner.ts';
 import { createScheduler, type Scheduler } from '../jobs/scheduler.ts';
 import { sweep } from '../jobs/tmp.ts';
 import type { Registry } from '../registry.ts';
-import type {
-  DetectResult,
-  EngineInfo,
-  Job,
-  JobRequest,
-  Route,
-  RpcEvent,
-  RpcMessage,
-  Settings,
-  SubmitResult,
-  TargetsResult,
+import {
+  isTerminal,
+  type DetectResult,
+  type EngineInfo,
+  type Job,
+  type JobRequest,
+  type Route,
+  type RpcEvent,
+  type RpcMessage,
+  type Settings,
+  type SubmitResult,
+  type TargetsResult,
 } from '../types/index.ts';
 import { failResponse, isRpcMethod, okResponse, PARAMS, parseRequest } from './protocol.ts';
 
 // FLOWS F1 (startup), F11 (settings), F13 (quit).
 const DAY_MS = 86_400_000; // leftover temp dirs older than this are removed at init
 const CPU_RESERVE = 1; // "auto" concurrency leaves one core for the app itself
-const TERMINAL_STATES: readonly Job['state'][] = ['done', 'failed', 'cancelled'];
 
 export interface RegistryInput {
   dataDir: string;
@@ -117,7 +117,7 @@ export const createServer = (deps: ServerDeps): Server => {
   };
 
   const trackJob = (job: Job): void => {
-    if (TERMINAL_STATES.includes(job.state)) activeJobs.delete(job.id);
+    if (isTerminal(job.state)) activeJobs.delete(job.id);
     else activeJobs.add(job.id);
     emit('job.update', job);
     if (job.state === 'failed' && job.error !== undefined)

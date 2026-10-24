@@ -10,6 +10,7 @@ import type {
   Settings,
   TargetsResult,
 } from '@filecon/core/types';
+import { isTerminal } from '@filecon/core/types';
 import type { Notice, Page, State } from './state.ts';
 import { initialState } from './state.ts';
 
@@ -38,8 +39,6 @@ export type Action =
   | { type: 'page/set'; page: Page }
   | { type: 'notice/set'; notice: Notice }
   | { type: 'notice/dismissed' };
-
-const FINISHED: readonly Job['state'][] = ['done', 'failed', 'cancelled'];
 
 /** The target survives only while the offered list still has it (ARCHITECTURE section 13). */
 const keepTarget = (state: State, result: TargetsResult): State['selection'] => {
@@ -129,7 +128,7 @@ export const reducer = (state: State, action: Action): State => {
     case 'jobs/cleared':
       return {
         ...state,
-        jobs: new Map([...state.jobs].filter(([, job]) => !FINISHED.includes(job.state))),
+        jobs: new Map([...state.jobs].filter(([, job]) => !isTerminal(job.state))),
       };
     case 'engines/loaded':
       return { ...state, engines: action.engines };

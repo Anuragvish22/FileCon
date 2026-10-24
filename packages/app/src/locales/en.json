@@ -144,6 +144,8 @@
   "engine.status.ready": "Ready",
   "engine.status.missing": "Not found",
   "engine.status.error": "Problem",
+  "engine.error.override-not-executable": "The path you set is not an executable file: {path}",
+  "engine.error.version-check-failed": "Found, but its version could not be read",
   "engine.bundled": "Built in",
   "engine.setPath": "Set path…",
   "engine.guide": "How to install",

@@ -13,10 +13,7 @@ export const SettingsSchema = z.object({
     .transform((output) => (output.mode === 'custom' ? output : { mode: output.mode })),
   concurrency: z.union([
     z.literal('auto'), // max(1, cpus - 1)
-    z.number().int().min(1).max(MAX_CONCURRENCY
-
-      
-    ),
+    z.number().int().min(1).max(MAX_CONCURRENCY),
   ]),
   engines: z.object({
     paths: z.record(z.string(), z.string()), // engineId → absolute binary path (user override)

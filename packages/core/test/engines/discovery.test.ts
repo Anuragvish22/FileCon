@@ -115,7 +115,10 @@ describe('discovery: must also pass', () => {
     const { deps } = machine({ env: { PATH: '/usr/bin' }, executables: ['/usr/bin/soffice'] });
     const info = await discover({ spec: libreoffice, deps, override: '/typo/soffice' });
     expect(info.found).toBe(false);
-    expect(info.error).toBeDefined();
+    expect(info.error).toEqual({
+      code: 'override-not-executable',
+      params: { path: '/typo/soffice' },
+    });
     expect(info.path).toBeUndefined();
   });
 
@@ -124,7 +127,7 @@ describe('discovery: must also pass', () => {
     const { deps } = machine({ executables: [] });
     const info = await discover({ spec: libreoffice, deps, override: '/opt/libreoffice/program' });
     expect(info).toMatchObject({ found: false });
-    expect(info.error).toBeDefined();
+    expect(info.error?.code).toBe('override-not-executable');
   });
 
   it('on win32 PATHEXT lets soffice be found as soffice.EXE', async () => {
@@ -197,7 +200,7 @@ describe('discovery: must also pass', () => {
     expect(info).toMatchObject({
       found: true,
       path: '/bin/soffice',
-      error: 'version check failed',
+      error: { code: 'version-check-failed', params: {} },
     });
     expect(info.version).toBeUndefined();
   });

@@ -143,7 +143,7 @@ const probeVersion = async (
   spec: EngineSpec,
   path: string,
   deps: DiscoveryDeps,
-): Promise<{ version?: string; error?: string }> => {
+): Promise<{ version?: string; error?: EngineInfo['error'] }> => {
   if (spec.versionArgs === undefined || spec.versionPattern === undefined) return {};
   try {
     const output = await deps.exec(path, spec.versionArgs, PROBE_TIMEOUT_MS);
@@ -152,7 +152,7 @@ const probeVersion = async (
   } catch {
     // Falls through to the same result as an unreadable version.
   }
-  return { error: 'version check failed' };
+  return { error: { code: 'version-check-failed', params: {} } };
 };
 
 export interface DiscoverInput {
@@ -183,7 +183,7 @@ export const discover = async ({
   if (override !== undefined && override !== '') {
     // No fall-through: a wrong path must show as wrong, not be hidden by another install.
     if (!(await deps.isExecutable(override)))
-      return { ...info, error: 'override path is not an executable file' };
+      return { ...info, error: { code: 'override-not-executable', params: { path: override } } };
     path = override;
     source = 'override';
   } else {

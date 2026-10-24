@@ -1,33 +1,28 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, stat } from 'node:fs/promises';
-import { basename, isAbsolute, join, parse, relative } from 'node:path';
-import { detect } from '../detect.ts';
+import { mkdir } from 'node:fs/promises';
+import { basename, join, parse } from 'node:path';
 import { CoreFailure, toCoreError } from '../errors.ts';
-import { route as findRoute, type Graph } from '../graph/index.ts';
-import type { Registry } from '../registry.ts';
-import type {
-  Combiner,
-  Converter,
-  CoreError,
-  ErrorCode,
-  Format,
-  Job,
-  JobCtx,
-  JobRequest,
-  Route,
-  SubmitResult,
+import type { Graph } from '../graph/index.ts';
+import { isConverter, type Registry } from '../registry.ts';
+import {
+  isTerminal,
+  type Combiner,
+  type CoreError,
+  type Format,
+  type Job,
+  type JobRequest,
+  type Route,
+  type SubmitResult,
 } from '../types/index.ts';
-import { commitFile, commitFolder, safeStem } from './output.ts';
+import { combineParts } from './combine.ts';
+import { commitFile, commitFolder } from './output.ts';
+import { detectInput, planRoute } from './plan.ts';
+import { createProgress, newProgressState } from './progress.ts';
 import type { Release, Scheduler } from './scheduler.ts';
-import { scaledTimeout } from './timeout.ts';
+import { createSteps, verifyOutputs, type Entry, type RunnableRequest } from './steps.ts';
 import { makeJobDir, removeDir } from './tmp.ts';
 
 // ARCHITECTURE section 9, FLOWS F4 to F9.
-const DEFAULT_TIMEOUT_MS = 120_000;
-const PROGRESS_INTERVAL_MS = 100; // updates are throttled to 10 per second
-// Codes whose text names the engine ("{engine} failed to convert {name}"), so the engine id is filled in.
-const ENGINE_CODES: readonly ErrorCode[] = ['ENGINE_FAILED', 'ENGINE_OUTPUT_MISSING', 'TIMEOUT'];
-const TERMINAL_STATES: readonly Job['state'][] = ['done', 'failed', 'cancelled'];
 
 export interface RunnerDeps {
   registry: Registry;
@@ -52,63 +47,6 @@ type Outcome =
   | { state: 'failed'; error: CoreError }
   | { state: 'cancelled' };
 
-type RunnableRequest = Extract<JobRequest, { kind: 'convert' | 'merge' }>;
-
-interface Entry {
-  job: Job;
-  request: RunnableRequest;
-  controller: AbortController;
-  currentSource?: string; // the input being worked on, so a failure can say which one
-  highestFraction: number;
-  lastEmitAt: number;
-  pendingTimer?: NodeJS.Timeout;
-}
-
-/** What a step reports: how many steps are done, and how far the current one is (null = unknown). */
-type Report = (progress: { unit: number; fraction: number | null }) => void;
-
-interface RunStepsInput {
-  entry: Entry;
-  source: string; // the job's own input, for error context
-  input: string; // this chain's first file
-  from: Format;
-  steps: Route['steps'];
-  baseDir: string;
-  tmpDir: string;
-  report: Report;
-}
-
-const isConverter = (item: Converter | Combiner | undefined): item is Converter =>
-  item !== undefined && 'edges' in item;
-
-const isInside = (dir: string, path: string): boolean => {
-  const inside = relative(dir, path);
-  return inside !== '' && !inside.startsWith('..') && !isAbsolute(inside);
-};
-
-/** Fills in what only the runner knows: which engine, which file. */
-const withContext = (
-  caught: unknown,
-  context: { converter: Converter; source: string },
-): CoreFailure => {
-  const base = toCoreError(caught);
-  const params = { ...base.params, name: basename(context.source) };
-  if (ENGINE_CODES.includes(base.code))
-    Object.assign(params, { engine: context.converter.engineId });
-  return new CoreFailure(base.code, params, base.detail);
-};
-
-const verifyOutputs = async (produced: string[], outDir: string): Promise<void> => {
-  const missing = (): CoreFailure => new CoreFailure('ENGINE_OUTPUT_MISSING');
-  if (produced.length === 0) throw missing();
-  for (const path of produced) {
-    // shortcut: lexical check, symlinks aren't resolved; revisit if a converter ever creates links.
-    if (!isInside(outDir, path)) throw missing();
-    const stats = await stat(path).catch(() => undefined);
-    if (stats === undefined || !stats.isFile() || stats.size === 0) throw missing();
-  }
-};
-
 export const createRunner = (deps: RunnerDeps): Runner => {
   const { registry, scheduler } = deps;
   const now = deps.now ?? Date.now;
@@ -116,185 +54,12 @@ export const createRunner = (deps: RunnerDeps): Runner => {
   const entries = new Map<string, Entry>();
   const listeners = new Set<(job: Job) => void>();
 
-  const emit = (entry: Entry): void => {
-    entry.lastEmitAt = now();
-    const snapshot = structuredClone(entry.job);
+  const publish = (snapshot: Job): void => {
     for (const listener of listeners) listener(snapshot);
   };
-
-  const emitState = (entry: Entry): void => {
-    clearTimeout(entry.pendingTimer);
-    entry.pendingTimer = undefined;
-    emit(entry);
-  };
-
-  const emitProgress = (entry: Entry): void => {
-    const wait = PROGRESS_INTERVAL_MS - (now() - entry.lastEmitAt);
-    if (wait <= 0) {
-      emitState(entry);
-    } else if (entry.pendingTimer === undefined) {
-      // Trailing flush, so the last value of a burst is never lost.
-      entry.pendingTimer = setTimeout(() => emitState(entry), wait);
-    }
-  };
-
-  const setProgress = (
-    entry: Entry,
-    progress: { unit: number; total?: number; fraction: number | null },
-  ): void => {
-    const { job } = entry;
-    // Engines and fan-out steps can report out of order: the overall fraction never goes back.
-    let { fraction } = progress;
-    if (fraction !== null) {
-      fraction = Math.max(fraction, entry.highestFraction);
-      entry.highestFraction = fraction;
-    }
-    const next = { unit: progress.unit, total: progress.total ?? job.progress.total, fraction };
-    if (
-      next.unit === job.progress.unit &&
-      next.total === job.progress.total &&
-      next.fraction === job.progress.fraction
-    )
-      return;
-    job.progress = next;
-    emitProgress(entry);
-  };
-
-  const addNote = (entry: Entry, id: string): void => {
-    if (entry.job.notes.includes(id)) return;
-    entry.job.notes.push(id);
-    emitProgress(entry);
-  };
-
-  /** No route on the available graph: ENGINE_MISSING if the full graph has one, else NO_ROUTE. */
-  const planRoute = (from: Format, to: Format): Route => {
-    const { available, full } = deps.graphs();
-    const found = findRoute(available, from, to);
-    if (found !== null) return found;
-    const wanted = findRoute(full, from, to);
-    const missingStep = wanted?.steps.find((step) => !available.converterIds.has(step.converterId));
-    const converter = missingStep === undefined ? undefined : registry.get(missingStep.converterId);
-    if (isConverter(converter))
-      throw new CoreFailure('ENGINE_MISSING', { engine: converter.engineId, pack: converter.pack });
-    throw new CoreFailure('NO_ROUTE', { from, to });
-  };
-
-  /** The re-check at job start: the file must still exist and be a format we know. */
-  const detectInput = async (input: string): Promise<Format> => {
-    const result = await detect(input);
-    if (result.error !== undefined)
-      throw new CoreFailure(result.error.code, result.error.params, result.error.detail);
-    if (result.format === null)
-      throw new CoreFailure('UNSUPPORTED_FORMAT', { name: basename(input) });
-    return result.format;
-  };
-
-  const runOneStep = async (input: {
-    entry: Entry;
-    converter: Converter;
-    request: Parameters<Converter['convert']>[0];
-    source: string;
-    tmpDir: string;
-    onFraction: (fraction: number | null) => void;
-  }): Promise<string[]> => {
-    const { entry, converter, request, source, tmpDir, onFraction } = input;
-    const jobSignal = entry.controller.signal;
-    const release = await scheduler.acquireConverter({
-      converterId: converter.id,
-      max: converter.maxConcurrent,
-      signal: jobSignal,
-    });
-    const stepController = new AbortController();
-    const relayAbort = (): void => stepController.abort();
-    jobSignal.addEventListener('abort', relayAbort, { once: true });
-    let timedOut = false;
-    const sourceBytes = (await stat(source).catch(() => undefined))?.size ?? 0;
-    const timer = setTimeout(
-      () => {
-        timedOut = true;
-        stepController.abort();
-      },
-      scaledTimeout(converter.timeoutMs ?? DEFAULT_TIMEOUT_MS, sourceBytes),
-    );
-    const ctx: JobCtx = {
-      signal: stepController.signal,
-      tmpDir,
-      onProgress: onFraction,
-      note: (id) => addNote(entry, id),
-    };
-    try {
-      const produced = await converter.convert(request, ctx);
-      // A converter that ignores the signal (sharp) only gets here once its operation ends.
-      if (!timedOut && jobSignal.aborted) throw new CoreFailure('CANCELLED');
-      if (!timedOut) await verifyOutputs(produced, request.outDir);
-      if (timedOut) throw new CoreFailure('TIMEOUT');
-      return produced;
-    } catch (caught) {
-      if (jobSignal.aborted && !timedOut) throw caught;
-      throw withContext(timedOut ? new CoreFailure('TIMEOUT') : caught, { converter, source });
-    } finally {
-      clearTimeout(timer);
-      jobSignal.removeEventListener('abort', relayAbort);
-      release();
-    }
-  };
-
-  /** Runs one file through a route. A fan-out step's many files feed the next step one by one. */
-  const runSteps = async ({
-    entry,
-    source,
-    input,
-    from,
-    steps,
-    baseDir,
-    tmpDir,
-    report,
-  }: RunStepsInput): Promise<string[]> => {
-    let files = [input];
-    let current = from;
-    for (const [stepIndex, step] of steps.entries()) {
-      const converter = registry.get(step.converterId);
-      if (!isConverter(converter))
-        throw new Error(`route names an unknown converter: ${step.converterId}`);
-      const stepDir = join(baseDir, `step-${stepIndex}`);
-      const produced: string[] = [];
-      for (const [fileIndex, file] of files.entries()) {
-        const outDir = files.length === 1 ? stepDir : join(stepDir, String(fileIndex));
-        await mkdir(outDir, { recursive: true });
-        produced.push(
-          ...(await runOneStep({
-            entry,
-            converter,
-            request: {
-              input: file,
-              from: current,
-              to: step.to,
-              outDir,
-              baseName: safeStem(parse(file).name),
-              options: entry.request.options,
-            },
-            source,
-            tmpDir,
-            onFraction: (fraction) =>
-              report({
-                unit: stepIndex,
-                fraction:
-                  fraction === null
-                    ? null
-                    : (stepIndex + (fileIndex + fraction) / files.length) / steps.length,
-              }),
-          })),
-        );
-        report({
-          unit: stepIndex,
-          fraction: (stepIndex + (fileIndex + 1) / files.length) / steps.length,
-        });
-      }
-      files = produced;
-      current = step.to;
-    }
-    return files;
-  };
+  const { emitState, setProgress, addNote } = createProgress({ now, publish });
+  const { runSteps } = createSteps({ registry, scheduler, addNote });
+  const plan = (from: Format, to: Format): Route => planRoute(deps, from, to);
 
   const combinerOf = (combinerId: string): Combiner => {
     const item = registry.get(combinerId);
@@ -309,7 +74,7 @@ export const createRunner = (deps: RunnerDeps): Runner => {
   ): Promise<string[]> => {
     entry.currentSource = request.input;
     const from = await detectInput(request.input);
-    const found = planRoute(from, request.target);
+    const found = plan(from, request.target);
     setProgress(entry, { unit: 0, total: found.steps.length, fraction: 0 });
     const files = await runSteps({
       entry,
@@ -343,7 +108,7 @@ export const createRunner = (deps: RunnerDeps): Runner => {
       plans.push({
         input,
         from,
-        steps: from === combiner.accepts ? [] : planRoute(from, combiner.accepts).steps,
+        steps: from === combiner.accepts ? [] : plan(from, combiner.accepts).steps,
       });
     }
 
@@ -372,12 +137,13 @@ export const createRunner = (deps: RunnerDeps): Runner => {
 
     const combineDir = join(tmpDir, 'combine');
     await mkdir(combineDir, { recursive: true });
-    // shortcut: no timeout on a combiner, since they run in-process (pdf-lib, sharp); add one if an external engine ever combines.
     entry.currentSource = undefined; // the failure now concerns the whole merge, not one input
-    const merged = await combiner.combine(
-      { inputs: parts, outDir: combineDir, options: request.options },
-      {
-        signal: entry.controller.signal,
+    const merged = await combineParts({
+      combiner,
+      request: { inputs: parts, outDir: combineDir, options: request.options },
+      jobSignal: entry.controller.signal,
+      name: basename(request.inputs[0] ?? ''),
+      ctx: {
         tmpDir,
         onProgress: (fraction) =>
           setProgress(entry, {
@@ -386,7 +152,7 @@ export const createRunner = (deps: RunnerDeps): Runner => {
           }),
         note: (id) => addNote(entry, id),
       },
-    );
+    });
     await verifyOutputs([merged], combineDir);
     const firstStem = parse(request.inputs[0] ?? 'file').name;
     return [
@@ -471,8 +237,7 @@ export const createRunner = (deps: RunnerDeps): Runner => {
           job,
           request,
           controller: new AbortController(),
-          highestFraction: 0,
-          lastEmitAt: 0,
+          ...newProgressState(),
         };
         entries.set(job.id, entry);
         return entry;
@@ -485,13 +250,12 @@ export const createRunner = (deps: RunnerDeps): Runner => {
 
     cancel(jobId) {
       const entry = entries.get(jobId);
-      if (entry !== undefined && !TERMINAL_STATES.includes(entry.job.state))
-        entry.controller.abort();
+      if (entry !== undefined && !isTerminal(entry.job.state)) entry.controller.abort();
     },
 
     cancelAll() {
       for (const entry of entries.values())
-        if (!TERMINAL_STATES.includes(entry.job.state)) entry.controller.abort();
+        if (!isTerminal(entry.job.state)) entry.controller.abort();
     },
 
     on(_event, listener) {

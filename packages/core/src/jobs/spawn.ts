@@ -55,7 +55,7 @@ const keepTail = (tail: Buffer, chunk: Buffer): Buffer => {
   return joined.length > TAIL_BYTES ? joined.subarray(-TAIL_BYTES) : joined;
 };
 
-export const createRunner =
+export const createSpawn =
   (deps: SpawnDeps) =>
   ({ bin, args, signal, timeoutMs, cwd, onStdout }: RunRequest): Promise<RunResult> =>
     new Promise((resolve, reject) => {
@@ -119,4 +119,4 @@ export const createRunner =
       );
     });
 
-export const run = createRunner({ platform: process.platform, spawnFn: spawn });
+export const run = createSpawn({ platform: process.platform, spawnFn: spawn });

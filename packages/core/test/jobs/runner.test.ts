@@ -1,6 +1,6 @@
 import { appendFile, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Converter } from '../../src/types/index.ts';
 import { fakeCombiner, fakeConverter, writeOutput } from '../fakes.ts';
 import {
@@ -21,6 +21,7 @@ const TIMEOUT_MS = 50;
 const BURST = 50;
 const POLL_MS = 10;
 const JOB_COUNT = 5;
+const PAST_DEFAULT_TIMEOUT_MS = 130_000;
 
 const jpgToPng = (extra: Partial<Parameters<typeof fakeConverter>[0]> = {}): Converter =>
   fakeConverter({
@@ -243,6 +244,47 @@ describe('runner: failures', () => {
     expect(await readdir(outDir)).toEqual([]);
     await expectNoTmp(job);
     expect(await readFile(input)).toEqual(before);
+  });
+
+  describe('a combiner that hangs', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('is TIMEOUT after the default limit, and the temp dir is removed', async () => {
+      // Never settles and ignores its signal, like a converter that cannot be interrupted.
+      let started: () => void = () => undefined;
+      const combining = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      const combiner = fakeCombiner({
+        id: 'merge-pdf',
+        accepts: 'pdf',
+        output: 'pdf',
+        combine: () => {
+          started();
+          return new Promise<string>(() => undefined);
+        },
+      });
+      const { submitOne, outDir } = await harness({ converters: [], combiners: [combiner] });
+      const pdf = await source('pdf', 'sample.pdf', 'stuck.pdf');
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const pending = submitOne({
+        kind: 'merge',
+        inputs: [pdf],
+        combinerId: 'merge-pdf',
+        options: NO_OPTIONS,
+      });
+      await combining;
+      await vi.advanceTimersByTimeAsync(PAST_DEFAULT_TIMEOUT_MS);
+      const job = await pending;
+
+      expect(job.state).toBe('failed');
+      expect(job.error).toMatchObject({
+        code: 'TIMEOUT',
+        params: { engine: 'merge-pdf', name: 'stuck.pdf' },
+      });
+      expect(await readdir(outDir)).toEqual([]);
+      await expectNoTmp(job);
+    });
   });
 
   it('a step over its timeout is TIMEOUT', async () => {

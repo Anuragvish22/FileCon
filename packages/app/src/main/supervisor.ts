@@ -6,6 +6,7 @@ import type {
   RpcMethod,
   Settings,
 } from '@filecon/core/types';
+import { isActive } from '@filecon/core/types';
 import { CoreCallError, createCoreClient, type CoreClient } from './coreClient.ts';
 
 /** The host process as the supervisor sees it. `index.ts` adapts `utilityProcess` to this. */
@@ -46,8 +47,6 @@ const MAX_RESTARTS_IN_WINDOW = 3;
 const BACKOFF_BASE_MS = 1_000;
 const BACKOFF_FACTOR = 2;
 
-const ACTIVE_STATES: readonly Job['state'][] = ['queued', 'running'];
-
 export const createSupervisor = (deps: SupervisorDeps): Supervisor => {
   let status: CoreStatus = 'starting';
   let restarts = 0; // total, shown in the banner
@@ -74,7 +73,7 @@ export const createSupervisor = (deps: SupervisorDeps): Supervisor => {
     deps.log('error', `core host lost: ${reason}`);
 
     for (const job of lastJobs.values()) {
-      if (!ACTIVE_STATES.includes(job.state)) continue;
+      if (!isActive(job.state)) continue;
       const failed: Job = {
         ...job,
         state: 'failed',

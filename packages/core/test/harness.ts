@@ -7,7 +7,14 @@ import { afterAll, beforeAll, expect } from 'vitest';
 import { buildGraph } from '../src/graph/index.ts';
 import { createRunner } from '../src/jobs/runner.ts';
 import { createScheduler } from '../src/jobs/scheduler.ts';
-import type { Combiner, Converter, ConvertOptions, Job, JobRequest } from '../src/types/index.ts';
+import {
+  isTerminal,
+  type Combiner,
+  type Converter,
+  type ConvertOptions,
+  type Job,
+  type JobRequest,
+} from '../src/types/index.ts';
 import { registryOf } from './fakes.ts';
 
 export const NO_OPTIONS: ConvertOptions = {};
@@ -94,10 +101,9 @@ export const harness = async (options: HarnessOptions) => {
   const updates: Job[] = [];
   const waiting = new Map<string, ((job: Job) => void)[]>();
   const finalJobs = new Map<string, Job>();
-  const terminal = ['done', 'failed', 'cancelled'];
   runner.on('update', (job) => {
     updates.push(job);
-    if (!terminal.includes(job.state)) return;
+    if (!isTerminal(job.state)) return;
     finalJobs.set(job.id, job);
     for (const resolve of waiting.get(job.id) ?? []) resolve(job);
   });

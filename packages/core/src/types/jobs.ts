@@ -36,7 +36,14 @@ export interface SubmitResult {
   jobIds: string[];
 } // same order as requests
 
-export type JobState = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+export const ACTIVE_STATES = ['queued', 'running'] as const;
+export const TERMINAL_STATES = ['done', 'failed', 'cancelled'] as const;
+export type JobState = (typeof ACTIVE_STATES | typeof TERMINAL_STATES)[number];
+
+export const isActive = (state: JobState): boolean =>
+  ACTIVE_STATES.some((active) => active === state);
+export const isTerminal = (state: JobState): boolean =>
+  TERMINAL_STATES.some((terminal) => terminal === state);
 
 export interface Job {
   id: string;

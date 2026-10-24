@@ -1,5 +1,8 @@
 import type { PackId } from './domain.ts';
 
+export const ENGINE_ERROR_CODES = ['override-not-executable', 'version-check-failed'] as const;
+export type EngineErrorCode = (typeof ENGINE_ERROR_CODES)[number];
+
 export interface EngineInfo {
   id: string; // "libreoffice", "ffmpeg", "sharp"
   pack: PackId;
@@ -9,7 +12,7 @@ export interface EngineInfo {
   source?: 'bundled' | 'override' | 'installed' | 'path' | 'known-dir';
   installUrl: string; // human install guide
   install?: InstallMethod; // for the current platform, from EngineSpec.install
-  error?: string; // e.g. override path invalid, version probe failed
+  error?: { code: EngineErrorCode; params: Record<string, string | number> }; // text: translate("engine.error.<code>", params)
 }
 
 // (in-process only) declared in core/src/engines/specs.ts

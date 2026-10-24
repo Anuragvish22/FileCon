@@ -47,7 +47,7 @@ The types are in [`core/src/types/jobs.ts`](../packages/core/src/types/jobs.ts).
 | running | failed | any step or commit error, `TIMEOUT`, `CORE_CRASHED` (set by main) |
 | running | cancelled | `cancel` / `cancelAll`, after the engine is killed and cleanup finishes |
 
-`done`, `failed` and `cancelled` are terminal. Retry means submitting a new job, which gets a new id.
+`done`, `failed` and `cancelled` are terminal. `ACTIVE_STATES`, `TERMINAL_STATES` and the `isActive` and `isTerminal` checks in `types/jobs.ts` are the one list that core, the supervisor and the renderer share. Retry means submitting a new job, which gets a new id.
 
 ## 5. Errors
 
@@ -182,6 +182,8 @@ Storage:
 ## 9. Engines
 
 The types are in [`core/src/types/engines.ts`](../packages/core/src/types/engines.ts).
+
+`EngineInfo.error` is a code with params, never prose (ADR-16). The codes are `ENGINE_ERROR_CODES`, and the Engines page shows `translate("engine.error.<code>", params)`: `override-not-executable` (param `path`) and `version-check-failed`.
 
 **Install rules**
 - Downloads go only to `userData/engines/<engineId>/<version>/`. That location is discovered with source `"installed"`, after the override and before PATH.

@@ -370,7 +370,7 @@ sequenceDiagram
   end
 ```
 
-**Errors:** an invalid override path gives `EngineInfo.error` ("not executable"). The target stays `needs-pack` and the Engines page shows the error.
+**Errors:** an invalid override path gives `EngineInfo.error` with the code `override-not-executable` (text: `engine.error.override-not-executable`). The target stays `needs-pack` and the Engines page shows the error.
 **Invariants:** the graph only contains converters whose engine is `found`.
 **Tests:** `discovery.test.ts` (override invalid, PATH, known path glob, WSL `/mnt/c` skip, version probe failure), `server.test.ts` (`settings.apply` emits `engines.changed`).
 
