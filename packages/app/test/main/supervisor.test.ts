@@ -186,6 +186,37 @@ describe('crash and restart (F12)', () => {
     expect(synthesized[0]?.endedAt).toBeTypeOf('number');
   });
 
+  it('a crash mid-batch fails every active job, then new calls work after the restart', async () => {
+    const { supervisor, latest, ready, events, forks } = setup();
+    supervisor.start();
+    ready();
+    for (const [id, state] of [
+      ['one', 'running'],
+      ['two', 'running'],
+      ['three', 'queued'],
+      ['four', 'done'],
+    ] as const)
+      latest().event('job.update', job(id, state));
+    const inFlight = supervisor.call('submit', { requests: [] });
+    events.length = 0;
+    latest().crash();
+
+    await expect(inFlight).rejects.toMatchObject({ error: { code: 'CORE_CRASHED' } });
+    const failed = events.map(([, data]) => data as Job);
+    expect(failed.map((item) => item.id).sort()).toEqual(['one', 'three', 'two']);
+    expect(failed.every((item) => item.error?.code === 'CORE_CRASHED')).toBe(true);
+    await expect(supervisor.call('detect', { paths: [] })).rejects.toMatchObject({
+      error: { code: 'CORE_UNAVAILABLE' },
+    });
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(forks).toHaveLength(2);
+    ready();
+    const after = supervisor.call('detect', { paths: [] });
+    latest().answer('detect', []);
+    await expect(after).resolves.toEqual([]);
+  });
+
   it('restarts after 1 s, then 2 s, and reports restarting then ready', async () => {
     const { supervisor, forks, latest, ready, statuses } = setup();
     supervisor.start();

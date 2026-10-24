@@ -1,4 +1,4 @@
-import { mkdir, stat } from 'node:fs/promises';
+import { mkdir, realpath, stat } from 'node:fs/promises';
 import { basename, isAbsolute, join, parse, relative } from 'node:path';
 import { CoreFailure, toCoreError } from '../errors.ts';
 import { isConverter, type Registry } from '../registry.ts';
@@ -61,10 +61,12 @@ const withContext = (
 export const verifyOutputs = async (produced: string[], outDir: string): Promise<void> => {
   const missing = (): CoreFailure => new CoreFailure('ENGINE_OUTPUT_MISSING');
   if (produced.length === 0) throw missing();
+  // Resolved first, so a link that points outside the out dir does not pass for a file inside it.
+  const realDir = await realpath(outDir).catch(() => undefined);
   for (const path of produced) {
-    // shortcut: lexical check, symlinks aren't resolved; revisit if a converter ever creates links.
-    if (!isInside(outDir, path)) throw missing();
-    const stats = await stat(path).catch(() => undefined);
+    const real = await realpath(path).catch(() => undefined);
+    if (realDir === undefined || real === undefined || !isInside(realDir, real)) throw missing();
+    const stats = await stat(real).catch(() => undefined);
     if (stats === undefined || !stats.isFile() || stats.size === 0) throw missing();
   }
 };

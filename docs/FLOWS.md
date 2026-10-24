@@ -174,7 +174,7 @@ sequenceDiagram
 1. Commit follows [ARCHITECTURE section 10](ARCHITECTURE.md#10-output-commit).
 2. "Show in folder" calls `reveal(outputs[0])`. Main only allows paths that appear in some job's `outputs`.
 
-**Errors:** at submit, `INVALID_REQUEST`, `OUTPUT_DIR_NOT_WRITABLE` and `NO_ROUTE` reject the call and no job is created. During the run, see [F9](#f9-failure-and-retry).
+**Errors:** at submit, `INVALID_REQUEST` rejects the whole call and no job is created. `NO_ROUTE`, `ENGINE_MISSING` and `OUTPUT_DIR_NOT_WRITABLE` fail only that job, as it starts and before any step runs. During the run, see [F9](#f9-failure-and-retry).
 **Invariants:** the source is never opened for writing. Nothing appears at the destination until the commit, and nothing partial ever appears there.
 **Tests:** `runner.test.ts` (fake converter: happy path, update order), `output.test.ts` (conflict naming, reservation race between two concurrent commits, EXDEV fallback).
 
@@ -305,7 +305,7 @@ sequenceDiagram
 
 **Errors:** none surface to the user. A kill failure is logged and the job is still marked cancelled after cleanup.
 **Invariants:** within 2 s of cancel there's no engine process left, no temp dir and no partial output ([PRD F8](PRD.md#5-features-by-milestone)). The `cancelled` state is only emitted after cleanup.
-**Tests:** `spawn.test.ts` (abort kills a child that has its own child), `runner.test.ts` (cancel while queued, while running, and after done).
+**Tests:** `spawn.test.ts` (abort kills a child that has its own child), `runner.test.ts` (cancel while queued, while running, and after done), `failures.test.ts` (cancel while queued, in step 1 of 2, and at the commit).
 
 ## F9. Failure and retry
 
@@ -341,7 +341,7 @@ sequenceDiagram
 3. `ENOSPC` at any point gives `DISK_FULL`.
 
 **Invariants:** a failed job leaves no temp dir and no partial output.
-**Tests:** `runner.test.ts` (each failure kind via fakes), `spawn.test.ts` (stderr tail truncation, timeout).
+**Tests:** `runner.test.ts` (each failure kind via fakes), `spawn.test.ts` (stderr tail truncation, timeout), `failures.test.ts` (the matrix: non-zero exit, hang past the timeout with the child gone, input deleted or unreadable, read-only output folder, `ENOSPC`, a symlink out of the out dir, and a clean batch of 5).
 
 ## F10. Missing engine, then set path
 
@@ -425,7 +425,7 @@ sequenceDiagram
 2. Leftover temp dirs from the dead host are removed by the next host's `init` sweep, or by the 24 h rule.
 
 **Invariants:** the renderer never freezes or crashes because core died.
-**Tests:** `supervisor.test.ts` (fake fork: crash, then restart, then budget exhaustion, then synthesized updates).
+**Tests:** `supervisor.test.ts` (fake fork: crash, then restart, then budget exhaustion, then synthesized updates, and a crash mid-batch followed by working calls).
 
 ## F13. App quit
 

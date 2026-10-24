@@ -71,7 +71,7 @@ The types are in [`core/src/types/errors.ts`](../packages/core/src/types/errors.
 | `ENGINE_OUTPUT_MISSING` | Engine reported success but produced no non-empty file | "{engine} produced no output for {name}" | yes |
 | `TIMEOUT` | Step exceeded `timeoutMs` | "{engine} timed out on {name}" | yes |
 | `CANCELLED` | User cancelled | "Cancelled" | yes |
-| `OUTPUT_DIR_NOT_WRITABLE` | Checked at submit | "Can't write to {dir}" | after fix |
+| `OUTPUT_DIR_NOT_WRITABLE` | The output folder can't be written. Checked when the job starts, before any step runs | "Can't write to {dir}" | after fix |
 | `OUTPUT_WRITE_FAILED` | Commit failed, or 999 name conflicts | "Couldn't save {name}" | yes |
 | `DISK_FULL` | ENOSPC anywhere | "Disk full" | after fix |
 | `CORE_CRASHED` | Core host exited while the job was running (set by main) | "Converter process crashed" | yes |
@@ -156,7 +156,7 @@ The types are in [`core/src/types/ipc.ts`](../packages/core/src/types/ipc.ts).
 - The path is a string, absolute, at most 4096 characters, and contains no NUL byte.
 - `fs.realpath` succeeds.
 - For detect and submit inputs, it's a regular file. For `files:expand` it can be a file or a directory. For `outDir` it's a directory.
-- On failure, that file gets `INPUT_NOT_FOUND` or `INPUT_UNREADABLE`, and the batch isn't rejected.
+- On failure, `core:detect` gives that file `INPUT_NOT_FOUND` or `INPUT_UNREADABLE` and the rest go on. `job:submit` rejects the whole call with that error (P36: `SubmitResult` has one id per request, and the renderer detects first, so a bad path at submit is a bug and not a user condition).
 
 ## 8. Settings
 

@@ -79,6 +79,7 @@ export interface HarnessOptions {
   slots?: number;
   availableIds?: string[];
   now?: () => number;
+  resolveOutDir?: (request: JobRequest, outDir: string) => string;
 }
 
 export const harness = async (options: HarnessOptions) => {
@@ -94,7 +95,7 @@ export const harness = async (options: HarnessOptions) => {
     registry,
     graphs: () => ({ available: graphOf(options.availableIds ?? everyId), full: graphOf(everyId) }),
     scheduler,
-    resolveOutDir: () => outDir,
+    resolveOutDir: (request) => options.resolveOutDir?.(request, outDir) ?? outDir,
     ...(options.now === undefined ? {} : { now: options.now }),
   });
 

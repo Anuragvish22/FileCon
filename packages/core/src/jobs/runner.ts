@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { access, mkdir } from 'node:fs/promises';
 import { basename, join, parse } from 'node:path';
 import { CoreFailure, toCoreError } from '../errors.ts';
 import type { Graph } from '../graph/index.ts';
@@ -61,6 +62,21 @@ export const createRunner = (deps: RunnerDeps): Runner => {
   const { runSteps } = createSteps({ registry, scheduler, addNote });
   const plan = (from: Format, to: Format): Route => planRoute(deps, from, to);
 
+  /** The last point where a cancel still leaves no output: once the file is linked, the job is done. */
+  const outDirBeforeCommit = (entry: Entry, request: RunnableRequest): string => {
+    const dir = deps.resolveOutDir(request);
+    if (entry.controller.signal.aborted) throw new CoreFailure('CANCELLED');
+    return dir;
+  };
+
+  /** Checked before any step runs, so a read-only folder fails in a moment and not after minutes of work. */
+  const requireWritableOutDir = async (request: RunnableRequest): Promise<void> => {
+    const dir = deps.resolveOutDir(request);
+    await access(dir, constants.W_OK).catch(() => {
+      throw new CoreFailure('OUTPUT_DIR_NOT_WRITABLE', { dir });
+    });
+  };
+
   const combinerOf = (combinerId: string): Combiner => {
     const item = registry.get(combinerId);
     if (item === undefined || isConverter(item)) throw new CoreFailure('INVALID_REQUEST');
@@ -75,6 +91,7 @@ export const createRunner = (deps: RunnerDeps): Runner => {
     entry.currentSource = request.input;
     const from = await detectInput(request.input);
     const found = plan(from, request.target);
+    await requireWritableOutDir(request);
     setProgress(entry, { unit: 0, total: found.steps.length, fraction: 0 });
     const files = await runSteps({
       entry,
@@ -86,7 +103,7 @@ export const createRunner = (deps: RunnerDeps): Runner => {
       tmpDir,
       report: ({ unit, fraction }) => setProgress(entry, { unit, fraction }),
     });
-    const dir = deps.resolveOutDir(request);
+    const dir = outDirBeforeCommit(entry, request);
     const stem = parse(request.input).name;
     if (files.length === 1 && files[0] !== undefined)
       return [await commitFile({ src: files[0], dir, stem, ext: request.target })];
@@ -112,6 +129,7 @@ export const createRunner = (deps: RunnerDeps): Runner => {
       });
     }
 
+    await requireWritableOutDir(request);
     const parts: string[] = [];
     for (const [index, plan] of plans.entries()) {
       entry.currentSource = plan.input;
@@ -158,7 +176,7 @@ export const createRunner = (deps: RunnerDeps): Runner => {
     return [
       await commitFile({
         src: merged,
-        dir: deps.resolveOutDir(request),
+        dir: outDirBeforeCommit(entry, request),
         stem: `${firstStem} merged`,
         ext: combiner.output,
       }),

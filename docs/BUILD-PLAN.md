@@ -397,10 +397,10 @@ Found while reviewing the running app (screenshots of empty, files, done, failed
     - each discovery failure gives its code, and no English text crosses RPC
     - `progress.ts` unit tests (throttle, trailing flush, never backwards)
 
-#### M1-F4 Failure matrix ☐
-- **Parked to review first:** [P35 calls during restart](PARKED.md#2-items), [P36 one bad input rejects the whole submit](PARKED.md#2-items), [P47 retry only in this session](PARKED.md#2-items)
+#### M1-F4 Failure matrix ☑
+- **Parked to review first:** [P35](PARKED.md#2-items) (already adopted), [P36 one bad input rejects the whole submit](PARKED.md#2-items) (kept, doc corrected), [P47 retry only in this session](PARKED.md#2-items) (kept parked for M1-8)
 - **Depends on:** M1-F3
-- **Files:** `core/test/jobs/failures.test.ts`, `app/test/main/supervisor.test.ts`, `core/src/jobs/runner.ts` (resolved output check), FLOWS F9 and F12 test lists.
+- **Files:** `core/test/jobs/failures.test.ts`, `app/test/main/supervisor.test.ts`, `core/src/jobs/{runner,steps}.ts` (resolved output check, cancel before commit, writable folder check), FLOWS F8, F9 and F12 test lists.
 - **Details:**
   - One table-driven test per subsystem, with every row a fault × a state.
   - `verifyOutputs` resolves symlinks (`realpath`) before the inside-the-temp-dir check, ending its shortcut.

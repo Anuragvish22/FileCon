@@ -299,7 +299,7 @@ Fonts: soffice uses the system's fonts, so a document in a script the machine ha
 3. `files = [input]`. For each step i:
    - `outDir = tmp/step-<index>/`.
    - For each file in `files`, call `converter.convert({ input: file, from, to, outDir: outDir/<fileIndex>/, baseName, options }, ctx)`. When there's one file, use `outDir` directly.
-   - **Postcondition:** each returned path is inside `outDir` and exists with size > 0. Otherwise `ENGINE_OUTPUT_MISSING`.
+   - **Postcondition:** each returned path, after `realpath` (so a symlink out of `outDir` does not count), is inside `outDir` and exists with size > 0. Otherwise `ENGINE_OUTPUT_MISSING`.
    - `files` = every returned path, in order.
 4. Commit: one file uses `commitFile`. Otherwise `commitFolder` ([section 10](#10-output-commit)).
 5. Mark the job `done` with its outputs. Then `finally`: release the slot, `removeDir(tmp)`.
@@ -331,6 +331,7 @@ Fonts: soffice uses the system's fonts, so a document in a script the machine ha
 
 **Timeouts and cancel:**
 - Each step gets its own `AbortController`, linked to the job's controller. A timer of `converter.timeoutMs` plus 4 s per MB of the step's input (at most 30 minutes, `jobs/timeout.ts`) aborts it with the reason `TIMEOUT`. A combiner gets the same limit (the default plus 4 s per MB of its inputs, `jobs/combine.ts`), and a combiner that ignores its signal still ends the job, because the timer rejects the wait.
+- A `cancel` that arrives before the output is linked into place still gives `cancelled` with no output. Once it is linked, the job ends `done`.
 - `cancel` on a queued job removes it from the queue and marks it `cancelled` immediately.
 - `cancel` on a running job aborts. `spawn.ts` kills the process tree, the converter promise rejects, the runner cleans up and then marks the job `cancelled`.
 - In-process engines check `ctx.signal.aborted` between pages or chunks. sharp operations aren't interruptible, so cancel takes effect when the current operation ends.
@@ -343,7 +344,7 @@ Fonts: soffice uses the system's fonts, so a document in a script the machine ha
 
 This section is the "never overwrite" guarantee ([PRD G4](PRD.md#4-goals-and-non-goals)). It's implemented in `jobs/output.ts` (flow: [FLOWS F4](FLOWS.md#f4-single-convert)).
 
-**Destination dir:** the `JobRequest.outDir` if given, otherwise `Settings.output`. Its writability is checked at `submit` with `fs.access(W_OK)`. On failure, `OUTPUT_DIR_NOT_WRITABLE`.
+**Destination dir:** the `JobRequest.outDir` if given, otherwise `Settings.output`. Its writability is checked when the job starts, before any step, with `fs.access(W_OK)`. On failure, `OUTPUT_DIR_NOT_WRITABLE`.
 
 **Safe stem** (`safeStem(name)`, used for every stem and `baseName`): the output folder can be on another file system (a FAT USB stick, a Windows share), so a name that was valid for the source may not be valid there.
 - Replace `< > : " / \ | ? *` and control characters with `_`. Trim trailing dots and spaces.
