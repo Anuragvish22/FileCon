@@ -335,10 +335,133 @@ Split into three changes (a, b, c). Tick this heading when all three are ☑. De
 - **Tests:** `panels.test.tsx` (JobsPanel live region, failed row, Details, done row; Engines set path and guide; Settings theme and accent update `<html>`), `actions.test.ts` (busy submit, retry), `timeout.test.ts`, runner and LibreOffice tests for the scaled limit, `no-raw-colors.test.ts`.
 - **Parked:** [P44](PARKED.md#2-items), [P45](PARKED.md#2-items), [P46](PARKED.md#2-items), [P47](PARKED.md#2-items)
 
+### M1-F Foundation ☐
+Goal: a repo a stranger can open, follow and trust before more features go in. The code is clean and minimal, the UI is designed rather than wireframed, and every failure path is tested. Tick this heading when F1 to F8 are ☑.
+
+Decided at the M1-F review (2026-10-24):
+- **Code is the source of truth for contracts.** Schemas in `core/src/types/` define every type, RPC method, IPC payload, setting and option. CONTRACTS.md describes them and links to the code, and the word-for-word copy goes away (F2).
+- **Process docs stay where they are**: CLAUDE.md, BUILD-PLAN and PARKED remain in the repo, unchanged in role.
+- **New dependencies allowed:** `zod` for schemas; Tailwind v4, Radix primitives (shadcn style) and `lucide-react` icons for the UI.
+- **License: MIT.**
+
+Found while reviewing the running app (screenshots of empty, files, done, failed, locked, Engines and Settings), each fixed by the task named:
+- Nothing visible happens after Convert, because the jobs panel is below the fold (F7).
+- The nav tab and the action button are both labeled "Convert" (F7).
+- Unstyled native controls everywhere (F6 to F8).
+- The 🔒 shows as a blank box on Linux, which has no emoji font (F6).
+- Sizes show as raw bytes, and the unsupported row's columns are out of order (F7).
+- Discovery sends English prose (`override path is not an executable file`), breaking ADR-16 (F3).
+- `sort-arrow-sprite.jpg` is committed at the repo root, probably output from a manual test whose output folder was the repo (F1).
+
+#### M1-F1 Repo front door ☐
+- **Depends on:** M1-7
+- **Files:** `README.md`, `LICENSE`, `package.json` (`license`), `.github/workflows/ci.yml` (Linux only), delete `sort-arrow-sprite.jpg`.
+- **Details:**
+  - README: a one-line pitch, what it does and why it's offline, a screenshot (replaced in F8), the 5-step model (find engines → detect → route → run isolated → commit safely), a short note on how routing works, the never-overwrite guarantee, setup and commands, and links into `docs/`.
+  - Say **isolated**, not sandboxed: engines run as separate processes with a timeout and a private temp dir, under the user's own permissions.
+  - CI runs lint, typecheck, test and `docs:check` on ubuntu with Node 22 and pnpm, so the refactors in F2 and F3 are guarded. M1-8 grows it into the 3-OS matrix.
+- **Tests:**
+  - Happy path: CI is green on a push.
+  - Must also pass: `docs:check` resolves every README link.
+
+#### M1-F2 Schemas as the source of truth ☐
+- **Parked to review first:** [P10](PARKED.md#2-items) (the mirror check it replaces), [P40 renderer shares main's tsconfig](PARKED.md#2-items)
+- **Depends on:** M1-F1
+- **Files:** `core/src/types/*` (zod schemas, types via `z.infer`), `core/src/rpc/protocol.ts`, `core/src/options.ts`, `app/src/main/{ipc,settings}.ts`, CONTRACTS (prose plus links to the code, no copied type blocks), remove `test/tooling/types-mirror.test.ts`, CLAUDE.md and INDEX (the source-of-truth rule), ARCHITECTURE section 15 (ADR-18).
+- **Details:**
+  - One schema per RPC method's params, IPC payload, `Settings` and `ConvertOptions`. The hand-written `fieldsOf` and `stringOf` helpers go.
+  - Wire behavior is unchanged: a schema failure is still `INVALID_REQUEST`, with the same `what` ids for options (`quality-range`…). Settings still drop unknown keys.
+  - The error codes and RPC method list are exported constants, which the docs and tooling tests read.
+- **Tests:**
+  - Happy path: the existing protocol, settings, options and ipc tests pass unchanged.
+  - Must also pass:
+    - every malformed shape those tests cover is still refused with the same code and `what`
+    - unknown keys in settings are dropped
+    - `ipc-channels` and `settings-agree` tooling tests read the exported constants
+
+#### M1-F3 Core tidy-up ☐
+- **Parked to review first:** [P28 nothing emits `log`](PARKED.md#2-items), [P48 GLib spam from sharp](PARKED.md#2-items)
+- **Depends on:** M1-F2
+- **Files:** `core/src/jobs/{runner,progress,plan,spawn}.ts`, `core/src/registry.ts`, `core/src/types/jobs.ts`, `core/src/engines/discovery.ts`, `core/src/index.ts` (delete), the matching app callers, CONTRACTS section 9, `en.json`.
+- **Details:**
+  - Split `runner.ts`: progress throttling and the never-backwards fraction go to `progress.ts`, and `detectInput` plus `planRoute` go to `plan.ts`. The lifecycle and step code stays together.
+  - One shared `TERMINAL_STATES` and `ACTIVE_STATES` in core, used by core, the supervisor and the reducer. `isConverter` lives only in `registry.ts`.
+  - Rename spawn's `createRunner` to `createSpawn`, so only one thing is called runner.
+  - `EngineInfo.error` becomes a code with params (`engine.error.<code>`), so the Engines page text comes from `en.json` (ADR-16).
+  - Combiners get the same scaled timeout as steps.
+  - Keep each file in `jobs/` and `rpc/` under about 250 lines.
+- **Tests:**
+  - Happy path: all runner tests pass unchanged against the split modules.
+  - Must also pass:
+    - a combiner that hangs → `TIMEOUT`, temp dir removed
+    - each discovery failure gives its code, and no English text crosses RPC
+    - `progress.ts` unit tests (throttle, trailing flush, never backwards)
+
+#### M1-F4 Failure matrix ☐
+- **Parked to review first:** [P35 calls during restart](PARKED.md#2-items), [P36 one bad input rejects the whole submit](PARKED.md#2-items), [P47 retry only in this session](PARKED.md#2-items)
+- **Depends on:** M1-F3
+- **Files:** `core/test/jobs/failures.test.ts`, `app/test/main/supervisor.test.ts`, `core/src/jobs/runner.ts` (resolved output check), FLOWS F9 and F12 test lists.
+- **Details:**
+  - One table-driven test per subsystem, with every row a fault × a state.
+  - `verifyOutputs` resolves symlinks (`realpath`) before the inside-the-temp-dir check, ending its shortcut.
+- **Tests:**
+  - Happy path: a batch of 5 with no faults ends with 5 `done`.
+  - Must also pass, each ending with no temp dir, no child process and the source unchanged:
+    - engine exits non-zero, engine hangs past its timeout
+    - input deleted or made unreadable between detect and run
+    - output folder read-only, disk full (`ENOSPC`)
+    - cancel while queued, while in step 1 of 2, during commit
+    - core host killed mid-batch → every active job `CORE_CRASHED`, then new jobs work after restart
+    - a converter that writes a symlink pointing outside its out dir → `ENGINE_OUTPUT_MISSING`
+
+#### M1-F5 UI design pass ☐
+- **Parked to review first:** [P41 Convert-page gaps](PARKED.md#2-items), [P42 lone PDF message](PARKED.md#2-items), [P9 font note](PARKED.md#2-items)
+- **Depends on:** M1-7 (can run alongside F2 to F4)
+- **Files:** UI-DESIGN sections 3 to 6 (docs only).
+- **Details:**
+  - One screen for the main job: the drop zone shrinks once files exist; file rows have one fixed column order (name, format badge, size in KB/MB, status, remove); targets are grouped chips; options appear only for the chosen target; a sticky bottom bar holds Save to and the Convert button; jobs show in a panel that stays visible after Convert.
+  - The nav names pages, not actions, so "Convert" labels only the button.
+  - A state matrix: rows are UI elements, columns are app states (empty, detecting, ready, busy, running, done, partial, failed, cancelled, locked, core unavailable).
+  - Icons from `lucide-react` replace emoji.
+- **Gate:** the user approves the wireframes and the state matrix before F6.
+
+#### M1-F6 UI foundations ☐
+- **Parked to review first:** [P43 dev CSP](PARKED.md#2-items)
+- **Depends on:** M1-F5
+- **Files:** `app/package.json`, `app/electron.vite.config.ts`, `renderer/styles.css`, `renderer/theme/`, `renderer/components/ui/` (Button, Badge, Chip, Select, Checkbox, RadioGroup, Progress, Tooltip, Dialog), ARCHITECTURE sections 13 and 15 (ADR-19), `eslint.config.js`.
+- **Details:**
+  - Tailwind v4 with its theme read from the existing tokens, so colors still come only from tokens and the contrast test still applies.
+  - Primitives are copied into the repo shadcn-style (Radix underneath), not imported as a kit.
+  - Logical properties only: Tailwind's `ms-`/`me-`/`ps-`/`pe-` utilities; lint refuses `ml-`/`mr-`/`pl-`/`pr-`/`left-`/`right-`.
+- **Tests:**
+  - Happy path: each primitive renders, takes focus and has its accessible name.
+  - Must also pass: `tokens.test.ts` (4.5:1, both themes, every accent), `no-raw-colors`, `jsx-literals`, the new lint rule.
+
+#### M1-F7 Convert screen rebuild ☐
+- **Depends on:** M1-F6
+- **Files:** `renderer/components/*`, `renderer/pages/ConvertPage.tsx`, `renderer/format.ts` (human sizes), `en.json`. Store, reducer, selectors and actions stay, changed only where the state matrix needs it.
+- **Details:** build exactly the F5 wireframes and state matrix.
+- **Tests:**
+  - Happy path: drop 3 files → pick a chip → Convert → the jobs panel is visible and shows 3 done rows with Show in folder.
+  - Must also pass:
+    - every cell of the state matrix (one test per column at least)
+    - keyboard-only flow (Tab, arrows, Enter, Space, Alt+Arrow reorder)
+    - a mismatch row, an unsupported row, a locked chip that opens Engines
+    - `ui-core-targets.test.ts` still feeds the real `targets()` result
+
+#### M1-F8 Engines, Settings and verification ☐
+- **Parked to review first:** [P44 Settings gaps](PARKED.md#2-items), [P45 install progress](PARKED.md#2-items)
+- **Depends on:** M1-F7
+- **Files:** `renderer/pages/{EnginesPage,SettingsPage}.tsx`, README screenshots, the M1 smoke checklist (section 3).
+- **Details:** rebuilt on the F6 primitives. Then a manual pass: the smoke checklist on Linux, keyboard only, Orca screen reader, both themes and every accent.
+- **Tests:**
+  - Happy path: set an engine path, change theme and accent, choose an output folder.
+  - Must also pass: an invalid engine path shows its translated error; the existing `panels.test.tsx` cases.
+
 ### M1-8 CI matrix ☐
 - **Parked to review first:** [P33 app modules on Windows and macOS](PARKED.md#2-items), [P37 packaging: `sharp` unpacked, Electron glue untested](PARKED.md#2-items), [P19 find LibreOffice on any Windows drive](PARKED.md#2-items), [P22 pdf-lib is unmaintained](PARKED.md#2-items), [P23 field-level metadata check](PARKED.md#2-items), [P24 sharp on Windows and macOS](PARKED.md#2-items), [P27 LibreOffice converter on Windows and macOS](PARKED.md#2-items)
-- **Depends on:** M1-7
-- **Files:** `.github/workflows/ci.yml`
+- **Depends on:** M1-F
+- **Files:** `.github/workflows/ci.yml` (grows the Linux workflow from M1-F1)
 - **Details:** ubuntu, windows and macos, with Node 22 and pnpm: lint, typecheck, test, `docs:check`. LibreOffice is installed on ubuntu only, so that its golden tests run there. Installers come in M1.2 ([TRD section 7](TRD.md#7-build-and-release)).
 
 **M1 exit:**
