@@ -14,6 +14,7 @@ Headings are numbered and stable. If you rename or renumber one, update this fil
 | [CONVERSIONS](CONVERSIONS.md) | **At-a-glance From → To table, plus a checklist of every conversion by phase.** If it's not there, it's out of scope |
 | [UI-DESIGN](UI-DESIGN.md) | Screens, wireframes, states, accessibility |
 | [PARKED](PARKED.md) | Ideas not built yet, each with when to revisit it |
+| [Test cases](test-cases/README.md) | Bullet-point checklist of what must hold, per area, split into shared / Windows / Linux / Mac; each bullet becomes a test |
 
 ## By task
 
