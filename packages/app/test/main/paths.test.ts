@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -9,7 +9,7 @@ let file = '';
 let dir = '';
 
 beforeAll(async () => {
-  root = await mkdtemp(join(tmpdir(), 'filecon-paths-'));
+  root = await realpath(await mkdtemp(join(tmpdir(), 'filecon-paths-')));
   file = join(root, 'a.png');
   dir = join(root, 'sub');
   await writeFile(file, 'x');

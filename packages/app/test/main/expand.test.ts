@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -6,7 +6,7 @@ import { expandPaths } from '../../src/main/expand.ts';
 
 let dir = '';
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'filecon-expand-'));
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'filecon-expand-')));
 });
 afterEach(() => rm(dir, { recursive: true, force: true }));
 

@@ -1,5 +1,5 @@
 import { appendFile, readdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Converter } from '../../src/types/index.ts';
 import { fakeCombiner, fakeConverter, writeOutput } from '../fakes.ts';
@@ -134,7 +134,7 @@ describe('runner: happy path', () => {
 
     expect(job.state).toBe('done');
     expect(job.outputs).toEqual([join(outDir, 'first merged.pdf')]);
-    expect(received.map((part) => part.split('/').at(-1))).toEqual([
+    expect(received.map((part) => basename(part))).toEqual([
       'first.pdf',
       'second.pdf',
       'third.pdf',

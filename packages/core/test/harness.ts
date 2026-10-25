@@ -33,7 +33,7 @@ export const useWorkDir = (): void => {
     workDir = await mkdtemp(join(tmpdir(), 'filecon-test-'));
   });
   afterAll(async () => {
-    await rm(workDir, { recursive: true, force: true });
+    await rm(workDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); // Windows may still hold a handle
   });
 };
 

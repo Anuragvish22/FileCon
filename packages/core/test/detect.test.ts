@@ -124,7 +124,8 @@ describe('detect: must also pass', () => {
     expect((await detect(folder)).error?.code).toBe('INPUT_UNREADABLE');
   });
 
-  it.skipIf(process.getuid?.() === 0)(
+  // chmod does not remove read access on Windows.
+  it.skipIf(process.getuid?.() === 0 || process.platform === 'win32')(
     'a file without read permission is INPUT_UNREADABLE',
     async () => {
       const path = await copyAs('png', 'sample.png', 'locked.png');

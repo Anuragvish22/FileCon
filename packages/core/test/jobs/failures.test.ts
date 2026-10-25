@@ -27,7 +27,8 @@ const BATCH = 5;
 const READ_ONLY = 0o555;
 const NO_ACCESS = 0o000;
 const ALL_ACCESS = 0o755;
-const isRoot = process.getuid?.() === 0; // root ignores file modes
+// root ignores file modes, and chmod does not remove access on Windows
+const isRoot = process.getuid?.() === 0 || process.platform === 'win32';
 
 const aliveAfter = (pid: number): boolean => {
   try {

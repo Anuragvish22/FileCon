@@ -1,7 +1,7 @@
 import * as realFs from 'node:fs/promises';
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { CoreFailure } from '../../src/errors.ts';
 import { commitFile, commitFolder, safeStem, type FsOps } from '../../src/jobs/output.ts';
@@ -258,7 +258,7 @@ describe('commitFolder', () => {
   it('keeps real page numbers for a page range', async () => {
     const files = await makeTempPages([2, 3, 5]);
     const committed = await commitFolder({ files, dir: outDir, stem: 'report', ext: 'png' });
-    expect(committed.slice(1).map((path) => path.split('/').at(-1))).toEqual([
+    expect(committed.slice(1).map((path) => basename(path))).toEqual([
       'page-002.png',
       'page-003.png',
       'page-005.png',
@@ -277,7 +277,7 @@ describe('commitFolder', () => {
   it('keeps the names an extractor gave, and its own extensions', async () => {
     const files = await Promise.all([makeTemp('page-003-01.jpg'), makeTemp('page-003-02.png')]);
     const committed = await commitFolder({ files, dir: outDir, stem: 'book', ext: 'images' });
-    expect(committed.slice(1).map((path) => path.split('/').at(-1))).toEqual([
+    expect(committed.slice(1).map((path) => basename(path))).toEqual([
       'page-003-01.jpg',
       'page-003-02.png',
     ]);
@@ -290,7 +290,7 @@ describe('commitFolder', () => {
     const files = [join(tempDir, 'a', 'out.png'), join(tempDir, 'b', 'out.png')];
     await Promise.all(files.map((file) => writeFile(file, file)));
     const committed = await commitFolder({ files, dir: outDir, stem: 'merged', ext: 'png' });
-    expect(committed.slice(1).map((path) => path.split('/').at(-1))).toEqual([
+    expect(committed.slice(1).map((path) => basename(path))).toEqual([
       'page-001.png',
       'page-002.png',
     ]);
@@ -304,7 +304,7 @@ describe('commitFolder', () => {
     expect(names).toHaveLength(BIG_BOOK_PAGES);
     expect(names[0]).toBe('page-0001.png');
     expect(names.at(-1)).toBe('page-1800.png');
-    expect(committed.slice(1).map((path) => path.split('/').at(-1))).toEqual(names);
+    expect(committed.slice(1).map((path) => basename(path))).toEqual(names);
   });
 
   it('removes what it created when a file fails midway, and keeps the temp files', async () => {

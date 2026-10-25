@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { EngineInfo, Settings } from '@filecon/core/types';
@@ -11,7 +11,7 @@ import { createTranslator } from '../../src/shared/i18n.ts';
 let dir = '';
 let file = '';
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'filecon-ipc-'));
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'filecon-ipc-')));
   file = join(dir, 'in.png');
   await writeFile(file, 'x');
 });

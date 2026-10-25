@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
-import { basename } from 'node:path';
+import { basename, extname } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { CoreFailure } from '../errors.ts';
 
@@ -59,7 +59,7 @@ export const createSpawn =
   (deps: SpawnDeps) =>
   ({ bin, args, signal, timeoutMs, cwd, onStdout }: RunRequest): Promise<RunResult> =>
     new Promise((resolve, reject) => {
-      const engine = basename(bin);
+      const engine = basename(bin, extname(bin)); // `node.exe` and `node` are one engine id
       if (signal.aborted) {
         reject(new CoreFailure('CANCELLED', { engine }));
         return;

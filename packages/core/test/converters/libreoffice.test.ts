@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync } from 'node:fs';
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { fileTypeFromFile } from 'file-type';
 import { PDFDocument } from 'pdf-lib';
@@ -291,7 +292,7 @@ describe('libreoffice converter: failures of the engine process', () => {
     await convert(input, 'docx', { using: recording }).catch(() => undefined);
     expect(seen?.bin).toBe('/fake/soffice');
     expect(seen?.args.slice(0, 2)).toEqual(['--headless', '--norestore']);
-    expect(seen?.args[2]).toBe(`-env:UserInstallation=file://${fakeProfile}`);
+    expect(seen?.args[2]).toBe(`-env:UserInstallation=${pathToFileURL(fakeProfile).href}`);
     expect(seen?.args.slice(3, 6)).toEqual(['--convert-to', 'pdf', '--outdir']);
     expect(seen?.args.at(-1)).toBe(input);
   });
