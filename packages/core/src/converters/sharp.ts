@@ -74,7 +74,11 @@ type SharpModule = typeof import('sharp');
 let loading: Promise<SharpModule['default']> | undefined;
 // Loaded on first use, so a missing or broken native binary shows as "not available" instead of crashing the host.
 const loadSharp = (): Promise<SharpModule['default']> =>
-  (loading ??= import('sharp').then((module) => module.default));
+  (loading ??= import('sharp').then((module) => {
+    // sharp's file cache keeps images open, which on Windows locks the source and the temp dir (EBUSY).
+    module.default.cache({ files: 0 });
+    return module.default;
+  }));
 
 export const sharpConverter: Converter = {
   id: 'sharp',

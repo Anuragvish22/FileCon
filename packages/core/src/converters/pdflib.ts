@@ -62,6 +62,7 @@ const placeImage = (image: Size, pageSize: ConvertOptions['pageSize']): Placemen
 const uprightJpg = async (path: string): Promise<Uint8Array> => {
   try {
     const sharp = (await import('sharp')).default;
+    sharp.cache({ files: 0 }); // same reason as in sharp.ts: no open handles left on Windows
     const meta = await sharp(path).metadata();
     if ((meta.orientation ?? NO_ORIENTATION) === NO_ORIENTATION) return await readFile(path);
     return await sharp(path).autoOrient().jpeg({ quality: UPRIGHT_JPEG_QUALITY }).toBuffer();
