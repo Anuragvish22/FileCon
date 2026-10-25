@@ -15,7 +15,7 @@ A plain checklist of what must hold, written before the tests. One bullet is one
 - `- [ ]` is a case with no test yet. `- [x]` has one, written as the explanation, then the test file and the test's real name: `` `spawn.test.ts`: "a timeout is TIMEOUT and the process is gone" ``. Search the name with `grep -rn "<name>" packages test` to find it.
 - A case says what is true, not how to test it: "an engine installed in a custom folder is found", not "mock `exec`".
 - A bug that was found gets its case added here first, then its test (CLAUDE.md: a bug fix needs a test that fails before the fix).
-- Known gaps point at their parked item, for example P57 or P58 in [PARKED](../PARKED.md).
+- Known gaps point at their parked item, for example P58 in [PARKED](../PARKED.md).
 
 ## Automated and manual
 

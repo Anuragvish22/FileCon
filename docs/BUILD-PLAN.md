@@ -188,7 +188,7 @@ Split into three changes (a, b, c) at M1-4, because it was too much for one. Tic
 - **Dependencies to add (approved):** `sharp` (with 4a), `pdf-lib` (with 4b).
 
 #### M1-4a Sharp converter and the contract helper ☑
-- **Files:** `core/src/converters/sharp.ts`, `core/src/options.ts` (`validateOptions`), `core/test/contract.ts` (`runConverterContract`), `core/test/harness.ts` (shared runner harness, moved out of `runner.test.ts`)
+- **Files:** `core/src/converters/sharp/converter.ts`, `core/src/options.ts` (`validateOptions`), `core/test/contract.ts` (`runConverterContract`), `core/test/harness.ts` (shared runner harness, moved out of `runner.test.ts`)
 - **Details:** jpg, png, webp, avif, tiff and gif between each other, with `quality`.
   - Self-edges jpg → jpg, webp → webp and avif → avif (cost 3, `quality`, lossy `reencoded`). Self-edges png → png, tiff → tiff and gif → gif at cost 2, no `lossy` id (for resize and grayscale).
   - Scales down to the target's size limit with `ctx.note("downscaled")` ([ARCHITECTURE section 8](ARCHITECTURE.md#8-routing-algorithm)).
@@ -320,7 +320,7 @@ Split into three changes (a, b, c). Tick this heading when all three are ☑. De
 #### M1-7b Convert page ☑
 - **Parked to review first:** [P9](PARKED.md#2-items) (fixed note only), [P20](PARKED.md#2-items), [P25](PARKED.md#2-items) (jpg background built, concurrency stays parked), [P30](PARKED.md#2-items), [P39](PARKED.md#2-items) (adopted: `@filecon/core/formats`)
 - **Depends on:** M1-7a
-- **Files:** `renderer/components/{DropZone,FileList,TargetPicker,RouteHint,OptionsBar,OutputChooser,MergeToggle,ConvertButton}.tsx`, `renderer/pages/ConvertPage.tsx`, `renderer/format.ts`; in core `options.ts` and `converters/sharp.ts` for the new `background` option (CONTRACTS section 2).
+- **Files:** `renderer/components/{DropZone,FileList,TargetPicker,RouteHint,OptionsBar,OutputChooser,MergeToggle,ConvertButton}.tsx`, `renderer/pages/ConvertPage.tsx`, `renderer/format.ts`; in core `options.ts` and `converters/sharp/converter.ts` for the new `background` option (CONTRACTS section 2).
 - **Tests:** `convert.test.tsx` (empty state, TargetPicker arrows, Enter and typeahead, locked target can't be submitted, merge toggle rule, one request per file, Alt+Arrow reorder), `store.test.ts` (`pagesValid`), sharp golden for `background`.
 - **Parked:** [P41 drag reorder, busy Convert button, step 2 of mismatch tooltip](PARKED.md#2-items)
 

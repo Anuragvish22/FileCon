@@ -27,7 +27,7 @@ Test entries read: `file`: "test name". Files are under `packages/*/test/`.
 - [x] Windows reserved names, with or without an extension, in any case, are marked. `output.test.ts`: "marks Windows reserved names, with or without an extension, in any case"
 - [x] A long name is cut to 200 bytes without breaking a character. `output.test.ts`: "cuts to 200 bytes without breaking a character"
 - [x] An empty result becomes "file". `output.test.ts`: "turns an empty result into \"file\""
-- [x] A source name is only used for the output's stem. `sharp.test.ts`: "a source name is only used for the output stem"
+- [x] A source name is only used for the output's stem. `sharp/converter.test.ts`: "a source name is only used for the output stem"
 - [x] The output is named after the input, and nothing is left under LibreOffice's own name. `libreoffice.test.ts`: "names the output after baseName, and leaves nothing under soffice's own name"
 - [x] A merge is named "first stem merged.pdf". `merge-pdf.test.ts`: "a real job merges a png, a pdf and a jpg into \"<first stem> merged.pdf\""
 

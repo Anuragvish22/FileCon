@@ -26,7 +26,7 @@ flowchart LR
   M -- "RPC (parentPort)" --> S
   S -- "events" --> M -- "webContents.send" --> R
   C -- "spawn, args array" --> E
-  C -. "in-process" .-> L["sharp · pdf-lib"]
+  C -. "in-process" .-> L["pdf-lib"]
 ```
 
 ## 2. Processes
@@ -36,7 +36,7 @@ flowchart LR
 | **Renderer** | UI state, user intent, rendering | Touch `fs`, spawn anything, see Node APIs. It gets paths only from drop (`webUtils`) or dialogs |
 | **Preload** | The typed `window.filecon` bridge ([CONTRACTS section 7](CONTRACTS.md#7-ipc-renderer--main)) | Contain logic beyond forwarding |
 | **Main** | Window lifecycle, single-instance lock, native dialogs, `settings.json`, path validation, folder expansion, `shell:reveal`, the core supervisor, the log file | Run conversions, load engines, or block for more than a few ms |
-| **Core host** | Detection, graph, planning, scheduling, temp dirs, output commit, engine discovery, in-process engines (sharp, pdf-lib) | Import `electron`, or trust paths without re-checking that they exist |
+| **Core host** | Detection, graph, planning, scheduling, temp dirs, output commit, engine discovery, in-process engine (pdf-lib) | Import `electron`, or trust paths without re-checking that they exist |
 | **Engine process** | One conversion step | Write outside its step `outDir`. That's enforced by args and cwd, not by trust |
 
 The core host is a plain Node entry (`core/src/host.ts`). Electron starts it with `utilityProcess.fork`. A Tauri build would start the same code as a Node sidecar, using the same protocol over stdio ([ADR-13](#15-adr-log)).
@@ -75,7 +75,7 @@ fileCon/
 │   │   ├── rpc/
 │   │   │   ├── protocol.ts       envelope guards, method/event names
 │   │   │   └── server.ts         dispatch methods → modules, emit events
-│   │   ├── converters/           sharp.ts · pdflib.ts · libreoffice.ts · poppler.ts · …
+│   │   ├── converters/           sharp/ · pdflib.ts · libreoffice.ts · poppler.ts · …
 │   │   ├── combiners/            merge-pdf.ts
 │   │   ├── extractors/           pdfimages.ts
 │   │   └── pages.ts              parse / normalize / bound-check the `pages` option
@@ -334,7 +334,8 @@ Fonts: soffice uses the system's fonts, so a document in a script the machine ha
 - A `cancel` that arrives before the output is linked into place still gives `cancelled` with no output. Once it is linked, the job ends `done`.
 - `cancel` on a queued job removes it from the queue and marks it `cancelled` immediately.
 - `cancel` on a running job aborts. `spawn.ts` kills the process tree, the converter promise rejects, the runner cleans up and then marks the job `cancelled`.
-- In-process engines check `ctx.signal.aborted` between pages or chunks. sharp operations aren't interruptible, so cancel takes effect when the current operation ends.
+- In-process engines (pdf-lib) check `ctx.signal.aborted` between pages or chunks.
+- sharp runs in a child process (`converters/sharp/worker.ts`, started through `spawn.ts` with the host's own executable as plain node), because libvips can't be interrupted: cancel and timeout kill it, so the CPU use stops with the job. Its request goes in as JSON in argv and its notes come back as JSON on stdout.
 
 **Temp hygiene:**
 - `sweep(24 h)` runs at `init` and removes `filecon-*` dirs whose mtime is older than 24 h.

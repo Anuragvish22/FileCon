@@ -10,7 +10,7 @@ Test entries read: `file`: "test name". Files are under `packages/*/test/`.
 - [x] Two jobs for the same name never replace an existing file. `output.test.ts`: "numbers the name on conflict and never touches the existing file"; "the no-link fallback still never replaces an existing file"
 - [x] Rollback never deletes a folder it did not create. `output.test.ts`: "rollback never deletes a folder it did not create"
 - [x] Removing a temp folder only touches the job's own folder and old `filecon-*` folders. `tmp.test.ts`: "removes only old filecon-* dirs"
-- [x] A same-format JPG to JPG gets a new name ("stem (1).jpg"), so the source is not overwritten. `sharp.test.ts`: "jpg → jpg at quality 40 is a valid, smaller jpg named \"<stem> (1).jpg\""
+- [x] A same-format JPG to JPG gets a new name ("stem (1).jpg"), so the source is not overwritten. `sharp/converter.test.ts`: "jpg → jpg at quality 40 is a valid, smaller jpg named \"<stem> (1).jpg\""
 - [x] Reveal in folder only works for a path a job produced. `ipc.test.ts`: "reveals only a path that a job produced"
 - [x] A symlink to a file is followed for reading. `detect.test.ts`: "a symlink to a file is followed"; `expand.test.ts`: "skips hidden entries, linked folders and bad paths, but follows a linked file"
 - [ ] After success, cancel and timeout in the real runner, the source has the same bytes and modified time

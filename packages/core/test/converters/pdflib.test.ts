@@ -4,7 +4,7 @@ import { fileTypeFromFile } from 'file-type';
 import sharp, { type Sharp } from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { pdflibConverter } from '../../src/converters/pdflib.ts';
-import { sharpConverter } from '../../src/converters/sharp.ts';
+import { sharpConverter } from '../../src/converters/sharp/converter.ts';
 import { buildGraph, route } from '../../src/graph/index.ts';
 import type { ConvertOptions, Format, JobCtx } from '../../src/types/index.ts';
 import { runConverterContract } from '../contract.ts';

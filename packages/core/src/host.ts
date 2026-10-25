@@ -1,7 +1,7 @@
 import { mergePdf } from './combiners/merge-pdf.ts';
 import { createLibreOffice } from './converters/libreoffice.ts';
 import { pdflibConverter } from './converters/pdflib.ts';
-import { sharpConverter } from './converters/sharp.ts';
+import { sharpConverter } from './converters/sharp/converter.ts';
 import { discoverAll } from './engines/discovery.ts';
 import { ENGINE_SPECS } from './engines/specs.ts';
 import { createRegistry, type Registry } from './registry.ts';

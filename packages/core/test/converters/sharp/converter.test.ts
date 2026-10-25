@@ -1,20 +1,30 @@
-import { readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { basename, join } from 'node:path';
 import { fileTypeFromFile } from 'file-type';
 import sharp, { type FormatEnum, type Sharp } from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { sharpConverter } from '../../src/converters/sharp.ts';
-import { canonical } from '../../src/formats.ts';
-import type { ConvertOptions, Format, JobCtx, StepRequest } from '../../src/types/index.ts';
-import { runConverterContract } from '../contract.ts';
-import { expectNoTmp, fixture, harness, useWorkDir, workDirPath, writeSource } from '../harness.ts';
+import { sharpConverter } from '../../../src/converters/sharp/converter.ts';
+import { canonical } from '../../../src/formats.ts';
+import type { ConvertOptions, Format, JobCtx, StepRequest } from '../../../src/types/index.ts';
+import { runConverterContract } from '../../contract.ts';
+import {
+  expectNoTmp,
+  fixture,
+  harness,
+  useWorkDir,
+  workDirPath,
+  writeSource,
+} from '../../harness.ts';
 
 const SMALL = { width: 64, height: 32 };
 const NOISE_SIZE = { width: 400, height: 300 };
 const WIDE = { width: 20000, height: 10 };
 const WEBP_LIMIT = 16383;
 const LOW_QUALITY = 40;
+const SLOW_AVIF_SIZE = { width: 4000, height: 3000 };
+const CANCEL_AFTER_MS = 300;
+const SETTLE_MS = 3000;
 const TRUNCATED_BYTES = 64;
 const IMAGE_FORMATS: Format[] = ['jpg', 'png', 'webp', 'avif', 'tiff', 'gif'];
 const GPS_IFD_POINTER = Buffer.from([0x25, 0x88]); // tag 0x8825 in little-endian TIFF/EXIF
@@ -134,6 +144,35 @@ describe.skipIf(!(await sharpConverter.available()))('sharp converter', () => {
   });
 
   describe('must also pass', () => {
+    it('a cancel mid-conversion stops the work: CANCELLED at once and no output appears later (P57)', async () => {
+      const input = await writeSource(
+        'slow.png',
+        await sharp(randomBytes(SLOW_AVIF_SIZE.width * SLOW_AVIF_SIZE.height * 3), {
+          raw: { ...SLOW_AVIF_SIZE, channels: 3 },
+        })
+          .png({ compressionLevel: 0 })
+          .toBuffer(),
+      );
+      const outDir = join(workDirPath(), 'sharp-cancel');
+      await mkdir(outDir, { recursive: true });
+      const controller = new AbortController();
+      const request: StepRequest = {
+        input,
+        from: 'png',
+        to: 'avif',
+        outDir,
+        baseName: 'out',
+        options: {},
+      };
+      const conversion = sharpConverter.convert(request, { ...ctxOf(), signal: controller.signal });
+      const outcome = expect(conversion).rejects.toMatchObject({ error: { code: 'CANCELLED' } });
+      setTimeout(() => controller.abort(), CANCEL_AFTER_MS);
+      await outcome;
+      // An in-process encode would run on and write its file after the cancel.
+      await new Promise((settle) => setTimeout(settle, SETTLE_MS));
+      expect(await readdir(outDir)).toEqual([]);
+    }, 30_000);
+
     it('a corrupt file is ENGINE_FAILED and leaves no temp dir', async () => {
       const { submitOne } = await harness({ converters: [sharpConverter] });
       const whole = await readFile(fixture('png', 'sample.png'));

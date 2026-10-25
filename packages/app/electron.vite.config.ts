@@ -7,10 +7,11 @@ export default defineConfig({
   main: {
     build: {
       rollupOptions: {
-        // The core host is a second entry: utilityProcess forks out/main/coreHost.js.
+        // The core host is a second entry: utilityProcess forks out/main/coreHost.js. sharp runs in a third, a killable child.
         input: {
           index: resolve(import.meta.dirname, 'src/main/index.ts'),
           coreHost: resolve(import.meta.dirname, '../core/src/hostEntry.ts'),
+          sharpWorker: resolve(import.meta.dirname, '../core/src/converters/sharp/worker.ts'),
         },
         external: ['sharp'],
       },

@@ -26,7 +26,7 @@ Test entries read: `file`: "test name". Files are under `packages/*/test/`.
 
 - [x] Hidden entries and linked folders are skipped, so a loop of links cannot run forever; at most 1,000 files are taken. `expand.test.ts`: "skips hidden entries, linked folders and bad paths, but follows a linked file"; "stops at 1000 files and says so"
 - [x] A file that lies about its type is treated as its real type or rejected: a `.jpg` that is WebP, text named `.jpg`, an SVG without `<svg`, a zip with a wrong extension. `detect.test.ts`: four tests under "detect: must also pass"
-- [x] A corrupt picture or PDF fails with a clear code. `sharp.test.ts`: "a corrupt file is ENGINE_FAILED and leaves no temp dir"; `merge-pdf.test.ts`: "a corrupt input is ENGINE_FAILED and names the file"
+- [x] A corrupt picture or PDF fails with a clear code. `sharp/converter.test.ts`: "a corrupt file is ENGINE_FAILED and leaves no temp dir"; `merge-pdf.test.ts`: "a corrupt input is ENGINE_FAILED and names the file"
 - [x] An encrypted PDF is `INPUT_ENCRYPTED`. `merge-pdf.test.ts`: "an encrypted input is INPUT_ENCRYPTED"
 - [ ] A file name starting with `-` is not read by the engine as an option (per converter)
 - [ ] A decompression bomb (tiny file, huge picture) fails with a clear code, not memory exhaustion

@@ -24,7 +24,7 @@ Test entries read: `file`: "test name". Files are under `packages/*/test/`.
 - [x] Removing a folder that is already gone is not an error. `tmp.test.ts`: "removing a dir that is already gone is not an error"
 - [x] On the next start, only old `filecon-*` folders left by a crash are removed. `tmp.test.ts`: "removes only old filecon-* dirs"
 - [x] A whole LibreOffice job through the runner leaves no temp folder. `libreoffice.test.ts`: "a whole job through the runner leaves no temp dir"
-- [x] A corrupt picture or PDF fails and leaves no temp folder. `sharp.test.ts`: "a corrupt file is ENGINE_FAILED and leaves no temp dir"; `pdflib.test.ts`: "a corrupt jpg is ENGINE_FAILED and leaves no temp dir"
+- [x] A corrupt picture or PDF fails and leaves no temp folder. `sharp/converter.test.ts`: "a corrupt file is ENGINE_FAILED and leaves no temp dir"; `pdflib.test.ts`: "a corrupt jpg is ENGINE_FAILED and leaves no temp dir"
 
 ### Processes
 
@@ -49,7 +49,7 @@ Test entries read: `file`: "test name". Files are under `packages/*/test/`.
 - [ ] The row leaves the "running" state within a second of pressing X, even for a long job
 - [ ] Quitting the app during a job removes its temp folders and kills engine processes
 - [ ] Cancel during a merge removes every part file and the half-built output
-- [ ] Known gap: sharp may keep using CPU after cancel because it cannot be interrupted (parked: P57)
+- [x] A cancel in the middle of a sharp conversion rejects with `CANCELLED` and nothing is written later, because sharp runs in a child process that is killed. `sharp/converter.test.ts`: "a cancel mid-conversion stops the work: CANCELLED at once and no output appears later (P57)"
 
 ## Windows-specific
 
@@ -70,7 +70,7 @@ Test entries read: `file`: "test name". Files are under `packages/*/test/`.
 
 ## Shared across all platforms
 
-- [ ] Real GIF to AVIF, press X at 10 s: the row stops within a second, and the system monitor shows the CPU settle (P57)
+- [ ] Real GIF to AVIF, press X at 10 s: the row stops within a second, and the system monitor shows the CPU settle (the child process is killed; checked by a test only through its output)
 - [ ] Real DOCX to PDF, press Cancel all: no `soffice` left in the process list
 - [ ] Press X, Clear and Cancel all in turn during one long batch: each does what its label says
 - [ ] Sleep the computer during a job and wake it: the job finishes or fails clearly, with no stuck row

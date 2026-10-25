@@ -14,6 +14,7 @@ export interface RunRequest {
   signal: AbortSignal;
   timeoutMs: number;
   cwd?: string;
+  env?: Record<string, string>; // added to this process's environment
   onStdout?: (chunk: string) => void;
 }
 
@@ -57,7 +58,7 @@ const keepTail = (tail: Buffer, chunk: Buffer): Buffer => {
 
 export const createSpawn =
   (deps: SpawnDeps) =>
-  ({ bin, args, signal, timeoutMs, cwd, onStdout }: RunRequest): Promise<RunResult> =>
+  ({ bin, args, signal, timeoutMs, cwd, env, onStdout }: RunRequest): Promise<RunResult> =>
     new Promise((resolve, reject) => {
       const engine = basename(bin, extname(bin)); // `node.exe` and `node` are one engine id
       if (signal.aborted) {
@@ -70,6 +71,7 @@ export const createSpawn =
         detached: deps.platform !== WINDOWS,
         windowsHide: true,
         cwd,
+        env: env === undefined ? undefined : { ...process.env, ...env },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
