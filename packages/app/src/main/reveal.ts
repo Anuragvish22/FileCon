@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
-import { dirname, sep } from 'node:path';
+// posix on purpose: the path is a Linux path, and the default `node:path` follows the host OS (tests run on Windows too)
+import { dirname, sep } from 'node:path/posix';
 
 export interface RevealShell {
   showItemInFolder: (path: string) => void;
