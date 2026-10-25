@@ -9,7 +9,8 @@ export const makeJobDir = (jobId: string): Promise<string> =>
   mkdtemp(join(tmpdir(), `${JOB_DIR_PREFIX}${jobId}-`));
 
 export const removeDir = (dirPath: string): Promise<void> =>
-  rm(dirPath, { recursive: true, force: true });
+  // Retries because Windows can hold a handle on a just-closed file for a moment (EBUSY).
+  rm(dirPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 
 /** Removes job dirs a dead host left behind. `root` is only for tests. */
 export const sweep = async (olderThanMs: number, root = tmpdir()): Promise<void> => {

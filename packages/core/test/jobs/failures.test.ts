@@ -21,6 +21,8 @@ import {
 useWorkDir();
 
 const ENGINE_TIMEOUT_MS = 400;
+// Starting a node child and killing its tree takes several seconds on Windows runners.
+const SLOW_PROCESS_TIMEOUT_MS = 30_000;
 const ENGINE_BIN = process.execPath;
 const CHILD_START_TIMEOUT_MS = 5_000;
 const BATCH = 5;
@@ -197,28 +199,32 @@ const rows: Row[] = [
 const dirContents = async (dir: string): Promise<string[]> => readdir(dir);
 
 describe('failure matrix: one job, one fault', () => {
-  it.each(rows.filter((row) => row.skip !== true))('$fault', async (row) => {
-    const arranged = await row.arrange();
-    const { submitOne, outDir } = await harness({
-      converters: arranged.converters,
-      ...(arranged.resolveOutDir === undefined
-        ? {}
-        : {
-            resolveOutDir: (_request, defaultDir) =>
-              arranged.resolveOutDir?.(defaultDir) ?? defaultDir,
-          }),
-    });
-    const before = await readFile(arranged.input).catch(() => undefined);
-    const job = await submitOne(convertRequest(arranged.input, 'png'));
+  it.each(rows.filter((row) => row.skip !== true))(
+    '$fault',
+    async (row) => {
+      const arranged = await row.arrange();
+      const { submitOne, outDir } = await harness({
+        converters: arranged.converters,
+        ...(arranged.resolveOutDir === undefined
+          ? {}
+          : {
+              resolveOutDir: (_request, defaultDir) =>
+                arranged.resolveOutDir?.(defaultDir) ?? defaultDir,
+            }),
+      });
+      const before = await readFile(arranged.input).catch(() => undefined);
+      const job = await submitOne(convertRequest(arranged.input, 'png'));
 
-    expect(job.state).toBe(row.expected.state);
-    if (row.expected.error !== undefined) expect(job.error).toMatchObject(row.expected.error);
-    await expectNoTmp(job);
-    expect(await dirContents(outDir)).toEqual([]);
-    // Unreadable sources can't be read back until the mode is restored by `after`.
-    await arranged.after?.();
-    if (before !== undefined) expect(await readFile(arranged.input)).toEqual(before);
-  });
+      expect(job.state).toBe(row.expected.state);
+      if (row.expected.error !== undefined) expect(job.error).toMatchObject(row.expected.error);
+      await expectNoTmp(job);
+      expect(await dirContents(outDir)).toEqual([]);
+      // Unreadable sources can't be read back until the mode is restored by `after`.
+      await arranged.after?.();
+      if (before !== undefined) expect(await readFile(arranged.input)).toEqual(before);
+    },
+    SLOW_PROCESS_TIMEOUT_MS,
+  );
 });
 
 describe('failure matrix: cancel in each state', () => {

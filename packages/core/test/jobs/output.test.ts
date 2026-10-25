@@ -237,6 +237,9 @@ describe('safeStem', () => {
   });
 });
 
+// Creating 1,800 files is slow on Windows runners (virus scanning).
+const SLOW_FS_TIMEOUT_MS = 30_000;
+
 describe('commitFolder', () => {
   const makeTempPages = (pages: number[], ext = 'png'): Promise<string[]> =>
     Promise.all(pages.map((page) => makeTemp(`page-${page}.${ext}`, `page ${page}`)));
@@ -296,16 +299,20 @@ describe('commitFolder', () => {
     ]);
   });
 
-  it('handles a 1,800-page book: width 4, in order', async () => {
-    const pages = Array.from({ length: BIG_BOOK_PAGES }, (_slot, index) => index + 1);
-    const files = await makeTempPages(pages);
-    const committed = await commitFolder({ files, dir: outDir, stem: 'book', ext: 'png' });
-    const names = (await readdir(committed[0] ?? '')).sort();
-    expect(names).toHaveLength(BIG_BOOK_PAGES);
-    expect(names[0]).toBe('page-0001.png');
-    expect(names.at(-1)).toBe('page-1800.png');
-    expect(committed.slice(1).map((path) => basename(path))).toEqual(names);
-  });
+  it(
+    'handles a 1,800-page book: width 4, in order',
+    async () => {
+      const pages = Array.from({ length: BIG_BOOK_PAGES }, (_slot, index) => index + 1);
+      const files = await makeTempPages(pages);
+      const committed = await commitFolder({ files, dir: outDir, stem: 'book', ext: 'png' });
+      const names = (await readdir(committed[0] ?? '')).sort();
+      expect(names).toHaveLength(BIG_BOOK_PAGES);
+      expect(names[0]).toBe('page-0001.png');
+      expect(names.at(-1)).toBe('page-1800.png');
+      expect(committed.slice(1).map((path) => basename(path))).toEqual(names);
+    },
+    SLOW_FS_TIMEOUT_MS,
+  );
 
   it('removes what it created when a file fails midway, and keeps the temp files', async () => {
     const files = await makeTempPages([1, 2, 3]);
