@@ -48,7 +48,7 @@ This doc says **what the system must satisfy**. [ARCHITECTURE](ARCHITECTURE.md) 
 | NFR-6 | Security | Electron: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, strict CSP, no remote content |
 | NFR-7 | Security | Engines spawn with an argument array. `shell: true` is forbidden |
 | NFR-8 | Security | Input files are untrusted. Paths from the renderer are validated in main (absolute, exists, regular file) |
-| NFR-9 | Portability | OS-specific code lives only in `core/src/engines/discovery.ts` and the app packaging config |
+| NFR-9 | Portability | OS-specific code lives only in `core/src/engines/discovery.ts`, the app packaging config, and `app/src/main/reveal.ts` (chosen once at startup) |
 | NFR-10 | Size | Engine binaries are never bundled in the installer or committed to the repo |
 | NFR-11 | Privacy | No network calls except user-initiated engine downloads (M3). No telemetry |
 | NFR-12 | Reliability | A core host crash never takes down the UI. Running jobs fail with `CORE_CRASHED`, and the host restarts (at most 3 times in 60 s) ([FLOWS F12](FLOWS.md#f12-core-crash-and-recovery)) |

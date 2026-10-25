@@ -42,7 +42,9 @@ Test entries read: `file`: "test name". Files are under `packages/app/test/` (or
 
 ### Still to test
 
-- [ ] Show in folder opens the folder exactly once per click (the double-open bug; cause unconfirmed on Linux)
+- [x] On Linux, Show in folder opens the file's own folder once, not the app's folder (Electron's fallback runs `xdg-open .`); on Windows and macOS it selects the file. `reveal.test.ts`: "on Linux opens the file’s own folder once, never the app folder (xdg-open fallback)"; "on %s selects the file in its folder"
+- [x] In WSL, Show in folder opens the file's folder in Windows Explorer as a `\\wsl.localhost\<distro>\...` path, once, because WSL has no Linux file manager and `xdg-open` would open Documents twice. `reveal.test.ts`: "in WSL opens the file’s folder in Windows Explorer, once, as a wsl.localhost path"
+- [ ] Show in folder opens exactly one window per click on a real WSL, Windows and Mac desktop (the second Explorer window seen before is not reproduced by a test; check by hand)
 - [ ] Show in folder on a file that was moved or deleted tells the user, instead of failing silently
 - [ ] Choosing an output folder that does not exist or is not writable is refused with a reason
 - [ ] Only one app window opens when the app is launched twice (the second focuses the first)

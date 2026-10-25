@@ -5,6 +5,7 @@ import { createTranslator } from '../shared/i18n.ts';
 import { CoreCallError } from './coreClient.ts';
 import { createHandlers } from './ipc.ts';
 import { createLogger } from './log.ts';
+import { createReveal, runWindowsProgram } from './reveal.ts';
 import { loadSettings } from './settings.ts';
 import { createSupervisor, type CoreProcess } from './supervisor.ts';
 import { lockNavigation, webPreferences } from './window.ts';
@@ -95,7 +96,12 @@ const start = async (): Promise<void> => {
           .response === 0,
     },
     shell: {
-      reveal: (path) => shell.showItemInFolder(path),
+      reveal: createReveal({
+        platform: process.platform,
+        wslDistro: process.env['WSL_DISTRO_NAME'],
+        shell,
+        runWindowsProgram,
+      }),
       openExternal: (url) => shell.openExternal(url),
     },
     isKnownOutput: (path) => knownOutputs.has(path),
