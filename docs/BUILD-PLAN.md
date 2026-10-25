@@ -462,8 +462,8 @@ Found while reviewing the running app (screenshots of empty, files, done, failed
 ### M1-8 CI matrix ☐
 - **Parked to review first:** [P33 app modules on Windows and macOS](PARKED.md#2-items), [P37 packaging: `sharp` unpacked, Electron glue untested](PARKED.md#2-items), [P19 find LibreOffice on any Windows drive](PARKED.md#2-items), [P22 pdf-lib is unmaintained](PARKED.md#2-items), [P23 field-level metadata check](PARKED.md#2-items), [P24 sharp on Windows and macOS](PARKED.md#2-items), [P27 LibreOffice converter on Windows and macOS](PARKED.md#2-items)
 - **Depends on:** M1-F
-- **Files:** `.github/workflows/ci.yml` (grows the Linux workflow from M1-F1)
-- **Details:** ubuntu, windows and macos, with Node 22 and pnpm: lint, typecheck, test, `docs:check`. LibreOffice is installed on ubuntu only, so that its golden tests run there. Installers come in M1.2 ([TRD section 7](TRD.md#7-build-and-release)).
+- **Files:** `.github/workflows/ci.yml` (grown from the Linux workflow of M1-F1 into the 3-OS matrix)
+- **Details:** ubuntu, windows and macos, with Node 22 and pnpm: lint, typecheck, test, `docs:check`. LibreOffice is installed on ubuntu only, so that its golden tests run there. It runs on every push to `main`, every pull request and by hand, with `fail-fast` off so all three OSes report. A non-blocking `pnpm audit --prod` step on ubuntu covers P22. Tick this ☑ only after one run is green on all three. Installers come in M1.2 ([TRD section 7](TRD.md#7-build-and-release)).
 
 **M1 exit:**
 - Every PRD F1–F8 acceptance criterion passes ([PRD section 5](PRD.md#5-features-by-milestone)).

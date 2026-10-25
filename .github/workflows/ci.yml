@@ -1,20 +1,37 @@
 name: ci
 
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    strategy:
+      # One OS failing must not hide the others: the point of the matrix is to see all three.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
+      # Prettier checks line endings, so Windows must not rewrite them on checkout.
+      - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
+      # LibreOffice only on Linux, so its golden tests run once; elsewhere they skip (BUILD-PLAN M1-8).
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libreoffice
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm docs:check
+      # Informational (PARKED P22): reports known advisories without blocking the build.
+      - if: runner.os == 'Linux'
+        continue-on-error: true
+        run: pnpm audit --prod
