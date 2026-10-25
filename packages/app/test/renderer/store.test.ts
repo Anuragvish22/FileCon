@@ -4,6 +4,7 @@ import { reducer, type Action } from '../../src/renderer/store/reducer.ts';
 import {
   batchOptionKeys,
   batchSummary,
+  choiceOf,
   convertBlocker,
   neededTargets,
   pagesValid,
@@ -79,7 +80,7 @@ describe('add files, pick a target per row, job done (happy path)', () => {
     expect(convertBlocker(state)).toBe('nothing');
     state = run([{ type: 'row/target', id: '/a.png', target: 'jpg' }], state);
     expect(readyCount(state)).toBe(1); // /b.png still has no target
-    expect(visibleOptions(state, detected('/a.png'))).toEqual(['quality']);
+    expect(visibleOptions(state, only(state.files))).toEqual(['quality']);
     const planned = only(plannedJobs(state));
     expect(planned).toEqual({
       owner: '/a.png',
@@ -187,7 +188,7 @@ describe('merge groups', () => {
   const grouped = (): State =>
     run(
       [
-        { type: 'group/created', paths: ['/a.png', '/b.png'] },
+        { type: 'group/created', ids: ['/a.png', '/b.png'] },
         { type: 'targets/loaded', byKey: BY_KEY },
       ],
       ready(),
@@ -215,8 +216,8 @@ describe('merge groups', () => {
   });
 
   it('needs two files, and a group left with one dissolves', () => {
-    expect(run([{ type: 'group/created', paths: ['/a.png'] }], ready()).groups).toEqual([]);
-    const state = run([{ type: 'files/removed', path: '/a.png' }], grouped());
+    expect(run([{ type: 'group/created', ids: ['/a.png'] }], ready()).groups).toEqual([]);
+    const state = run([{ type: 'files/removed', id: '/a.png' }], grouped());
     expect(state.groups).toEqual([]);
     expect(state.files.map((file) => file.path)).toEqual(['/b.png']);
   });
@@ -248,14 +249,62 @@ describe('merge groups', () => {
 });
 
 describe('reducer', () => {
-  it('ignores a file added twice and clears detecting rows', () => {
+  it('clears detecting rows when their results arrive', () => {
     const state = run([
       { type: 'files/detecting', paths: ['/a.png'] },
-      { type: 'files/added', results: [detected('/a.png')] },
       { type: 'files/added', results: [detected('/a.png')] },
     ]);
     expect(state.files).toHaveLength(1);
     expect(state.detecting).toEqual([]);
+  });
+
+  it('a file added twice is two rows with their own ids, targets and options (P59)', () => {
+    const state = run(
+      [
+        { type: 'files/added', results: [detected('/a.png')] },
+        { type: 'files/added', results: [detected('/a.png')] },
+        { type: 'targets/loaded', byKey: BY_KEY },
+        { type: 'row/target', id: '/a.png#2', target: 'pdf' },
+      ],
+      ready(),
+    );
+    const copies = state.files.filter((file) => file.path === '/a.png');
+    expect(copies.map((file) => file.id)).toEqual(['/a.png', '/a.png#2', '/a.png#3']);
+    expect(choiceOf(state, '/a.png#2').target).toBe('pdf');
+    expect(choiceOf(state, '/a.png').target).not.toBe('pdf');
+  });
+
+  it('the same file merged with itself sends its path twice', () => {
+    const state = run(
+      [
+        { type: 'files/added', results: [detected('/a.png')] },
+        { type: 'group/created', ids: ['/a.png', '/a.png#2'] },
+        { type: 'targets/loaded', byKey: new Map([['png', PNG_TARGETS]]) },
+      ],
+      run([
+        { type: 'core/status', status: 'ready', restarts: 0 },
+        { type: 'files/added', results: [detected('/a.png')] },
+      ]),
+    );
+    const merge = plannedJobs(state).find((job) => job.request.kind === 'merge');
+    expect(merge?.request).toMatchObject({ inputs: ['/a.png', '/a.png'] });
+  });
+
+  it('removing one copy keeps the other, and a second copy being detected does not busy the first', () => {
+    const added = run([
+      { type: 'files/added', results: [detected('/a.png')] },
+      { type: 'files/detecting', paths: ['/a.png'] },
+    ]);
+    expect(rowState(added, '/a.png')).toBe('ready');
+    const copies = run(
+      [
+        { type: 'files/added', results: [detected('/a.png')] },
+        { type: 'files/removed', id: '/a.png' },
+      ],
+      added,
+    );
+    expect(copies.files.map((file) => file.id)).toEqual(['/a.png#2']);
+    expect(copies.detecting).toEqual([]);
   });
 
   it('a detecting path is a detecting row', () => {

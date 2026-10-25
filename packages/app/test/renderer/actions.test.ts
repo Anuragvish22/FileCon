@@ -59,7 +59,15 @@ describe('submit and retry', () => {
     harness.setState({
       ...harness.state(),
       files: [
-        { path: '/a.png', size: 1, format: 'png', byContent: 'png', byExt: 'png', mismatch: false },
+        {
+          id: '/a.png',
+          path: '/a.png',
+          size: 1,
+          format: 'png',
+          byContent: 'png',
+          byExt: 'png',
+          mismatch: false,
+        },
       ],
       choices: new Map([['/a.png', { target: 'jpg', options: {} }]]),
       targets: {
@@ -97,7 +105,15 @@ describe('submit and retry', () => {
     harness.setState({
       ...harness.state(),
       files: [
-        { path: '/a.png', size: 1, format: 'png', byContent: 'png', byExt: 'png', mismatch: false },
+        {
+          id: '/a.png',
+          path: '/a.png',
+          size: 1,
+          format: 'png',
+          byContent: 'png',
+          byExt: 'png',
+          mismatch: false,
+        },
       ],
       choices: new Map([['/a.png', { target: 'jpg', options: {} }]]),
       targets: {

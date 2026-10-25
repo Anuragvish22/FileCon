@@ -1,4 +1,4 @@
-import type { DetectResult } from '@filecon/core/types';
+import type { Row } from '../store/state.ts';
 import { ArrowRight, GripVertical, Info, Loader, TriangleAlert, X } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
 import { baseName, humanSize, needsFontNote } from '../format.ts';
@@ -21,11 +21,11 @@ export const ROW_TYPE = 'application/x-filecon-row';
 const ICON_SIZE = 16;
 
 export interface RowProps {
-  file: DetectResult;
+  file: Row;
   /** Move this row one place: -1 up, 1 down. */
   onMove: (direction: -1 | 1) => void;
-  /** Dropped on this row by mouse: the path of the row being dragged. */
-  onDropRow: (fromPath: string) => void;
+  /** Dropped on this row by mouse: the id of the row being dragged. */
+  onDropRow: (fromId: string) => void;
 }
 
 /** A row whose type is still being detected (P41): a spinner where the type goes. */
@@ -47,9 +47,9 @@ export const DetectingRow = ({ path }: { path: string }) => {
 export const FileRow = ({ file, onMove, onDropRow }: RowProps) => {
   const { state, actions, translate } = useStore();
   const name = baseName(file.path);
-  const phase = rowState(state, file.path);
-  const job = jobOf(state, file.path);
-  const choice = choiceOf(state, file.path);
+  const phase = rowState(state, file.id);
+  const job = jobOf(state, file.id);
+  const choice = choiceOf(state, file.id);
   const option = selectedOption(state, file);
   const busy = state.submit === 'busy';
   const coreDown = state.core.status !== 'ready';
@@ -91,7 +91,7 @@ export const FileRow = ({ file, onMove, onDropRow }: RowProps) => {
             draggable
             aria-hidden="true"
             className="cursor-grab text-muted opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
-            onDragStart={(event) => event.dataTransfer.setData(ROW_TYPE, file.path)}
+            onDragStart={(event) => event.dataTransfer.setData(ROW_TYPE, file.id)}
           >
             <GripVertical size={ICON_SIZE} />
           </span>
@@ -116,15 +116,15 @@ export const FileRow = ({ file, onMove, onDropRow }: RowProps) => {
               value={choice.target}
               offers={rowTargets(state, file)}
               unavailable={busy || coreDown}
-              onPick={(format) => actions.pickTarget(file.path, format)}
+              onPick={(format) => actions.pickTarget(file.id, format)}
             />
             <RowOptions
               title={name}
               keys={visibleOptions(state, file)}
               options={choice.options}
               unavailable={busy || coreDown}
-              onChange={(key, value) => actions.setOption(file.path, key, value)}
-              onReset={() => actions.resetOptions(file.path)}
+              onChange={(key, value) => actions.setOption(file.id, key, value)}
+              onReset={() => actions.resetOptions(file.id)}
               onApplyToAll={() => actions.applyOptionsToAll(choice.options)}
             />
           </>
@@ -141,7 +141,7 @@ export const FileRow = ({ file, onMove, onDropRow }: RowProps) => {
             variant="ghost"
             className="opacity-0 transition-opacity focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
             aria-label={translate('file.remove', { name })}
-            onClick={() => actions.removeFile(file.path)}
+            onClick={() => actions.removeFile(file.id)}
           >
             <X size={ICON_SIZE} aria-hidden="true" />
           </Button>

@@ -12,7 +12,7 @@ import type {
   TargetsResult,
 } from '@filecon/core/types';
 import { isTerminal } from '@filecon/core/types';
-import type { Choice, MergeGroup, Notice, Page, State } from './state.ts';
+import type { Choice, MergeGroup, Notice, Page, Row, State } from './state.ts';
 import {
   MIN_GROUP_SIZE,
   choiceOf,
@@ -32,7 +32,7 @@ export type Action =
   | { type: 'paths/dequeued' }
   | { type: 'files/detecting'; paths: string[] }
   | { type: 'files/added'; results: DetectResult[] }
-  | { type: 'files/removed'; path: string }
+  | { type: 'files/removed'; id: string }
   | { type: 'files/moved'; from: number; to: number }
   | { type: 'files/cleared' }
   | { type: 'targets/loading' }
@@ -43,7 +43,7 @@ export type Action =
   | { type: 'row/reset'; id: string }
   | { type: 'all/target'; target: Format }
   | { type: 'all/options'; options: ConvertOptions }
-  | { type: 'group/created'; paths: string[] }
+  | { type: 'group/created'; ids: string[] }
   | { type: 'group/dissolved'; id: string }
   | { type: 'group/moved'; id: string; from: number; to: number }
   | { type: 'submit/started' }
@@ -69,7 +69,7 @@ const forget = (state: State, ids: Set<string>): State => {
   const gone = (id: string): boolean => ids.has(id) || members.has(id);
   return {
     ...state,
-    files: state.files.filter((file) => !gone(file.path)),
+    files: state.files.filter((file) => !gone(file.id)),
     groups,
     choices: new Map([...state.choices].filter(([id]) => !gone(id))),
     fileJobs: new Map([...state.fileJobs].filter(([id]) => !gone(id))),
@@ -97,13 +97,13 @@ const reconcile = (state: State): State => {
   for (const file of singleFiles(state)) {
     if (!isSupported(file) || file.format === null) continue;
     const offered = rowTargets(state, file).map((option) => option.format);
-    const current = choiceOf(state, file.path);
+    const current = choiceOf(state, file.id);
     let target =
       current.target !== null && offered.includes(current.target) ? current.target : null;
     const remembered = state.lastTargets[file.format];
     if (target === null && remembered !== undefined && offered.includes(remembered))
       target = remembered;
-    if (target !== current.target) choices.set(file.path, { ...current, target });
+    if (target !== current.target) choices.set(file.id, { ...current, target });
   }
   for (const group of state.groups) {
     const outputs = groupOutputs(state, group);
@@ -113,6 +113,14 @@ const reconcile = (state: State): State => {
     if (target !== current.target) choices.set(group.id, { ...current, target });
   }
   return { ...state, choices };
+};
+
+/** The path itself for the first copy of a file, then "path#2", "path#3" and so on. */
+const freeRowId = (files: Row[], path: string): string => {
+  const taken = new Set(files.map((file) => file.id));
+  let id = path;
+  for (let copy = 2; taken.has(id); copy += 1) id = `${path}#${copy}`;
+  return id;
 };
 
 const setOption = (options: ConvertOptions, key: OptionKey, value: unknown): ConvertOptions => {
@@ -133,26 +141,29 @@ export const reducer = (state: State, action: Action): State => {
     case 'files/detecting':
       return { ...state, detecting: [...state.detecting, ...action.paths] };
     case 'files/added': {
-      const known = new Set(state.files.map((file) => file.path));
-      const fresh = action.results.filter((result) => !known.has(result.path));
-      const done = new Set(action.results.map((result) => result.path));
-      return {
-        ...state,
-        files: [...state.files, ...fresh],
-        detecting: state.detecting.filter((path) => !done.has(path)),
-      };
+      // The same file may be added again (two copies of one JPG in a merge): each copy is its own row.
+      const files = [...state.files];
+      for (const result of action.results)
+        files.push({ ...result, id: freeRowId(files, result.path) });
+      // One detecting entry goes per result, so a second drop of the same path keeps its spinner.
+      const detecting = [...state.detecting];
+      for (const result of action.results) {
+        const at = detecting.indexOf(result.path);
+        if (at >= 0) detecting.splice(at, 1);
+      }
+      return { ...state, files, detecting };
     }
     case 'files/removed': {
       const shrunk = state.groups.map((group) => ({
         ...group,
-        members: group.members.filter((path) => path !== action.path),
+        members: group.members.filter((id) => id !== action.id),
       }));
       // A group left with one file stops being a group, and that file stays as a row.
       const { kept, dropped } = prune(shrunk);
-      const gone = (id: string): boolean => id === action.path || dropped.includes(id);
+      const gone = (id: string): boolean => id === action.id || dropped.includes(id);
       return {
         ...state,
-        files: state.files.filter((file) => file.path !== action.path),
+        files: state.files.filter((file) => file.id !== action.id),
         groups: kept,
         choices: new Map([...state.choices].filter(([id]) => !gone(id))),
         fileJobs: new Map([...state.fileJobs].filter(([id]) => !gone(id))),
@@ -172,7 +183,7 @@ export const reducer = (state: State, action: Action): State => {
         return job !== undefined && !isTerminal(job.state);
       };
       const ids = new Set([
-        ...state.files.map((file) => file.path),
+        ...state.files.map((file) => file.id),
         ...state.groups.map((group) => group.id),
       ]);
       const stay = new Set(
@@ -196,7 +207,7 @@ export const reducer = (state: State, action: Action): State => {
     case 'targets/failed':
       return { ...state, targets: { status: 'failed', error: action.error } };
     case 'row/target': {
-      const file = state.files.find((candidate) => candidate.path === action.id);
+      const file = state.files.find((candidate) => candidate.id === action.id);
       const remember =
         file?.format != null && action.target !== null
           ? { lastTargets: { ...state.lastTargets, [file.format]: action.target } }
@@ -221,8 +232,8 @@ export const reducer = (state: State, action: Action): State => {
       const lastTargets = { ...state.lastTargets };
       for (const file of singleFiles(state)) {
         const offered = rowTargets(state, file).some((option) => option.format === action.target);
-        if (!offered || rowState(state, file.path) !== 'ready' || file.format === null) continue;
-        choices.set(file.path, { ...choiceOf(state, file.path), target: action.target });
+        if (!offered || rowState(state, file.id) !== 'ready' || file.format === null) continue;
+        choices.set(file.id, { ...choiceOf(state, file.id), target: action.target });
         lastTargets[file.format] = action.target;
       }
       return { ...state, choices, lastTargets };
@@ -231,21 +242,20 @@ export const reducer = (state: State, action: Action): State => {
       // A key is copied only to rows whose route honours it; the others are skipped by design (P53).
       const choices = new Map(state.choices);
       for (const file of singleFiles(state)) {
-        if (rowState(state, file.path) !== 'ready') continue;
+        if (rowState(state, file.id) !== 'ready') continue;
         const honoured = new Set<string>(visibleOptions(state, file));
-        const current = choiceOf(state, file.path);
+        const current = choiceOf(state, file.id);
         const options = { ...current.options };
         for (const [key, value] of Object.entries(action.options))
           if (honoured.has(key)) Object.assign(options, { [key]: value });
-        choices.set(file.path, { ...current, options });
+        choices.set(file.id, { ...current, options });
       }
       return { ...state, choices };
     }
     case 'group/created': {
       const grouped = new Set(state.groups.flatMap((group) => group.members));
-      const members = action.paths.filter(
-        (path) =>
-          !grouped.has(path) && state.files.some((file) => file.path === path && isSupported(file)),
+      const members = action.ids.filter(
+        (id) => !grouped.has(id) && state.files.some((file) => file.id === id && isSupported(file)),
       );
       if (members.length < MIN_GROUP_SIZE) return state;
       return {

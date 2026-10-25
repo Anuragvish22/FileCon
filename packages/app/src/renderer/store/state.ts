@@ -32,7 +32,10 @@ export interface Choice {
   options: ConvertOptions;
 }
 
-/** Files merged into one output. Members keep the order of their pages. */
+/** A file in the list. The same file can be added twice, so a row is called by `id`, not by path. */
+export type Row = DetectResult & { id: string };
+
+/** Rows merged into one output, by row id. Members keep the order of their pages. */
 export interface MergeGroup {
   id: string;
   members: string[];
@@ -45,14 +48,14 @@ export interface State {
   queuedPaths: string[];
   /** Paths being detected right now, for the row spinner. */
   detecting: string[];
-  files: DetectResult[];
-  /** By file path or group id, which is what a row is called everywhere (`fileId`). */
+  files: Row[];
+  /** By row id or group id, which is what a row is called everywhere. */
   choices: Map<string, Choice>;
   groups: MergeGroup[];
   nextGroup: number;
   /** The last target picked per source format, so the next file of that type starts with it. */
   lastTargets: Partial<Record<Format, Format>>;
-  /** Which job runs for a file path or group id, so its row can show progress and the result. */
+  /** Which job runs for a row id or group id, so its row can show progress and the result. */
   fileJobs: Map<string, string>;
   targets: TargetsState;
   /** In submit order. */

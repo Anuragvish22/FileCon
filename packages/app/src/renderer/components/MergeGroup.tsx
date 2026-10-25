@@ -87,7 +87,7 @@ export const MergeGroup = ({ group }: { group: Group }) => {
         <ul className="grid gap-1">
           {members.map((member, index) => (
             <li
-              key={member.path}
+              key={member.id}
               className="flex items-center gap-3"
               tabIndex={0}
               onKeyDown={onKeyDown(index)}
@@ -104,7 +104,7 @@ export const MergeGroup = ({ group }: { group: Group }) => {
                 <span
                   draggable
                   aria-hidden="true"
-                  onDragStart={(event) => event.dataTransfer.setData(ROW_TYPE, member.path)}
+                  onDragStart={(event) => event.dataTransfer.setData(ROW_TYPE, member.id)}
                 >
                   <GripVertical size={ICON_SIZE} />
                 </span>
@@ -120,7 +120,7 @@ export const MergeGroup = ({ group }: { group: Group }) => {
                   size="icon"
                   variant="ghost"
                   aria-label={translate('file.remove', { name: baseName(member.path) })}
-                  onClick={() => actions.removeFile(member.path)}
+                  onClick={() => actions.removeFile(member.id)}
                 >
                   <X size={ICON_SIZE} aria-hidden="true" />
                 </Button>

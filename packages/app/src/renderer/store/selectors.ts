@@ -9,7 +9,7 @@ import type {
   TargetsResult,
 } from '@filecon/core/types';
 import { isTerminal } from '@filecon/core/types';
-import type { Choice, MergeGroup, State } from './state.ts';
+import type { Choice, MergeGroup, Row, State } from './state.ts';
 
 export type MergeChoice = TargetsResult['merge'][number];
 
@@ -24,15 +24,15 @@ export const isSupported = (file: DetectResult): boolean =>
 export const targetsKey = (formats: readonly Format[]): string =>
   [...new Set(formats)].sort().join(',');
 
-export const groupOf = (state: State, path: string): MergeGroup | undefined =>
-  state.groups.find((group) => group.members.includes(path));
+export const groupOf = (state: State, id: string): MergeGroup | undefined =>
+  state.groups.find((group) => group.members.includes(id));
 
 /** Files that are their own row, in list order. Group members live under their group. */
-export const singleFiles = (state: State): DetectResult[] =>
-  state.files.filter((file) => groupOf(state, file.path) === undefined);
+export const singleFiles = (state: State): Row[] =>
+  state.files.filter((file) => groupOf(state, file.id) === undefined);
 
-export const membersOf = (state: State, group: MergeGroup): DetectResult[] =>
-  group.members.flatMap((path) => state.files.filter((file) => file.path === path));
+export const membersOf = (state: State, group: MergeGroup): Row[] =>
+  group.members.flatMap((id) => state.files.filter((file) => file.id === id));
 
 const formatsOf = (files: DetectResult[]): Format[] =>
   files.flatMap((file) => (file.format === null ? [] : [file.format]));
@@ -60,14 +60,14 @@ export const rowTargets = (state: State, file: DetectResult): TargetOption[] =>
 export const groupOutputs = (state: State, group: MergeGroup): MergeChoice[] =>
   answerFor(state, formatsOf(membersOf(state, group)))?.merge ?? [];
 
-export const selectedOption = (state: State, file: DetectResult): TargetOption | undefined =>
-  rowTargets(state, file).find((option) => option.format === choiceOf(state, file.path).target);
+export const selectedOption = (state: State, file: Row): TargetOption | undefined =>
+  rowTargets(state, file).find((option) => option.format === choiceOf(state, file.id).target);
 
 export const selectedMerge = (state: State, group: MergeGroup): MergeChoice | undefined =>
   groupOutputs(state, group).find((merge) => merge.output === choiceOf(state, group.id).target);
 
 /** The option keys the row's route honours; a merge has none. */
-export const visibleOptions = (state: State, file: DetectResult): OptionKey[] =>
+export const visibleOptions = (state: State, file: Row): OptionKey[] =>
   selectedOption(state, file)?.options ?? [];
 
 /** Keys honoured by at least one row, for the "Options for all" button. */
@@ -85,10 +85,11 @@ export type RowState =
   'detecting' | 'unsupported' | 'ready' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
 
 export const rowState = (state: State, id: string): RowState => {
-  if (state.detecting.includes(id)) return 'detecting';
+  const file = state.files.find((candidate) => candidate.id === id);
+  // Only a path with no row yet is still being detected: a second copy of a file in the list must not make the first one look busy.
+  if (file === undefined && state.detecting.includes(id)) return 'detecting';
   const job = jobOf(state, id);
   if (job !== undefined) return job.state;
-  const file = state.files.find((candidate) => candidate.path === id);
   return file !== undefined && !isSupported(file) ? 'unsupported' : 'ready';
 };
 
@@ -114,7 +115,7 @@ const onlyVisible = (options: ConvertOptions, visible: OptionKey[]): ConvertOpti
 };
 
 export interface PlannedJob {
-  /** The file path or group id whose row shows this job. */
+  /** The row id or group id whose row shows this job. */
   owner: string;
   request: JobRequest;
 }
@@ -123,13 +124,13 @@ export interface PlannedJob {
 export const plannedJobs = (state: State): PlannedJob[] => {
   const planned: PlannedJob[] = [];
   for (const file of singleFiles(state)) {
-    const { target, options } = choiceOf(state, file.path);
+    const { target, options } = choiceOf(state, file.id);
     const option = selectedOption(state, file);
-    if (rowState(state, file.path) !== 'ready' || target === null || option?.status !== 'ready')
+    if (rowState(state, file.id) !== 'ready' || target === null || option?.status !== 'ready')
       continue;
     if (!pagesValid(options.pages ?? '')) continue;
     planned.push({
-      owner: file.path,
+      owner: file.id,
       request: {
         kind: 'convert',
         input: file.path,
@@ -145,7 +146,7 @@ export const plannedJobs = (state: State): PlannedJob[] => {
       owner: group.id,
       request: {
         kind: 'merge',
-        inputs: group.members,
+        inputs: membersOf(state, group).map((member) => member.path),
         combinerId: merge.combinerId,
         options: {},
       },
@@ -165,8 +166,7 @@ export const convertBlocker = (state: State): ConvertBlocker | undefined => {
   if (readyCount(state) > 0) return undefined;
   const lockedRow = singleFiles(state).some(
     (file) =>
-      rowState(state, file.path) === 'ready' &&
-      selectedOption(state, file)?.status === 'needs-pack',
+      rowState(state, file.id) === 'ready' && selectedOption(state, file)?.status === 'needs-pack',
   );
   return lockedRow ? 'locked' : 'nothing';
 };

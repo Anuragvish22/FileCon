@@ -444,6 +444,19 @@ describe('Files page, merge group', () => {
     expect(screen.queryByText('c.png')).toBeNull(); // members collapse into the result row
   });
 
+  it('the same file twice is two rows, and merging them sends its path twice (P59)', async () => {
+    const harness = await mount(['/a.png', '/a.png']);
+    await loadFiles(harness, 2);
+    fireEvent.click(screen.getByRole('button', { name: /^Merge…/ }));
+    await screen.findByRole('button', { name: 'Unmerge' });
+    await waitFor(() => expect(convertButton().textContent).toContain('Convert 1'));
+    fireEvent.click(convertButton());
+    await waitFor(() => expect(harness.api.submit).toHaveBeenCalled());
+    expect(harness.api.submit).toHaveBeenCalledWith([
+      { kind: 'merge', inputs: ['/a.png', '/a.png'], combinerId: 'merge-pdf', options: {} },
+    ]);
+  });
+
   it('Unmerge returns the rows', async () => {
     const harness = await mount(['/a.png', '/b.png']);
     await loadFiles(harness, 2);

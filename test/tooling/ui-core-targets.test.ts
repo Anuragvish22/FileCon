@@ -51,7 +51,7 @@ const stateFor = (files: DetectResult[], groupPaths: string[] = []) => {
   const actions: Action[] = [
     { type: 'core/status', status: 'ready', restarts: 0 },
     { type: 'files/added', results: files },
-    ...(grouped.length > 0 ? [{ type: 'group/created', paths: groupPaths } as const] : []),
+    ...(grouped.length > 0 ? [{ type: 'group/created', ids: groupPaths } as const] : []),
     { type: 'targets/loaded', byKey },
   ];
   return actions.reduce(reducer, initialState);

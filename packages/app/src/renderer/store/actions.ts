@@ -120,8 +120,8 @@ export const createActions = ({ api, dispatch, getState }: ActionDeps) => {
         const paths = await api.openFiles();
         if (paths.length > 0) await addPaths(paths);
       }),
-    removeFile: (path: string): void => {
-      dispatch({ type: 'files/removed', path });
+    removeFile: (id: string): void => {
+      dispatch({ type: 'files/removed', id });
       refreshTargets();
     },
     moveFile: (move: { from: number; to: number }): void => {
@@ -146,8 +146,8 @@ export const createActions = ({ api, dispatch, getState }: ActionDeps) => {
     applyOptionsToAll: (options: ConvertOptions): void => {
       dispatch({ type: 'all/options', options });
     },
-    mergeFiles: (paths: string[]): void => {
-      dispatch({ type: 'group/created', paths });
+    mergeFiles: (ids: string[]): void => {
+      dispatch({ type: 'group/created', ids });
       refreshTargets();
     },
     unmerge: (id: string): void => {

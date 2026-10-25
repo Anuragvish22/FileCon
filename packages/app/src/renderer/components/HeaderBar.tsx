@@ -35,7 +35,7 @@ export const HeaderBar = () => {
   const total = state.files.length + state.detecting.length;
   if (total === 0) return null;
 
-  const ready = singleFiles(state).filter((file) => rowState(state, file.path) === 'ready');
+  const ready = singleFiles(state).filter((file) => rowState(state, file.id) === 'ready');
   const offers = batchOffers(ready.map((file) => rowTargets(state, file)));
   const formats = [
     ...new Set(ready.flatMap((file) => (file.format === null ? [] : [file.format]))),
@@ -87,7 +87,7 @@ export const HeaderBar = () => {
           <Button
             unavailable={!idle || ready.length < MIN_GROUP_SIZE}
             reason={translate('merge.needTwo')}
-            onClick={() => actions.mergeFiles(ready.map((file) => file.path))}
+            onClick={() => actions.mergeFiles(ready.map((file) => file.id))}
           >
             {translate('merge.button')}
           </Button>

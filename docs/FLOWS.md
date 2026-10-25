@@ -109,7 +109,7 @@ sequenceDiagram
 ```
 
 **Steps**
-1. Duplicates (by real path) are ignored, with no new row.
+1. A file added again gets its own row: the renderer calls rows by an id (the path for the first copy, then `path#2`, `path#3`), so one file can be converted twice or merged with itself. Core still sees plain paths.
 2. `capped: true` shows a toast: "Added the first 1000 files".
 3. Detection follows [ARCHITECTURE section 7](ARCHITECTURE.md#7-detection-algorithm).
 

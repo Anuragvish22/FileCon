@@ -77,6 +77,19 @@ describe('merge-pdf combiner', () => {
       expect(job.outputs).toEqual([join(outDir, 'first merged.pdf')]);
       expect(await pageSizes(job.outputs[0] ?? '')).toHaveLength(1 + TWO.length + 1);
     });
+
+    it('a real job merges one picture with itself into a two-page pdf', async () => {
+      const { submitOne } = await harness({ converters: [pdflibConverter], combiners: [mergePdf] });
+      const png = await writeSource('same.png', await readFile(fixture('png', 'sample.png')));
+      const job = await submitOne({
+        kind: 'merge',
+        inputs: [png, png],
+        combinerId: 'merge-pdf',
+        options: NO_OPTIONS,
+      });
+      expect(job.state).toBe('done');
+      expect(await pageSizes(job.outputs[0] ?? '')).toHaveLength(2);
+    });
   });
 
   describe('contract', () => {
