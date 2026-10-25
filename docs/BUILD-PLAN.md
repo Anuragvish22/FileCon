@@ -459,7 +459,7 @@ Found while reviewing the running app (screenshots of empty, files, done, failed
   - Happy path: set an engine path, change theme and accent, choose an output folder.
   - Must also pass: an invalid engine path shows its translated error; the existing `panels.test.tsx` cases.
 
-### M1-8 CI matrix ☐
+### M1-8 CI matrix ☑
 - **Parked to review first:** [P33 app modules on Windows and macOS](PARKED.md#2-items), [P37 packaging: `sharp` unpacked, Electron glue untested](PARKED.md#2-items), [P19 find LibreOffice on any Windows drive](PARKED.md#2-items), [P22 pdf-lib is unmaintained](PARKED.md#2-items), [P23 field-level metadata check](PARKED.md#2-items), [P24 sharp on Windows and macOS](PARKED.md#2-items), [P27 LibreOffice converter on Windows and macOS](PARKED.md#2-items)
 - **Depends on:** M1-F
 - **Files:** `.github/workflows/ci.yml` (grown from the Linux workflow of M1-F1 into the 3-OS matrix)
