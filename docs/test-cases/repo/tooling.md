@@ -32,6 +32,7 @@ Test entries read: `file`: "test name". Files are under `test/tooling/`.
 - [x] The IPC channel list agrees with the code and with CONTRACTS. `ipc-channels.test.ts`: three tests
 - [x] Core and the app agree on settings validation (P29). `settings-agree.test.ts`: "both accept the defaults"; "both reject: %s"; "main rejects: %s"
 - [x] The renderer's page policy is strict. `csp.test.ts`: two tests
+- [x] The bundled sharp worker is built under the name the converter spawns (it was missing as `worker.js` in the built app). `bundle-worker.test.ts`: "is built as out/main/worker.js, the file the converter spawns when bundled"
 - [ ] Hard rule 3 (no `shell: true`, no string commands) is enforced by a lint rule, not only by the type check in `spawn.test.ts`
 - [ ] No network call exists in the code (hard rule 8): a lint or grep test for `fetch`, `http`, `net` outside the engine download
 - [ ] No `eval`, `new Function` or dynamic `require` with input content (hard rule 10)
