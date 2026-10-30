@@ -4,14 +4,23 @@ import type { KeyboardEvent } from 'react';
 import { baseName, humanSize } from '../format.ts';
 import { useStore } from '../store/context.tsx';
 import type { MergeGroup as Group } from '../store/state.ts';
-import { choiceOf, groupOutputs, jobOf, membersOf, rowState } from '../store/selectors.ts';
+import {
+  MERGE_PAGE_SIZE,
+  choiceOf,
+  groupOutputs,
+  jobOf,
+  membersOf,
+  rowState,
+} from '../store/selectors.ts';
 import { FileIcon } from './FileIcon.tsx';
 import { ROW_TYPE } from './FileRow.tsx';
 import { FormatPopover } from './FormatPopover.tsx';
 import { JobLine } from './JobLine.tsx';
 import { Button } from './ui/Button.tsx';
+import { Select } from './ui/Select.tsx';
 
 const ICON_SIZE = 16;
+const PAGE_SIZES = ['a4', 'letter', 'auto'] as const;
 
 /** A member while the group runs: done, current or waiting, from the group's `progress.unit` alone. */
 const MemberMark = ({ index, job }: { index: number; job: Job }) => {
@@ -74,6 +83,15 @@ export const MergeGroup = ({ group }: { group: Group }) => {
               }))}
               unavailable={busy || coreDown}
               onPick={(format) => actions.pickTarget(group.id, format)}
+            />
+            <Select
+              label={translate('option.pageSize')}
+              value={choice.options.pageSize ?? MERGE_PAGE_SIZE}
+              onValueChange={(size) => actions.setOption(group.id, 'pageSize', size)}
+              options={PAGE_SIZES.map((size) => ({
+                value: size,
+                label: `${translate('option.pageSize')}: ${translate(`option.pageSize.${size}`)}`,
+              }))}
             />
             <Button size="sm" onClick={() => actions.unmerge(group.id)}>
               {translate('merge.unmerge')}

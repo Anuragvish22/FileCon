@@ -15,7 +15,7 @@ const ENGINES: EngineInfo[] = [
   { id: 'libreoffice', pack: 'office', found: false, installUrl: 'https://lo.test' },
 ];
 
-const mount = async (page: 'engines' | 'settings') => {
+const mount = async (page: 'engines' | 'settings', engines: EngineInfo[] = ENGINES) => {
   const listeners = new Map<string, Listener>();
   const api = {
     on: (event: string, listener: Listener) => {
@@ -25,9 +25,10 @@ const mount = async (page: 'engines' | 'settings') => {
     coreStatus: vi.fn(() => Promise.resolve({ status: 'starting', restarts: 0 })),
     getSettings: vi.fn(() => Promise.resolve(DEFAULT_SETTINGS)),
     setSettings: vi.fn((patch: object) => Promise.resolve({ ...DEFAULT_SETTINGS, ...patch })),
-    engines: vi.fn(() => Promise.resolve(ENGINES)),
-    refreshEngines: vi.fn(() => Promise.resolve(ENGINES)),
+    engines: vi.fn(() => Promise.resolve(engines)),
+    refreshEngines: vi.fn(() => Promise.resolve(engines)),
     chooseEngine: vi.fn(() => Promise.resolve('/usr/bin/soffice')),
+    chooseDir: vi.fn(() => Promise.resolve('/home/user/out')),
     openExternal: vi.fn(() => Promise.resolve()),
     cancel: vi.fn(() => Promise.resolve()),
     reveal: vi.fn(() => Promise.resolve()),
@@ -72,6 +73,21 @@ describe('EnginesPage', () => {
       engines: { paths: { libreoffice: '/usr/bin/soffice' }, priority: [] },
     });
   });
+
+  it('an invalid engine path shows its translated error', async () => {
+    await mount('engines', [
+      {
+        id: 'libreoffice',
+        pack: 'office',
+        found: false,
+        installUrl: 'https://lo.test',
+        error: { code: 'override-not-executable', params: { path: '/tmp/nope' } },
+      },
+    ]);
+    expect(
+      await screen.findByText('The path you set is not an executable file: /tmp/nope'),
+    ).toBeDefined();
+  });
 });
 
 describe('SettingsPage', () => {
@@ -91,5 +107,15 @@ describe('SettingsPage', () => {
     await mount('settings');
     for (const name of ['Blue', 'Green', 'Purple', 'Orange'])
       expect(await screen.findByRole('radio', { name })).toBeDefined();
+  });
+
+  it('choosing an output folder saves it as the custom output', async () => {
+    const { api } = await mount('settings');
+    fireEvent.click(await screen.findByRole('radio', { name: 'Choose a folder…' }));
+    await waitFor(() =>
+      expect(api.setSettings).toHaveBeenCalledWith({
+        output: { mode: 'custom', dir: '/home/user/out' },
+      }),
+    );
   });
 });

@@ -386,7 +386,7 @@ This section is the "never overwrite" guarantee ([PRD G4](PRD.md#4-goals-and-non
 5. **Known paths:** `knownPaths[platform]`, with globs expanded (e.g. `/opt/libreoffice*/program/soffice`).
 6. **WSL guard:** if `/proc/version` contains "microsoft", skip any candidate under `/mnt/<letter>/`. A Windows `.exe` would get Linux-style paths it can't read.
 7. **Required bins:** when `requiredBins` is set (Poppler), every bin must exist in the **same** dir as the first hit. Otherwise `found = false`, with the error "incomplete install (missing pdfimages)".
-8. **Version probe:** `exec(path, versionArgs, timeout 5 s)` (through `jobs/spawn`), then `versionPattern`. A failed probe means `found = true` with the error code `version-check-failed`. Only an unrunnable binary means `found = false`.
+8. **Version probe:** `exec(path, versionArgs, timeout 5 s)` (through `jobs/spawn`), then `versionPattern`. On Windows the probe runs the console twin (`soffice.com` for `soffice.exe`) first, because `soffice.exe --version` opens its own window and waits for Enter. A failed probe means `found = true` with the error code `version-check-failed`. Only an unrunnable binary means `found = false`.
 
 The result is cached per session. It's refreshed on `engines.refresh`, after `engines.install`, or when `settings.apply` changes `engines.paths`.
 

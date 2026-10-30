@@ -17,6 +17,8 @@ Test entries read: `file`: "test name". Files are under `packages/app/test/rende
 - [x] "Options for all" skips rows that do not honour a key. `store.test.ts`: "Options for all skips rows that do not honour a key"
 - [x] Only keys the route honours are sent. `store.test.ts`: "only keys the route honours are sent"
 - [x] A locked target names the pack as the reason Convert is off. `store.test.ts`: "a locked target names the pack as the reason Convert is off"
+- [x] A merge that needs a pack names the pack as the reason Convert is off, and the reason shows next to the button. `store.test.ts`: "a merge that needs a pack names the pack as the reason Convert is off"
+- [x] A merge sends A4 unless the group picked another page size. `store.test.ts`: "a merge sends A4 unless the group picked another page size"
 - [x] An invalid page range keeps the row out of the batch. `store.test.ts`: "an invalid page range keeps the row out of the batch"
 - [x] Page ranges: these are accepted: empty, `1`, `2-3,7`, `10-`, `-4`, `1 - 3 , 7` (with spaces). These are rejected: `0`, `a`, `3-1`, `1,,2`, `1-2-3`, `,`. `store.test.ts`: "pagesValid" › "accepts %j"; "rejects %j"
 - [x] A new file of a format starts with the last pick for that format. `store.test.ts`: "a new file of that format starts with the last pick"

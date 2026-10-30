@@ -114,6 +114,9 @@ const onlyVisible = (options: ConvertOptions, visible: OptionKey[]): ConvertOpti
   return Object.fromEntries(Object.entries(options).filter(([key]) => wanted.has(key)));
 };
 
+/** A merge mixes images with document pages, so images get a page size instead of their pixel size. */
+export const MERGE_PAGE_SIZE: NonNullable<ConvertOptions['pageSize']> = 'a4';
+
 export interface PlannedJob {
   /** The row id or group id whose row shows this job. */
   owner: string;
@@ -148,7 +151,7 @@ export const plannedJobs = (state: State): PlannedJob[] => {
         kind: 'merge',
         inputs: membersOf(state, group).map((member) => member.path),
         combinerId: merge.combinerId,
-        options: {},
+        options: { pageSize: choiceOf(state, group.id).options.pageSize ?? MERGE_PAGE_SIZE },
       },
     });
   }
@@ -168,7 +171,11 @@ export const convertBlocker = (state: State): ConvertBlocker | undefined => {
     (file) =>
       rowState(state, file.id) === 'ready' && selectedOption(state, file)?.status === 'needs-pack',
   );
-  return lockedRow ? 'locked' : 'nothing';
+  const lockedGroup = state.groups.some(
+    (group) =>
+      rowState(state, group.id) === 'ready' && selectedMerge(state, group)?.status === 'needs-pack',
+  );
+  return lockedRow || lockedGroup ? 'locked' : 'nothing';
 };
 
 export interface BatchSummary {

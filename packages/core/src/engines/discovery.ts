@@ -145,12 +145,20 @@ const probeVersion = async (
   deps: DiscoveryDeps,
 ): Promise<{ version?: string; error?: EngineInfo['error'] }> => {
   if (spec.versionArgs === undefined || spec.versionPattern === undefined) return {};
-  try {
-    const output = await deps.exec(path, spec.versionArgs, PROBE_TIMEOUT_MS);
-    const version = new RegExp(spec.versionPattern).exec(output)?.[1];
-    if (version !== undefined) return { version };
-  } catch {
-    // Falls through to the same result as an unreadable version.
+  // On Windows `soffice.exe` opens its own console for --version and waits for Enter, so nothing reaches us;
+  // the console twin `soffice.com` next to it prints to a pipe. Engines without a twin fall through to the .exe.
+  const probes =
+    deps.platform === 'win32' && /\.exe$/i.test(path)
+      ? [path.replace(/\.exe$/i, '.com'), path]
+      : [path];
+  for (const probe of probes) {
+    try {
+      const output = await deps.exec(probe, spec.versionArgs, PROBE_TIMEOUT_MS);
+      const version = new RegExp(spec.versionPattern).exec(output)?.[1];
+      if (version !== undefined) return { version };
+    } catch {
+      // Try the next probe, then report the same result as an unreadable version.
+    }
   }
   return { error: { code: 'version-check-failed', params: {} } };
 };

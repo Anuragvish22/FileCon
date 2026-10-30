@@ -4,6 +4,8 @@ import { cx } from './cx.ts';
 export interface RadioOption {
   value: string;
   label: string;
+  /** A color dot shown beside the label; the label stays, so color is never the only cue. */
+  swatch?: string;
 }
 
 export interface RadioGroupProps {
@@ -36,6 +38,13 @@ export const RadioGroup = ({
         >
           <RadixRadio.Indicator className="size-2.5 rounded-full bg-accent" />
         </RadixRadio.Item>
+        {option.swatch !== undefined && (
+          <span
+            aria-hidden="true"
+            className="size-3 rounded-full"
+            style={{ backgroundColor: option.swatch }}
+          />
+        )}
         {option.label}
       </label>
     ))}

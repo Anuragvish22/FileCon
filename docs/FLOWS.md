@@ -270,7 +270,7 @@ sequenceDiagram
 
 **Steps**
 1. The output name is `<first input stem> merged.pdf` in the output dir, with the normal conflict rule.
-2. `pageSize` applies to image inputs (pdf-lib img → page). Existing PDF pages keep their size.
+2. `pageSize` applies to image inputs (pdf-lib img → page). The Files screen sends `a4` unless the merge group picked `letter` or `auto` (fit image), so a document page and a photo end up at a similar size. Existing PDF pages keep their size.
 
 **Errors:** any input fails, so the job fails with that input's error and `error.input` set, and no output is written. A missing route gives `NO_ROUTE` or `ENGINE_MISSING`, and is checked for every input before any step runs.
 **Invariants:** the page order equals the user's row order.

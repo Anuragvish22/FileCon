@@ -12,6 +12,7 @@ Test entries read: `file`: "test name". Files are under `packages/*/test/`.
 - [x] A known install location is used when PATH has nothing. `discovery.test.ts`: "a plain known path is used when PATH has nothing"
 - [x] A known location with a wildcard (versioned folders) picks the newest match. `discovery.test.ts`: "a known path with a glob finds the newest matching directory"
 - [x] The version number is read from the first capture of the engine's pattern. `discovery.test.ts`: "the version comes from the first capture of the pattern"
+- [x] On Windows the version is read from `soffice.com`, because `soffice.exe --version` opens its own window and waits for Enter. `discovery.test.ts`: "on win32 the version is read from soffice.com, because soffice.exe prints to its own window"
 - [x] A found engine with no version command is accepted without running it. `discovery.test.ts`: "a spec without a version command is found without probing"
 - [x] A missing engine carries its install link, and the install method for this platform when there is one. `discovery.test.ts`: "carries the install link, and the install method for this platform when there is one"
 - [x] Nothing found gives `found: false` and no error. `discovery.test.ts`: "nothing found gives found: false and no error"

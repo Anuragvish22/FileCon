@@ -1,6 +1,9 @@
 import type { EngineInfo } from '@filecon/core/types';
+import { Badge } from '../components/ui/Badge.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { useStore } from '../store/context.tsx';
+
+const BADGE_STATUS = { ready: 'success', error: 'danger', missing: 'warning' } as const;
 
 const EngineRow = ({ engine }: { engine: EngineInfo }) => {
   const { actions, translate } = useStore();
@@ -20,12 +23,7 @@ const EngineRow = ({ engine }: { engine: EngineInfo }) => {
           </p>
           <p className="truncate text-muted">{location}</p>
         </div>
-        <span
-          className={`inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-xs font-medium ${status === 'ready' ? 'bg-success-subtle text-success' : status === 'error' ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning'}`}
-        >
-          <span aria-hidden="true">{status === 'ready' ? '✓' : '✗'}</span>
-          {translate(`engine.status.${status}`)}
-        </span>
+        <Badge status={BADGE_STATUS[status]}>{translate(`engine.status.${status}`)}</Badge>
       </div>
       {engine.error !== undefined && (
         <p className="text-danger">

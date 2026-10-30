@@ -44,6 +44,8 @@ Test entries read: `file`: "test name". Files are under `packages/app/test/rende
 - [x] The Engines page lists engines with status; a missing one offers Set path and an install guide. `panels.test.tsx`: "lists engines with status, and a missing one offers Set path and an install guide"
 - [x] Changing theme and accent updates `<html>` without a reload. `panels.test.tsx`: "changing theme and accent updates <html> without a reload"
 - [x] Accent swatches carry a text name, never colour alone. `panels.test.tsx`: "accent swatches carry a text name, never color alone"
+- [x] An invalid engine path shows its translated error. `panels.test.tsx`: "an invalid engine path shows its translated error"
+- [x] Choosing an output folder saves it as the custom output. `panels.test.tsx`: "choosing an output folder saves it as the custom output"
 
 ### Still to test
 

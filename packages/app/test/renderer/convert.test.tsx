@@ -413,7 +413,7 @@ describe('Files page, merge group', () => {
         kind: 'merge',
         inputs: ['/b.png', '/a.png', '/c.png'],
         combinerId: 'merge-pdf',
-        options: {},
+        options: { pageSize: 'a4' },
       },
     ]);
 
@@ -453,7 +453,12 @@ describe('Files page, merge group', () => {
     fireEvent.click(convertButton());
     await waitFor(() => expect(harness.api.submit).toHaveBeenCalled());
     expect(harness.api.submit).toHaveBeenCalledWith([
-      { kind: 'merge', inputs: ['/a.png', '/a.png'], combinerId: 'merge-pdf', options: {} },
+      {
+        kind: 'merge',
+        inputs: ['/a.png', '/a.png'],
+        combinerId: 'merge-pdf',
+        options: { pageSize: 'a4' },
+      },
     ]);
   });
 

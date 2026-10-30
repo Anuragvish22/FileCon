@@ -1,5 +1,6 @@
 import type { Accent, Settings } from '@filecon/core/types';
 import type { ReactNode } from 'react';
+import { RadioGroup } from '../components/ui/RadioGroup.tsx';
 import { Select } from '../components/ui/Select.tsx';
 import { OutputChooser } from '../components/OutputChooser.tsx';
 import { CATALOGS } from '../../shared/i18n.ts';
@@ -19,27 +20,6 @@ const Section = ({ title, children }: { title: string; children: ReactNode }) =>
   </section>
 );
 
-const Choice = ({
-  name,
-  checked,
-  onChange,
-  children,
-  label,
-}: {
-  name: string;
-  checked: boolean;
-  onChange: () => void;
-  children?: ReactNode;
-  label: string;
-}) => (
-  <label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-control border border-border-strong px-3 has-checked:border-accent has-checked:bg-accent-subtle has-focus-visible:outline-2 has-focus-visible:outline-focus-ring">
-    <input type="radio" name={name} checked={checked} onChange={onChange} className="sr-only" />
-    {children}
-    {/* The name is shown next to the color, so color is never the only cue (UI-DESIGN section 7). */}
-    <span>{label}</span>
-  </label>
-);
-
 export const SettingsPage = () => {
   const { state, actions, translate } = useStore();
   const { settings } = state;
@@ -57,36 +37,31 @@ export const SettingsPage = () => {
       <h2 className="text-xl font-semibold">{translate('settings.title')}</h2>
 
       <Section title={translate('settings.section.appearance')}>
-        <fieldset className="flex flex-wrap items-center gap-2">
-          <legend className="mb-2 font-medium">{translate('settings.theme')}</legend>
-          {THEMES.map((theme) => (
-            <Choice
-              key={theme}
-              name="theme"
-              checked={ui.theme === theme}
-              onChange={() => setUi({ theme })}
-              label={translate(`settings.theme.${theme}`)}
-            />
-          ))}
-        </fieldset>
-        <fieldset className="flex flex-wrap items-center gap-2">
-          <legend className="mb-2 font-medium">{translate('settings.accent')}</legend>
-          {ACCENTS.map((accent: Accent) => (
-            <Choice
-              key={accent}
-              name="accent"
-              checked={ui.accent === accent}
-              onChange={() => setUi({ accent })}
-              label={translate(`settings.accent.${accent}`)}
-            >
-              <span
-                aria-hidden="true"
-                className="size-3 rounded-full"
-                style={{ backgroundColor: `var(--swatch-${accent})` }}
-              />
-            </Choice>
-          ))}
-        </fieldset>
+        <div className="grid gap-2">
+          <span className="font-medium">{translate('settings.theme')}</span>
+          <RadioGroup
+            label={translate('settings.theme')}
+            value={ui.theme}
+            onValueChange={(theme) => setUi({ theme: theme as Settings['ui']['theme'] })}
+            options={THEMES.map((theme) => ({
+              value: theme,
+              label: translate(`settings.theme.${theme}`),
+            }))}
+          />
+        </div>
+        <div className="grid gap-2">
+          <span className="font-medium">{translate('settings.accent')}</span>
+          <RadioGroup
+            label={translate('settings.accent')}
+            value={ui.accent}
+            onValueChange={(accent) => setUi({ accent: accent as Accent })}
+            options={ACCENTS.map((accent) => ({
+              value: accent,
+              label: translate(`settings.accent.${accent}`),
+              swatch: `var(--swatch-${accent})`,
+            }))}
+          />
+        </div>
         <div className="flex items-center justify-between gap-3">
           <span className="font-medium">{translate('settings.language')}</span>
           <Select

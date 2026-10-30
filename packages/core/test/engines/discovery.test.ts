@@ -143,6 +143,30 @@ describe('discovery: must also pass', () => {
     });
   });
 
+  it('on win32 the version is read from soffice.com, because soffice.exe prints to its own window', async () => {
+    const exe = 'C:\\LO\\program\\soffice.EXE';
+    const { deps } = machine({
+      platform: 'win32',
+      env: { Path: 'C:\\LO\\program', PATHEXT: '.EXE' },
+      executables: [exe],
+    });
+    const probed: string[] = [];
+    const info = await discover({
+      spec: libreoffice,
+      deps: {
+        ...deps,
+        exec: (path) => {
+          probed.push(path);
+          return Promise.resolve(path.endsWith('.com') ? LIBREOFFICE_OUTPUT : '');
+        },
+      },
+    });
+    expect(info).toMatchObject({ found: true, path: exe });
+    expect(info.error).toBeUndefined();
+    expect(info.version).toBeDefined();
+    expect(probed).toEqual(['C:\\LO\\program\\soffice.com']);
+  });
+
   it('a known path with a glob finds the newest matching directory', async () => {
     const { deps } = machine({
       dirs: { '/opt': ['libreoffice7.6', 'libreoffice24.8', 'other'] },

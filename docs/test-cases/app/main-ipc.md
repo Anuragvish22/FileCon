@@ -36,6 +36,7 @@ Test entries read: `file`: "test name". Files are under `packages/app/test/` (or
 
 - [x] The window is isolated (context isolation on, node off, sandbox on): hard rule 6. `window.test.ts`: "isolates the renderer (hard rule 6)"
 - [x] Navigation is cancelled and new windows are denied. `window.test.ts`: "cancels navigation and denies new windows"
+- [x] A push to a closed or destroyed window does nothing instead of throwing (found quitting during a batch on Windows). `window.test.ts`: "sendToWindow"
 - [x] The bridge unwraps a successful reply, rejects with the plain error of a failed reply, sends each call on its own channel, and subscribes only to push channels (and returns the unsubscribe). `api.test.ts`: "unwraps a successful reply"; "rejects with the plain CoreError of a failed reply"; "sends each call on its channel with its payload"; "subscribes only to push channels and returns the unsubscribe"
 - [x] The preload exposes `window.filecon` and nothing else. `index.test.ts`: "exposes window.filecon and nothing else"
 - [x] The page allows only its own files; only the dev server relaxes the policy. `csp.test.ts`: "the page itself allows only its own files"; "only the dev server relaxes it"

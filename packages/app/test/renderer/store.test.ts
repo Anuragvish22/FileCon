@@ -194,6 +194,45 @@ describe('merge groups', () => {
       ready(),
     );
 
+  it('a merge that needs a pack names the pack as the reason Convert is off', () => {
+    const lockedMerge: TargetsResult = {
+      convert: [],
+      merge: [
+        {
+          combinerId: 'merge-pdf',
+          output: 'pdf',
+          status: 'needs-pack',
+          pack: 'office',
+          fanOut: false,
+        },
+      ],
+      extract: [],
+    };
+    const state = run(
+      [
+        { type: 'files/added', results: [detected('/b.docx', 'docx')] },
+        { type: 'group/created', ids: ['/a.png', '/b.docx'] },
+        { type: 'targets/loaded', byKey: new Map([...BY_KEY, ['docx,png', lockedMerge]]) },
+        { type: 'row/target', id: 'group-1', target: 'pdf' },
+      ],
+      ready(),
+    );
+    expect(convertBlocker(state)).toBe('locked');
+  });
+
+  it('a merge sends A4 unless the group picked another page size', () => {
+    const pageSizeOf = (state: State) => {
+      const request = plannedJobs(state)[0]?.request;
+      return request?.kind === 'merge' ? request.options.pageSize : undefined;
+    };
+    expect(pageSizeOf(grouped())).toBe('a4');
+    const letter = run(
+      [{ type: 'row/option', id: 'group-1', key: 'pageSize', value: 'letter' }],
+      grouped(),
+    );
+    expect(pageSizeOf(letter)).toBe('letter');
+  });
+
   it('members leave the single rows and the group gets a target and one request', () => {
     const state = grouped();
     expect(state.groups).toEqual([{ id: 'group-1', members: ['/a.png', '/b.png'] }]);
@@ -204,7 +243,7 @@ describe('merge groups', () => {
           kind: 'merge',
           inputs: ['/a.png', '/b.png'],
           combinerId: 'merge-pdf',
-          options: {},
+          options: { pageSize: 'a4' },
         },
       },
     ]);

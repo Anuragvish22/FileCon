@@ -8,7 +8,7 @@ import { createLogger } from './log.ts';
 import { createReveal, runWindowsProgram } from './reveal.ts';
 import { loadSettings } from './settings.ts';
 import { createSupervisor, type CoreProcess } from './supervisor.ts';
-import { lockNavigation, webPreferences } from './window.ts';
+import { lockNavigation, sendToWindow, webPreferences } from './window.ts';
 
 app.setName('fileCon'); // before userData is read, so dev and packaged runs share one folder
 
@@ -50,7 +50,7 @@ const start = async (): Promise<void> => {
   let lastStatus: { status: CoreStatus; restarts: number } = { status: 'starting', restarts: 0 };
   const knownOutputs = new Set<string>();
   const send = (channel: string, data: unknown): void => {
-    window?.webContents.send(channel, data);
+    sendToWindow(window, channel, data);
   };
 
   const supervisor = createSupervisor({

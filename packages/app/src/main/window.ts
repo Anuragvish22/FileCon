@@ -20,3 +20,19 @@ export const lockNavigation = (contents: NavigationTarget): void => {
   });
   contents.setWindowOpenHandler(() => ({ action: 'deny' }));
 };
+
+/** The parts of a `BrowserWindow` that `sendToWindow` touches. */
+export interface PushTarget {
+  isDestroyed(): boolean;
+  webContents: { isDestroyed(): boolean; send(channel: string, data: unknown): void };
+}
+
+/** Core keeps pushing while the app quits; sending to a closed window throws "Object has been destroyed". */
+export const sendToWindow = (
+  window: PushTarget | undefined,
+  channel: string,
+  data: unknown,
+): void => {
+  if (window === undefined || window.isDestroyed() || window.webContents.isDestroyed()) return;
+  window.webContents.send(channel, data);
+};

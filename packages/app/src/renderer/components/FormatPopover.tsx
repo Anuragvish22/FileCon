@@ -175,6 +175,7 @@ export const FormatPopover = ({
                 title={entry.offer?.lossy.map((id) => translate(`lossy.${id}`)).join(' ')}
                 reason={translate('picker.unavailable', { from, to: name(entry.format) })}
                 data-active={entry.format === activeEntry?.format}
+                className={entry.state === 'locked' ? 'col-span-2 whitespace-nowrap' : undefined}
                 onClick={() => choose(entry)}
               >
                 {name(entry.format)}
